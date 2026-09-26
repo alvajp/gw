@@ -38,7 +38,7 @@ def compute_legacy_ranking(json_path):
 
     player_stats = {}
     for name, row in data["players"].items():
-        uid = f"legacy:{name}"
+        uid = row["userId"]
         players[uid] = {"userId": uid, "displayName": name}
 
         win = row.get("win", 0)
