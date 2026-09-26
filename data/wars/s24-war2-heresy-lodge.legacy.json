@@ -2,6 +2,7 @@
   "season": 24,
   "war_number": 2,
   "opponent": "The Heresy Lodge",
+  "result": "win",
   "players": {
     "Eliox": {
       "userId": "229ffc65-90da-482f-aa92-3973ee68ecd1",

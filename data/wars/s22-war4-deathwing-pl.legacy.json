@@ -2,6 +2,7 @@
   "season": 22,
   "war_number": 4,
   "opponent": "Deathwing [PL]",
+  "result": "win",
   "players": {
     "Albric": {"userId": "a0bd0bdd-d2c4-4849-81f8-93a960b37faa", "win": 10, "finish": 0, "ms": 10, "perfect": 9, "fail": 0, "buffs": 4.8},
     "Alvalero": {"userId": "ed370f6c-9a28-48f6-a0eb-d7d21862de6d", "win": 10, "finish": 0, "ms": 10, "perfect": 8, "fail": 0, "buffs": 2.5},

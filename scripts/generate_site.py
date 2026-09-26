@@ -114,27 +114,29 @@ def render_table(rows, hard_cols, easy_cols):
 </table>"""
 
 
-def render_frise(items):
-    """items: list of (label, href, slug). slug is the war slug used to sync
-    the dot color with the localStorage-backed win/loss toggle (see
-    result-toggle.js) — pass None when the item isn't a single war (e.g. the
-    per-season items on the homepage)."""
+def render_frise(items, transition=False):
+    """items: list of (label, href, is_win). is_win colors the dot green
+    when the war is recorded as a win — pass False when the item isn't a
+    single war (e.g. the per-season items on the homepage). transition=True
+    marks links as animated client-side navigation targets (only valid
+    between page shapes that share the frise+chart layout, i.e. index<->season)."""
+    attr = ' data-transition="true"' if transition else ""
     lis = []
-    for label, href, slug in items:
-        slug_attr = f' data-war-slug="{html_escape(slug)}"' if slug else ""
+    for label, href, is_win in items:
+        dot_class = "frise-dot frise-dot-win" if is_win else "frise-dot"
         lis.append(
-            f'<a class="frise-item" href="{href}"{slug_attr}><span class="frise-dot"></span>'
+            f'<a class="frise-item" href="{href}"{attr}><span class="{dot_class}"></span>'
             f'<span class="frise-label">{html_escape(label)}</span></a>'
         )
-    return '<div class="frise">' + "".join(lis) + "</div>"
+    return '<div class="frise" id="frise">' + "".join(lis) + "</div>"
 
 
-def render_result_toggle(slug):
-    return (
-        f'<button type="button" class="result-toggle" data-war-toggle="{html_escape(slug)}">'
-        '<span class="result-toggle-track"><span class="result-toggle-thumb"></span></span>'
-        '<span class="result-toggle-label">D&eacute;faite</span></button>'
-    )
+def render_result_badge(outcome):
+    if outcome not in ("win", "loss"):
+        return ""
+    cls = "result-badge is-win" if outcome == "win" else "result-badge is-loss"
+    label = "Victoire" if outcome == "win" else "D&eacute;faite"
+    return f'<p class="{cls}">{label}</p>'
 
 
 def render_history_table(wars_subset, war_href_prefix):
@@ -182,6 +184,22 @@ def render_history_table(wars_subset, war_href_prefix):
 </table>"""
 
 
+def compute_wars_averages(wars_subset):
+    """uid -> average points across wars_subset (OUR_GUILD's team only), plus display names."""
+    history = defaultdict(list)
+    display_names = {}
+    for w in wars_subset:
+        result = w["result"]
+        our_idx = find_team_idx(result["guilds"], OUR_GUILD)
+        for uid, ps in result["player_stats"].items():
+            if ps["team"] != our_idx:
+                continue
+            history[uid].append(ps["pts"])
+            display_names[uid] = result["players"].get(uid, {}).get("displayName", uid)
+    averages = {uid: sum(pts) / len(pts) for uid, pts in history.items()}
+    return display_names, averages
+
+
 PAGE_TEMPLATE = """<!doctype html>
 <html lang="fr">
 <head>
@@ -190,20 +208,21 @@ PAGE_TEMPLATE = """<!doctype html>
 <link rel="stylesheet" href="{asset_prefix}assets/style.css">
 </head>
 <body>
-<header>{back_link}<h1>{title}</h1></header>
+<header><div class="breadcrumb" id="breadcrumb">{back_link}</div><h1 id="page-title">{title}</h1></header>
 <main>
 {body}
 </main>
 <script src="{asset_prefix}assets/sort-table.js"></script>
-<script src="{asset_prefix}assets/result-toggle.js"></script>
+<script src="{asset_prefix}assets/page-transition.js"></script>
 </body>
 </html>"""
 
 
-def back_link_html(href, label):
+def back_link_html(href, label, transition=False):
     if not href:
         return ""
-    return f'<a href="{href}">&larr; {html_escape(label)}</a>'
+    attr = ' data-transition="true"' if transition else ""
+    return f'<a href="{href}"{attr}>&larr; {html_escape(label)}</a>'
 
 
 def guild_rows(result, team_idx):
@@ -217,14 +236,14 @@ def guild_rows(result, team_idx):
     return rows
 
 
-def render_war_page(slug, result, season):
+def render_war_page(slug, result, season, outcome=None):
     guilds = result["guilds"]
     hard_cols = result["hard_cols"]
     easy_cols = result["easy_cols"]
 
     our_idx = find_team_idx(guilds, OUR_GUILD)
     our_rows = guild_rows(result, our_idx)
-    body = render_result_toggle(slug)
+    body = render_result_badge(outcome)
     body += render_table(our_rows, hard_cols, easy_cols)
 
     other_tables = []
@@ -245,19 +264,22 @@ def render_war_page(slug, result, season):
         f.write(html)
 
 
-def render_season_page(season, wars_in_season):
+def render_season_page(season, wars_in_season, active_uids=frozenset()):
     wars_in_season = sorted(wars_in_season, key=lambda w: w["result"]["war_start"])
 
     frise_items = []
     for w in wars_in_season:
         our_idx = find_team_idx(w["result"]["guilds"], OUR_GUILD)
         opp = ", ".join(opponent_names(w["result"], our_idx)) or w["slug"]
-        frise_items.append((opp, f"../wars/{w['slug']}.html", w["slug"]))
+        frise_items.append((opp, f"../wars/{w['slug']}.html", w.get("outcome") == "win"))
+
+    display_names, averages = compute_wars_averages(wars_in_season)
 
     body = render_frise(frise_items)
-    body += render_history_table(wars_in_season, "../wars/")
+    body += render_average_chart(display_names, averages, active_uids)
+    body += f'<div id="table-wrap">{render_history_table(wars_in_season, "../wars/")}</div>'
 
-    back_link = back_link_html("../index.html", "Accueil")
+    back_link = back_link_html("../index.html", "Accueil", transition=True)
     html = PAGE_TEMPLATE.format(title=f"Saison {season}", asset_prefix="../", body=body, back_link=back_link)
     out_dir = os.path.join(DOCS_DIR, "seasons")
     os.makedirs(out_dir, exist_ok=True)
@@ -337,29 +359,32 @@ def render_average_chart(display_names, averages, active_uids=frozenset()):
         y = top_pad + (chart_h - h)
         cx = x + bar_width / 2
         fill = "#22c55e" if uid in active_uids else "#9aa4ff"
-        bars.append(f'<rect x="{x:.1f}" y="{y:.1f}" width="{bar_width}" height="{h:.1f}" rx="2" fill="{fill}"/>')
-        bars.append(f'<text x="{cx:.1f}" y="{y - 6:.1f}" class="chart-value">{avg:.0f}</text>')
+        bars.append(
+            f'<rect class="chart-bar" data-uid="{uid}" x="{x:.1f}" y="{y:.1f}" '
+            f'width="{bar_width}" height="{h:.1f}" rx="2" fill="{fill}"/>'
+        )
+        bars.append(f'<text data-uid="{uid}" x="{cx:.1f}" y="{y - 6:.1f}" class="chart-value">{avg:.0f}</text>')
         label_y = top_pad + chart_h + 12
         bars.append(
-            f'<text x="{cx:.1f}" y="{label_y}" class="chart-label" '
+            f'<text data-uid="{uid}" x="{cx:.1f}" y="{label_y}" class="chart-label" '
             f'transform="rotate(-60 {cx:.1f} {label_y})">{html_escape(display_names[uid])}</text>'
         )
 
     svg = (
-        f'<svg viewBox="0 0 {width} {height}" width="{width}" height="{height}" '
+        f'<svg id="avg-chart" viewBox="0 0 {width} {height}" width="{width}" height="{height}" '
         f'xmlns="http://www.w3.org/2000/svg">' + "".join(bars) + "</svg>"
     )
-    return f'<h2>Moyenne globale par joueur</h2><div class="chart-scroll">{svg}</div>'
+    return f'<div id="chart-wrap"><h2>Moyenne globale par joueur</h2><div class="chart-scroll">{svg}</div></div>'
 
 
 def render_index(seasons, active_uids=frozenset()):
     season_numbers = sorted(seasons.keys())
-    frise_items = [(f"Saison {s}", f"seasons/{s}.html", None) for s in season_numbers]
+    frise_items = [(f"Saison {s}", f"seasons/{s}.html", False) for s in season_numbers]
     season_stats, display_names, totals, war_counts, averages = compute_season_averages(seasons)
 
-    body = render_frise(frise_items)
+    body = render_frise(frise_items, transition=True)
     body += render_average_chart(display_names, averages, active_uids)
-    body += render_season_average_table(season_numbers, season_stats, display_names, averages)
+    body += f'<div id="table-wrap">{render_season_average_table(season_numbers, season_stats, display_names, averages)}</div>'
     body += BAREME_HTML
 
     html = PAGE_TEMPLATE.format(title="LJP Wars", asset_prefix="", body=body, back_link="")
@@ -377,7 +402,8 @@ def main():
         result = compute_ranking(json_path, maps)
         season = int(maps.get("season") or 0)
         war_number = int(maps.get("war_number") or 0)
-        all_wars.append({"slug": slug, "result": result, "season": season, "war_number": war_number})
+        outcome = maps.get("result")
+        all_wars.append({"slug": slug, "result": result, "season": season, "war_number": war_number, "outcome": outcome})
 
     for slug, legacy_path in discover_legacy_wars():
         legacy_data = load_legacy(legacy_path)
@@ -385,18 +411,13 @@ def main():
         season = int(legacy_data.get("season") or 0)
         war_number = int(legacy_data.get("war_number") or 0)
         result["war_start"] = war_number  # no timestamp available; order within season by war_number
-        all_wars.append({"slug": slug, "result": result, "season": season, "war_number": war_number})
+        outcome = legacy_data.get("result")
+        all_wars.append({"slug": slug, "result": result, "season": season, "war_number": war_number, "outcome": outcome})
 
     all_wars.sort(key=lambda w: (w["season"], w["result"]["war_start"]))
 
     for w in all_wars:
-        render_war_page(w["slug"], w["result"], w["season"])
-
-    seasons = defaultdict(list)
-    for w in all_wars:
-        seasons[w["season"]].append(w)
-    for season, season_wars in seasons.items():
-        render_season_page(season, season_wars)
+        render_war_page(w["slug"], w["result"], w["season"], w.get("outcome"))
 
     active_uids = frozenset()
     if all_wars:
@@ -405,6 +426,13 @@ def main():
         active_uids = frozenset(
             uid for uid, ps in last_war["result"]["player_stats"].items() if ps["team"] == our_idx
         )
+
+    seasons = defaultdict(list)
+    for w in all_wars:
+        seasons[w["season"]].append(w)
+    for season, season_wars in seasons.items():
+        render_season_page(season, season_wars, active_uids)
+
     render_index(seasons, active_uids)
     print(f"Generated {len(all_wars)} war page(s), {len(seasons)} season page(s) + index.html into {DOCS_DIR}")
 

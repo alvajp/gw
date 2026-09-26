@@ -2,6 +2,7 @@
   "season": 22,
   "war_number": 2,
   "opponent": "Bloody Rose: Palatines",
+  "result": "win",
   "players": {
     "Alvalero": {"userId": "ed370f6c-9a28-48f6-a0eb-d7d21862de6d", "win": 10, "finish": 0, "ms": 10, "perfect": 4, "fail": 0, "buffs": 3.0},
     "Peuchy": {"userId": "56eb29a8-b455-456d-b3ba-45603a209ed8", "win": 9, "finish": 1, "ms": 9, "perfect": 4, "fail": 0, "buffs": 4.0},

@@ -2,6 +2,7 @@
   "season": 22,
   "war_number": 3,
   "opponent": "[UNDV] Night Lords",
+  "result": "win",
   "players": {
     "RaK": {"userId": "2d698868-6128-4f3a-b6d3-17d49f99197d", "win": 10, "finish": 0, "ms": 10, "perfect": 9, "fail": 0, "buffs": 4.6},
     "Alvalero": {"userId": "ed370f6c-9a28-48f6-a0eb-d7d21862de6d", "win": 10, "finish": 0, "ms": 8, "perfect": 7, "fail": 0, "buffs": 3.5},

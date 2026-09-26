@@ -2,6 +2,7 @@
   "season": 24,
   "war_number": 5,
   "opponent": "Space Crusade",
+  "result": "win",
   "players": {
     "RaK": {
       "userId": "2d698868-6128-4f3a-b6d3-17d49f99197d",

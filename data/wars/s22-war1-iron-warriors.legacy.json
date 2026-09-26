@@ -2,6 +2,7 @@
   "season": 22,
   "war_number": 1,
   "opponent": "[EoT] Iron Warriors",
+  "result": "win",
   "players": {
     "Eliox": {"userId": "229ffc65-90da-482f-aa92-3973ee68ecd1", "win": 10, "finish": 0, "ms": 8, "perfect": 9, "fail": 0, "buffs": 0},
     "RaK": {"userId": "2d698868-6128-4f3a-b6d3-17d49f99197d", "win": 10, "finish": 0, "ms": 10, "perfect": 6, "fail": 0, "buffs": 0},

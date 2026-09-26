@@ -1,5 +1,6 @@
 season: 27
 war_number: 2
+result: win
 hard:
   AntiAirBattery: "Pont"
   HQ: "3 ponts"

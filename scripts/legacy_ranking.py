@@ -13,11 +13,13 @@ the user for the "Bloody Rose: Palatines" (season 27, war 1) migration:
   - fail     -> 0 pts, as in the normal formula
   - ms       -> raw MS count was ambiguous between 1 and 2 buffs per battle,
                 so multiplied by 1.5 before scoring at 2 pts each
-  - buffs    -> screenshot column is a per-battle AVERAGE, not a total, so
-                multiplied by TOKENS_PER_WAR and rounded up to recover the
-                war total; AP/AA/AR/FP/LP can't be told apart so it's scored
-                at 0.5 pt each like any other buff and surfaced in the AP
-                column for visibility
+  - buffs    -> screenshot column is a per-battle AVERAGE that includes MS
+                uses, so it's multiplied by TOKENS_PER_WAR and rounded up to
+                recover the war total, then the raw MS count is subtracted
+                back out to avoid double-counting those uses (already scored
+                above); the remainder (AP/AA/AR/FP/LP, can't be told apart)
+                is scored at 0.5 pt each and surfaced in the AP column for
+                visibility
   - map/zone bonus -> unrecoverable, omitted entirely
 """
 import json
@@ -53,7 +55,7 @@ def compute_legacy_ranking(json_path):
 
         other_wins = max(0, win - perfect)
         ms_effective = ms * 1.5
-        buffs_total = math.ceil(buffs * TOKENS_PER_WAR)
+        buffs_total = max(0, math.ceil(buffs * TOKENS_PER_WAR) - ms)
 
         pts = perfect * 10 + other_wins * 7 + finish * 5
         pts += ms_effective * 2

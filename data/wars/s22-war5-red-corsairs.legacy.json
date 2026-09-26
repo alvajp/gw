@@ -2,6 +2,7 @@
   "season": 22,
   "war_number": 5,
   "opponent": "Red Corsairs",
+  "result": "loss",
   "players": {
     "Albric": {"userId": "a0bd0bdd-d2c4-4849-81f8-93a960b37faa", "win": 10, "finish": 0, "ms": 10, "perfect": 7, "fail": 0, "buffs": 4.2},
     "Caston": {"userId": "legacy22:Caston", "win": 10, "finish": 0, "ms": 9, "perfect": 2, "fail": 0, "buffs": 2.9},

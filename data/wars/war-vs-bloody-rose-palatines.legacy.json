@@ -2,6 +2,7 @@
   "season": 27,
   "war_number": 1,
   "opponent": "Bloody Rose: Palatines",
+  "result": "win",
   "players": {
     "Bqsylou": {"userId": "796ed024-1b70-45e7-8bbe-b3aa82e56f38", "win": 10, "finish": 0, "ms": 10, "perfect": 10, "fail": 0, "buffs": 3.2},
     "Eliox": {"userId": "229ffc65-90da-482f-aa92-3973ee68ecd1", "win": 10, "finish": 0, "ms": 10, "perfect": 6, "fail": 0, "buffs": 2.6},
