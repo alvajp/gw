@@ -22,11 +22,29 @@ DOCS_DIR = os.path.join(ROOT, "docs")
 OUR_GUILD = "Les Joyeux Psychopathes !"
 
 COLS = [
-    ("pts", "Points"), ("win", "Wins"), ("fail", "Fails"), ("miss", "Miss"), ("finish", "Finishes"),
+    ("pts", "Points"), ("reussites", "Réussites"), ("buffs_pts", "Buffs"), ("map_pts", "Map"),
+    ("win", "Wins"), ("fail", "Fails"), ("miss", "Miss"), ("finish", "Finishes"),
     ("MS", "MS"), ("AP", "AP"), ("AA", "AA"), ("AR", "AR"), ("FP", "FP"), ("LP", "LP"),
     ("1600", "1600"), ("1400", "1400"), ("1200_1050", "1200(1050)"), ("1100_850", "1100(850)"), ("650-", "650-"),
     ("kills", "Kills"),
 ]
+
+TIER_POINTS = {"1600": 10, "1400": 8, "1200_1050": 7, "1100_850": 6, "650-": 5}
+
+
+def compute_pts_breakdown(ps, hard_cols, easy_cols):
+    """Split a player's total "pts" into the three sources that make it up:
+    Réussites (tier points from wins/finishes), Buffs (MS + other zone
+    buffs), and Map (hard/easy zone-clear bonus). Recomputed from the raw
+    counts already stored on ps rather than tracked separately during
+    ranking, so it stays in sync with the v4 formula automatically."""
+    reussites = sum(TIER_POINTS[bucket] * ps.get(bucket, 0) for bucket in TIER_POINTS)
+    buffs_pts = ps.get("MS", 0) * 2 + sum(ps.get(acr, 0) for acr in ("AP", "AA", "AR", "FP", "LP")) * 0.5
+    map_pts = (
+        sum(ps.get(f"hard{i}", 0) for i in range(1, len(hard_cols) + 1)) * 2
+        + sum(ps.get(f"easy{i}", 0) for i in range(1, len(easy_cols) + 1)) * 0.5
+    )
+    return reussites, buffs_pts, map_pts
 
 BAREME_HTML = """<h2 id="bareme">Barème de points</h2>
 <ul>
@@ -112,11 +130,14 @@ def render_table(rows, hard_cols, easy_cols):
 
     body_rows = []
     for pname, ps in rows:
+        reussites, buffs_pts, map_pts = compute_pts_breakdown(ps, hard_cols, easy_cols)
+        breakdown = {"reussites": reussites, "buffs_pts": buffs_pts, "map_pts": map_pts}
         cells = [f"<td>{html_escape(pname)}</td>"]
         for key, _label in COLS:
-            val = ps["pts"] if key == "pts" else ps[key]
-            if key == "pts":
-                val = round_pts(val)
+            if key in ("pts", "reussites", "buffs_pts", "map_pts"):
+                val = round_pts(ps["pts"] if key == "pts" else breakdown[key])
+            else:
+                val = ps[key]
             cells.append(f"<td>{val}</td>")
         for i in range(1, len(hard_cols) + 1):
             cells.append(f"<td>{ps.get(f'hard{i}', 0)}</td>")
