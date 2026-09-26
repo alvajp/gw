@@ -512,7 +512,11 @@ def render_metric_svg(metric_key, display_names, values, active_uids, fmt, ascen
     bars = []
     for i, uid in enumerate(order):
         val = values[uid]
-        h = (val / max_val) * chart_h if max_val else 0
+        # Values can go negative (e.g. a success rate below 0% for someone who
+        # failed more than their total token count); clamp the bar itself to
+        # a minimum height of 0 since SVG rejects a negative height, while
+        # still showing the real (possibly negative) number in the label.
+        h = max(0.0, (val / max_val) * chart_h) if max_val else 0
         x = left_pad + gap + i * (bar_width + gap)
         y = top_pad + (chart_h - h)
         cx = x + bar_width / 2
@@ -536,16 +540,19 @@ def render_metric_svg(metric_key, display_names, values, active_uids, fmt, ascen
 
 def render_average_chart(display_names, averages, efficience, tokens, buffs, maps_, active_uids=frozenset()):
     """Chip-toggled bar chart: "Moyenne" (avg points, shown by default),
-    "Efficience" (fails / (wins + finishes)), and the Tokens/Buffs/Maps point
+    "Efficience" (success rate = 1 - fails / (wins + finishes), so higher is
+    better like every other metric here), and the Tokens/Buffs/Maps point
     totals (column-wise sums of the same breakdown shown in the per-war
     tables), all rendered up front as static inline SVGs (no JS dependency
     beyond the show/hide toggle)."""
     if not averages:
         return ""
 
+    reussite_rate = {uid: 1 - v for uid, v in efficience.items()}
+
     metrics = [
         ("moyenne", "Moyenne", averages, lambda v: str(round_pts(v)), False),
-        ("efficience", "Efficience", efficience, lambda v: f"{v * 100:.0f}%", True),
+        ("efficience", "Efficience", reussite_rate, lambda v: f"{v * 100:.0f}%", False),
         ("tokens", "Tokens", tokens, lambda v: str(round_pts(v)), False),
         ("buffs", "Buffs", buffs, lambda v: str(round_pts(v)), False),
         ("maps", "Maps", maps_, lambda v: str(round_pts(v)), False),
