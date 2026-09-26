@@ -4,6 +4,7 @@ compute the ranking for each, and render the static site into docs/.
 
 Usage: python3 scripts/generate_site.py
 """
+import math
 import os
 import re
 import sys
@@ -43,6 +44,12 @@ BAREME_HTML = """<h2 id="bareme">Barème de points</h2>
   <li><strong>Bonus de map</strong> : +2 pts par bataille sur une zone classée difficile, +0.5 pt sur une zone facile (les noms de map changent à chaque guerre).</li>
   <li><strong>Miss</strong> : chaque jeton d'attaque non joué sur les 10 alloués par guerre = 0 pt.</li>
 </ul>"""
+
+
+def round_pts(x):
+    """Round to the nearest integer, rounding .5 up (not Python's banker's
+    rounding) since points can land on a half-point from 0.5-pt buff bonuses."""
+    return int(math.floor(x + 0.5))
 
 
 def slugify(name):
@@ -100,7 +107,7 @@ def render_table(rows, hard_cols, easy_cols):
         for key, _label in COLS:
             val = ps["pts"] if key == "pts" else ps[key]
             if key == "pts":
-                val = f"{val:.1f}"
+                val = round_pts(val)
             cells.append(f"<td>{val}</td>")
         for i in range(1, len(hard_cols) + 1):
             cells.append(f"<td>{ps.get(f'hard{i}', 0)}</td>")
@@ -108,10 +115,10 @@ def render_table(rows, hard_cols, easy_cols):
             cells.append(f"<td>{ps.get(f'easy{i}', 0)}</td>")
         body_rows.append("<tr>" + "".join(cells) + "</tr>")
 
-    return f"""<table class="sortable">
+    return f"""<div class="table-scroll"><table class="sortable">
   <thead><tr>{thead}</tr></thead>
   <tbody>{''.join(body_rows)}</tbody>
-</table>"""
+</table></div>"""
 
 
 def render_frise(items, transition=False):
@@ -173,15 +180,15 @@ def render_history_table(wars_subset, war_href_prefix):
         cells = [f"<td>{html_escape(display_names[uid])}</td>"]
         for w in wars_subset:
             v = per_war.get(w["slug"])
-            cells.append(f"<td>{v:.1f}</td>" if v is not None else "<td>-</td>")
-        cells.append(f"<td>{totals[uid]:.1f}</td>")
-        cells.append(f"<td>{averages[uid]:.0f}</td>")
+            cells.append(f"<td>{round_pts(v)}</td>" if v is not None else "<td>-</td>")
+        cells.append(f"<td>{round_pts(totals[uid])}</td>")
+        cells.append(f"<td>{round_pts(averages[uid])}</td>")
         body_rows.append("<tr>" + "".join(cells) + "</tr>")
 
-    return f"""<table class="sortable">
+    return f"""<div class="table-scroll"><table class="sortable">
   <thead><tr>{thead}</tr></thead>
   <tbody>{''.join(body_rows)}</tbody>
-</table>"""
+</table></div>"""
 
 
 def compute_wars_averages(wars_subset):
@@ -326,14 +333,14 @@ def render_season_average_table(season_numbers, season_stats, display_names, ave
         cells = [f"<td>{html_escape(display_names[uid])}</td>"]
         for season in season_numbers:
             entry = per_season.get(season)
-            cells.append(f"<td>{entry[0] / entry[1]:.0f}</td>" if entry else "<td>-</td>")
-        cells.append(f"<td>{averages[uid]:.0f}</td>")
+            cells.append(f"<td>{round_pts(entry[0] / entry[1])}</td>" if entry else "<td>-</td>")
+        cells.append(f"<td>{round_pts(averages[uid])}</td>")
         body_rows.append("<tr>" + "".join(cells) + "</tr>")
 
-    return f"""<table class="sortable">
+    return f"""<div class="table-scroll"><table class="sortable">
   <thead><tr>{thead}</tr></thead>
   <tbody>{''.join(body_rows)}</tbody>
-</table>"""
+</table></div>"""
 
 
 def render_average_chart(display_names, averages, active_uids=frozenset()):
@@ -363,7 +370,7 @@ def render_average_chart(display_names, averages, active_uids=frozenset()):
             f'<rect class="chart-bar" data-uid="{uid}" x="{x:.1f}" y="{y:.1f}" '
             f'width="{bar_width}" height="{h:.1f}" rx="2" fill="{fill}"/>'
         )
-        bars.append(f'<text data-uid="{uid}" x="{cx:.1f}" y="{y - 6:.1f}" class="chart-value">{avg:.0f}</text>')
+        bars.append(f'<text data-uid="{uid}" x="{cx:.1f}" y="{y - 6:.1f}" class="chart-value">{round_pts(avg)}</text>')
         label_y = top_pad + chart_h + 12
         bars.append(
             f'<text data-uid="{uid}" x="{cx:.1f}" y="{label_y}" class="chart-label" '
