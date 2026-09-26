@@ -30,19 +30,28 @@ COLS = [
 
 BAREME_HTML = """<h2 id="bareme">Barème de points</h2>
 <ul>
-  <li><strong>Palier de score par bataille</strong> (le palier le plus haut inclut le bonus de destruction de zone) :
+  <li><strong>Palier de score par bataille</strong> :
     <ul>
       <li>1600 &rarr; 10 pts</li>
       <li>1400 &rarr; 8 pts</li>
       <li>1200 / 1050 &rarr; 7 pts</li>
       <li>1100 / 850 &rarr; 6 pts</li>
       <li>650 / 450 / 250 &rarr; 5 pts</li>
-      <li>Fail (score le plus bas) &rarr; 0 pt</li>
+      <li>Fail / Miss &rarr; 0 pt</li>
     </ul>
   </li>
-  <li><strong>Buffs de zone</strong> : Medicae Station (MS) = +2 pts par bataille, tout autre buff (AP/AA/AR/FP/LP) = +0.5 pt.</li>
-  <li><strong>Bonus de map</strong> : +2 pts par bataille sur une zone classée difficile, +0.5 pt sur une zone facile (les noms de map changent à chaque guerre).</li>
-  <li><strong>Miss</strong> : chaque jeton d'attaque non joué sur les 10 alloués par guerre = 0 pt.</li>
+  <li><strong>Buffs de zone</strong> :
+    <ul>
+      <li>Medicae Station (MS) = +2 pts</li>
+      <li>Autre buffs (AP/AA/AR/FP/LP) = +0.5 pt</li>
+    </ul>
+  </li>
+  <li><strong>Bonus de map</strong> :
+    <ul>
+      <li>+2 pts pour 3 ponts, Pont, Divisée</li>
+      <li>+0.5 pt pour 5 pilliers, Abricot, Lacs</li>
+    </ul>
+  </li>
 </ul>"""
 
 
@@ -192,8 +201,10 @@ def render_history_table(wars_subset, war_href_prefix):
 
 
 def compute_wars_averages(wars_subset):
-    """uid -> average points across wars_subset (OUR_GUILD's team only), plus display names."""
+    """uid -> average points across wars_subset (OUR_GUILD's team only), plus
+    display names and an "efficience" ratio (fails / (wins + finishes))."""
     history = defaultdict(list)
+    fail_win_finish = defaultdict(lambda: [0, 0, 0])
     display_names = {}
     for w in wars_subset:
         result = w["result"]
@@ -202,9 +213,17 @@ def compute_wars_averages(wars_subset):
             if ps["team"] != our_idx:
                 continue
             history[uid].append(ps["pts"])
+            fwf = fail_win_finish[uid]
+            fwf[0] += ps["fail"]
+            fwf[1] += ps["win"]
+            fwf[2] += ps["finish"]
             display_names[uid] = result["players"].get(uid, {}).get("displayName", uid)
     averages = {uid: sum(pts) / len(pts) for uid, pts in history.items()}
-    return display_names, averages
+    efficience = {
+        uid: (fail / (win + finish) if (win + finish) > 0 else 0.0)
+        for uid, (fail, win, finish) in fail_win_finish.items()
+    }
+    return display_names, averages, efficience
 
 
 PAGE_TEMPLATE = """<!doctype html>
@@ -220,6 +239,7 @@ PAGE_TEMPLATE = """<!doctype html>
 {body}
 </main>
 <script src="{asset_prefix}assets/sort-table.js"></script>
+<script src="{asset_prefix}assets/chart-toggle.js"></script>
 <script src="{asset_prefix}assets/page-transition.js"></script>
 </body>
 </html>"""
@@ -280,10 +300,10 @@ def render_season_page(season, wars_in_season, active_uids=frozenset()):
         opp = ", ".join(opponent_names(w["result"], our_idx)) or w["slug"]
         frise_items.append((opp, f"../wars/{w['slug']}.html", w.get("outcome") == "win"))
 
-    display_names, averages = compute_wars_averages(wars_in_season)
+    display_names, averages, efficience = compute_wars_averages(wars_in_season)
 
     body = render_frise(frise_items)
-    body += render_average_chart(display_names, averages, active_uids)
+    body += render_average_chart(display_names, averages, efficience, active_uids)
     body += f'<div id="table-wrap">{render_history_table(wars_in_season, "../wars/")}</div>'
 
     back_link = back_link_html("../index.html", "Accueil", transition=True)
@@ -296,8 +316,10 @@ def render_season_page(season, wars_in_season, active_uids=frozenset()):
 
 def compute_season_averages(seasons):
     """uid -> per-season [sum_pts, war_count], plus display names, overall
-    totals/war-counts/averages across every war played on OUR_GUILD's team."""
+    totals/war-counts/averages across every war played on OUR_GUILD's team,
+    and an overall "efficience" ratio (fails / (wins + finishes))."""
     season_stats = defaultdict(dict)  # uid -> season -> [sum_pts, war_count]
+    fail_win_finish = defaultdict(lambda: [0, 0, 0])
     display_names = {}
     for season, wars_in_season in seasons.items():
         for w in wars_in_season:
@@ -309,12 +331,20 @@ def compute_season_averages(seasons):
                 entry = season_stats[uid].setdefault(season, [0.0, 0])
                 entry[0] += ps["pts"]
                 entry[1] += 1
+                fwf = fail_win_finish[uid]
+                fwf[0] += ps["fail"]
+                fwf[1] += ps["win"]
+                fwf[2] += ps["finish"]
                 display_names[uid] = result["players"].get(uid, {}).get("displayName", uid)
 
     totals = {uid: sum(s for s, _ in per_season.values()) for uid, per_season in season_stats.items()}
     war_counts = {uid: sum(c for _, c in per_season.values()) for uid, per_season in season_stats.items()}
     averages = {uid: totals[uid] / war_counts[uid] for uid in season_stats}
-    return season_stats, display_names, totals, war_counts, averages
+    efficience = {
+        uid: (fail / (win + finish) if (win + finish) > 0 else 0.0)
+        for uid, (fail, win, finish) in fail_win_finish.items()
+    }
+    return season_stats, display_names, totals, war_counts, averages, efficience
 
 
 def render_season_average_table(season_numbers, season_stats, display_names, averages):
@@ -343,26 +373,28 @@ def render_season_average_table(season_numbers, season_stats, display_names, ave
 </table></div>"""
 
 
-def render_average_chart(display_names, averages, active_uids=frozenset()):
-    """Bar chart of every player's overall average points, highest first
-    (leftmost), rendered as a static inline SVG (no JS dependency). Bars for
-    players present in the most recent war are highlighted green to show
+def render_metric_svg(metric_key, display_names, values, active_uids, fmt, ascending=False):
+    """One inline SVG bar chart for a single metric, players sorted with the
+    "best" value leftmost (highest first by default, or lowest first when
+    `ascending` is set — e.g. for "Efficience" where lower is better). Bars
+    for players present in the most recent war are highlighted green to show
     who's currently active."""
-    order = sorted(averages, key=lambda u: -averages[u])
+    order = sorted(values, key=lambda u: values[u] if ascending else -values[u])
     if not order:
         return ""
 
     bar_width, gap = 22, 6
+    left_pad = 40  # room for the leftmost rotated label so it isn't cropped by the viewBox edge
     chart_h, top_pad, bottom_pad = 220, 20, 130
-    max_avg = max(averages.values())
-    width = gap + len(order) * (bar_width + gap)
+    max_val = max(values.values())
+    width = left_pad + gap + len(order) * (bar_width + gap)
     height = top_pad + chart_h + bottom_pad
 
     bars = []
     for i, uid in enumerate(order):
-        avg = averages[uid]
-        h = (avg / max_avg) * chart_h if max_avg else 0
-        x = gap + i * (bar_width + gap)
+        val = values[uid]
+        h = (val / max_val) * chart_h if max_val else 0
+        x = left_pad + gap + i * (bar_width + gap)
         y = top_pad + (chart_h - h)
         cx = x + bar_width / 2
         fill = "#22c55e" if uid in active_uids else "#9aa4ff"
@@ -370,27 +402,52 @@ def render_average_chart(display_names, averages, active_uids=frozenset()):
             f'<rect class="chart-bar" data-uid="{uid}" x="{x:.1f}" y="{y:.1f}" '
             f'width="{bar_width}" height="{h:.1f}" rx="2" fill="{fill}"/>'
         )
-        bars.append(f'<text data-uid="{uid}" x="{cx:.1f}" y="{y - 6:.1f}" class="chart-value">{round_pts(avg)}</text>')
+        bars.append(f'<text data-uid="{uid}" x="{cx:.1f}" y="{y - 6:.1f}" class="chart-value">{fmt(val)}</text>')
         label_y = top_pad + chart_h + 12
         bars.append(
             f'<text data-uid="{uid}" x="{cx:.1f}" y="{label_y}" class="chart-label" '
             f'transform="rotate(-60 {cx:.1f} {label_y})">{html_escape(display_names[uid])}</text>'
         )
 
-    svg = (
-        f'<svg id="avg-chart" viewBox="0 0 {width} {height}" width="{width}" height="{height}" '
+    return (
+        f'<svg id="avg-chart-{metric_key}" viewBox="0 0 {width} {height}" width="{width}" height="{height}" '
         f'xmlns="http://www.w3.org/2000/svg">' + "".join(bars) + "</svg>"
     )
-    return f'<div id="chart-wrap"><h2>Moyenne globale par joueur</h2><div class="chart-scroll">{svg}</div></div>'
+
+
+def render_average_chart(display_names, averages, efficience, active_uids=frozenset()):
+    """Chip-toggled bar chart: "Moyenne" (avg points, shown by default) vs
+    "Efficience" (fails / (wins + finishes)), both rendered up front as
+    static inline SVGs (no JS dependency beyond the show/hide toggle)."""
+    if not averages:
+        return ""
+
+    metrics = [
+        ("moyenne", "Moyenne", averages, lambda v: str(round_pts(v)), False),
+        ("efficience", "Efficience", efficience, lambda v: f"{v * 100:.0f}%", True),
+    ]
+
+    chips = "".join(
+        f'<button type="button" class="chip{" active" if i == 0 else ""}" data-metric="{key}">{html_escape(label)}</button>'
+        for i, (key, label, _values, _fmt, _ascending) in enumerate(metrics)
+    )
+
+    charts = []
+    for i, (key, _label, values, fmt, ascending) in enumerate(metrics):
+        style = "" if i == 0 else ' style="display:none"'
+        svg = render_metric_svg(key, display_names, values, active_uids, fmt, ascending=ascending)
+        charts.append(f'<div class="chart-scroll" data-metric="{key}"{style}>{svg}</div>')
+
+    return f'<div id="chart-wrap"><div class="chips">{chips}</div>{"".join(charts)}</div>'
 
 
 def render_index(seasons, active_uids=frozenset()):
     season_numbers = sorted(seasons.keys())
     frise_items = [(f"Saison {s}", f"seasons/{s}.html", False) for s in season_numbers]
-    season_stats, display_names, totals, war_counts, averages = compute_season_averages(seasons)
+    season_stats, display_names, totals, war_counts, averages, efficience = compute_season_averages(seasons)
 
     body = render_frise(frise_items, transition=True)
-    body += render_average_chart(display_names, averages, active_uids)
+    body += render_average_chart(display_names, averages, efficience, active_uids)
     body += f'<div id="table-wrap">{render_season_average_table(season_numbers, season_stats, display_names, averages)}</div>'
     body += BAREME_HTML
 

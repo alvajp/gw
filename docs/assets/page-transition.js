@@ -80,8 +80,23 @@
     if (!liveWrap) return;
     if (!newWrap) { liveWrap.innerHTML = ""; return; }
 
-    const liveSvg = liveWrap.querySelector("#avg-chart");
-    const newSvg = newWrap.querySelector("#avg-chart");
+    // The chip toggle always resets to the default "Moyenne" metric on a
+    // fresh page; keep the hidden "Efficience" chart in sync instantly
+    // (it isn't visible, so no animation needed) and only animate the
+    // default chart below.
+    const liveChips = liveWrap.querySelector(".chips");
+    const newChips = newWrap.querySelector(".chips");
+    if (liveChips && newChips) liveChips.outerHTML = newChips.outerHTML;
+
+    const liveScrolls = liveWrap.querySelectorAll(".chart-scroll[data-metric]");
+    const newScrolls = newWrap.querySelectorAll(".chart-scroll[data-metric]");
+    liveScrolls.forEach(function (el, i) {
+      el.style.display = i === 0 ? "" : "none";
+      if (i > 0 && newScrolls[i]) el.innerHTML = newScrolls[i].innerHTML;
+    });
+
+    const liveSvg = liveWrap.querySelector("#avg-chart-moyenne");
+    const newSvg = newWrap.querySelector("#avg-chart-moyenne");
     if (!liveSvg || !newSvg) {
       liveWrap.innerHTML = newWrap.innerHTML;
       return;

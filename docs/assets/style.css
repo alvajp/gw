@@ -150,6 +150,24 @@ ul { line-height: 1.8; }
 }
 .frise-item:hover .frise-label { color: #9aa4ff; }
 
+.chips {
+  display: flex;
+  gap: 0.5rem;
+  margin: 1.5rem 0 1rem;
+}
+.chip {
+  border: 1px solid #2a2d38;
+  border-radius: 999px;
+  padding: 0.35rem 0.9rem;
+  background: #1e2129;
+  color: #e6e6ea;
+  font-size: 0.85rem;
+  font-family: inherit;
+  cursor: pointer;
+}
+.chip:hover { background: #262a35; }
+.chip.active { border-color: #9aa4ff; color: #9aa4ff; }
+
 .chart-scroll {
   overflow-x: auto;
   margin-bottom: 2rem;
