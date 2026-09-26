@@ -46,7 +46,7 @@
       "finish": 0,
       "ms": 9,
       "perfect": 6,
-      "fail": 0,
+      "fail": 1,
       "buffs": 2.0
     },
     "Nizz": {
@@ -73,7 +73,7 @@
       "finish": 1,
       "ms": 9,
       "perfect": 2,
-      "fail": 0,
+      "fail": 1,
       "buffs": 3.1
     },
     "Vahal": {
@@ -91,7 +91,7 @@
       "finish": 1,
       "ms": 6,
       "perfect": 4,
-      "fail": 0,
+      "fail": 1,
       "buffs": 3.4
     },
     "Thogri": {
@@ -136,7 +136,7 @@
       "finish": 1,
       "ms": 0,
       "perfect": 3,
-      "fail": 2,
+      "fail": 1,
       "buffs": 2.8
     },
     "RandAlThor": {

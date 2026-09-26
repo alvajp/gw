@@ -202,9 +202,9 @@ def render_history_table(wars_subset, war_href_prefix):
 
 def compute_wars_averages(wars_subset):
     """uid -> average points across wars_subset (OUR_GUILD's team only), plus
-    display names and an "efficience" ratio (fails / (wins + finishes))."""
+    display names and an "efficience" ratio ((fails + misses) / (wins + finishes))."""
     history = defaultdict(list)
-    fail_win_finish = defaultdict(lambda: [0, 0, 0])
+    fail_miss_win_finish = defaultdict(lambda: [0, 0, 0, 0])
     display_names = {}
     for w in wars_subset:
         result = w["result"]
@@ -213,15 +213,16 @@ def compute_wars_averages(wars_subset):
             if ps["team"] != our_idx:
                 continue
             history[uid].append(ps["pts"])
-            fwf = fail_win_finish[uid]
-            fwf[0] += ps["fail"]
-            fwf[1] += ps["win"]
-            fwf[2] += ps["finish"]
+            fmwf = fail_miss_win_finish[uid]
+            fmwf[0] += ps["fail"]
+            fmwf[1] += ps["miss"]
+            fmwf[2] += ps["win"]
+            fmwf[3] += ps["finish"]
             display_names[uid] = result["players"].get(uid, {}).get("displayName", uid)
     averages = {uid: sum(pts) / len(pts) for uid, pts in history.items()}
     efficience = {
-        uid: (fail / (win + finish) if (win + finish) > 0 else 0.0)
-        for uid, (fail, win, finish) in fail_win_finish.items()
+        uid: ((fail + miss) / (win + finish) if (win + finish) > 0 else 0.0)
+        for uid, (fail, miss, win, finish) in fail_miss_win_finish.items()
     }
     return display_names, averages, efficience
 
@@ -317,9 +318,9 @@ def render_season_page(season, wars_in_season, active_uids=frozenset()):
 def compute_season_averages(seasons):
     """uid -> per-season [sum_pts, war_count], plus display names, overall
     totals/war-counts/averages across every war played on OUR_GUILD's team,
-    and an overall "efficience" ratio (fails / (wins + finishes))."""
+    and an overall "efficience" ratio ((fails + misses) / (wins + finishes))."""
     season_stats = defaultdict(dict)  # uid -> season -> [sum_pts, war_count]
-    fail_win_finish = defaultdict(lambda: [0, 0, 0])
+    fail_miss_win_finish = defaultdict(lambda: [0, 0, 0, 0])
     display_names = {}
     for season, wars_in_season in seasons.items():
         for w in wars_in_season:
@@ -331,18 +332,19 @@ def compute_season_averages(seasons):
                 entry = season_stats[uid].setdefault(season, [0.0, 0])
                 entry[0] += ps["pts"]
                 entry[1] += 1
-                fwf = fail_win_finish[uid]
-                fwf[0] += ps["fail"]
-                fwf[1] += ps["win"]
-                fwf[2] += ps["finish"]
+                fmwf = fail_miss_win_finish[uid]
+                fmwf[0] += ps["fail"]
+                fmwf[1] += ps["miss"]
+                fmwf[2] += ps["win"]
+                fmwf[3] += ps["finish"]
                 display_names[uid] = result["players"].get(uid, {}).get("displayName", uid)
 
     totals = {uid: sum(s for s, _ in per_season.values()) for uid, per_season in season_stats.items()}
     war_counts = {uid: sum(c for _, c in per_season.values()) for uid, per_season in season_stats.items()}
     averages = {uid: totals[uid] / war_counts[uid] for uid in season_stats}
     efficience = {
-        uid: (fail / (win + finish) if (win + finish) > 0 else 0.0)
-        for uid, (fail, win, finish) in fail_win_finish.items()
+        uid: ((fail + miss) / (win + finish) if (win + finish) > 0 else 0.0)
+        for uid, (fail, miss, win, finish) in fail_miss_win_finish.items()
     }
     return season_stats, display_names, totals, war_counts, averages, efficience
 
