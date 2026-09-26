@@ -115,13 +115,26 @@ def render_table(rows, hard_cols, easy_cols):
 
 
 def render_frise(items):
-    """items: list of (label, href)."""
-    lis = [
-        f'<a class="frise-item" href="{href}"><span class="frise-dot"></span>'
-        f'<span class="frise-label">{html_escape(label)}</span></a>'
-        for label, href in items
-    ]
+    """items: list of (label, href, slug). slug is the war slug used to sync
+    the dot color with the localStorage-backed win/loss toggle (see
+    result-toggle.js) — pass None when the item isn't a single war (e.g. the
+    per-season items on the homepage)."""
+    lis = []
+    for label, href, slug in items:
+        slug_attr = f' data-war-slug="{html_escape(slug)}"' if slug else ""
+        lis.append(
+            f'<a class="frise-item" href="{href}"{slug_attr}><span class="frise-dot"></span>'
+            f'<span class="frise-label">{html_escape(label)}</span></a>'
+        )
     return '<div class="frise">' + "".join(lis) + "</div>"
+
+
+def render_result_toggle(slug):
+    return (
+        f'<button type="button" class="result-toggle" data-war-toggle="{html_escape(slug)}">'
+        '<span class="result-toggle-track"><span class="result-toggle-thumb"></span></span>'
+        '<span class="result-toggle-label">D&eacute;faite</span></button>'
+    )
 
 
 def render_history_table(wars_subset, war_href_prefix):
@@ -130,9 +143,11 @@ def render_history_table(wars_subset, war_href_prefix):
     column, restricted to players who were on OUR_GUILD's team in that war."""
     history = defaultdict(dict)  # uid -> {slug: pts}
     display_names = {}
+    header_labels = {}
     for w in wars_subset:
         result = w["result"]
         our_idx = find_team_idx(result["guilds"], OUR_GUILD)
+        header_labels[w["slug"]] = ", ".join(opponent_names(result, our_idx)) or w["slug"]
         for uid, ps in result["player_stats"].items():
             if ps["team"] != our_idx:
                 continue
@@ -142,12 +157,14 @@ def render_history_table(wars_subset, war_href_prefix):
     thead_cells = ["<th>Joueur</th>"]
     for w in wars_subset:
         thead_cells.append(
-            f'<th><a href="{war_href_prefix}{w["slug"]}.html">{html_escape(w["slug"])}</a></th>'
+            f'<th><a href="{war_href_prefix}{w["slug"]}.html">{html_escape(header_labels[w["slug"]])}</a></th>'
         )
     thead_cells.append("<th>Total</th>")
+    thead_cells.append("<th>Moyenne</th>")
     thead = "".join(thead_cells)
 
     totals = {uid: sum(per_war.values()) for uid, per_war in history.items()}
+    averages = {uid: totals[uid] / len(history[uid]) for uid in history}
     body_rows = []
     for uid in sorted(history, key=lambda u: -totals[u]):
         per_war = history[uid]
@@ -156,6 +173,7 @@ def render_history_table(wars_subset, war_href_prefix):
             v = per_war.get(w["slug"])
             cells.append(f"<td>{v:.1f}</td>" if v is not None else "<td>-</td>")
         cells.append(f"<td>{totals[uid]:.1f}</td>")
+        cells.append(f"<td>{averages[uid]:.0f}</td>")
         body_rows.append("<tr>" + "".join(cells) + "</tr>")
 
     return f"""<table class="sortable">
@@ -172,13 +190,20 @@ PAGE_TEMPLATE = """<!doctype html>
 <link rel="stylesheet" href="{asset_prefix}assets/style.css">
 </head>
 <body>
-<header><a href="{asset_prefix}index.html">&larr; Accueil</a><h1>{title}</h1></header>
+<header>{back_link}<h1>{title}</h1></header>
 <main>
 {body}
 </main>
 <script src="{asset_prefix}assets/sort-table.js"></script>
+<script src="{asset_prefix}assets/result-toggle.js"></script>
 </body>
 </html>"""
+
+
+def back_link_html(href, label):
+    if not href:
+        return ""
+    return f'<a href="{href}">&larr; {html_escape(label)}</a>'
 
 
 def guild_rows(result, team_idx):
@@ -192,41 +217,29 @@ def guild_rows(result, team_idx):
     return rows
 
 
-def render_guild_subpage(war_slug, guild_slug, guild_name, result, team_idx):
-    hard_cols = result["hard_cols"]
-    easy_cols = result["easy_cols"]
-    rows = guild_rows(result, team_idx)
-    body = f'<p><a href="../{war_slug}.html">&larr; Retour à la guerre</a></p>'
-    body += f"<h2>{html_escape(guild_name)}</h2>" + render_table(rows, hard_cols, easy_cols)
-    html = PAGE_TEMPLATE.format(title=f"{guild_name} — {war_slug}", asset_prefix="../../", body=body)
-    out_dir = os.path.join(DOCS_DIR, "wars", war_slug)
-    os.makedirs(out_dir, exist_ok=True)
-    with open(os.path.join(out_dir, guild_slug + ".html"), "w", encoding="utf-8") as f:
-        f.write(html)
-
-
-def render_war_page(slug, result):
+def render_war_page(slug, result, season):
     guilds = result["guilds"]
     hard_cols = result["hard_cols"]
     easy_cols = result["easy_cols"]
 
     our_idx = find_team_idx(guilds, OUR_GUILD)
     our_rows = guild_rows(result, our_idx)
-    body = render_table(our_rows, hard_cols, easy_cols)
+    body = render_result_toggle(slug)
+    body += render_table(our_rows, hard_cols, easy_cols)
 
-    other_links = []
+    other_tables = []
     for team_idx, g in sorted(guilds.items()):
         if team_idx == our_idx:
             continue
-        guild_slug = slugify(g["name"])
-        render_guild_subpage(slug, guild_slug, g["name"], result, team_idx)
-        other_links.append(f'<li><a href="{slug}/{guild_slug}.html">{html_escape(g["name"])}</a></li>')
+        rows = guild_rows(result, team_idx)
+        other_tables.append(f"<h3>{html_escape(g['name'])}</h3>" + render_table(rows, hard_cols, easy_cols))
 
-    body += '<p><a href="../index.html#bareme">Voir le barème de points</a></p>'
-    if other_links:
-        body += "<h2>Autres guildes</h2><ul>" + "".join(other_links) + "</ul>"
+    if other_tables:
+        body += "<h2>Adversaires</h2>" + "".join(other_tables)
 
-    html = PAGE_TEMPLATE.format(title=f"Guerre : {slug}", asset_prefix="../", body=body)
+    title = ", ".join(opponent_names(result, our_idx)) or slug
+    back_link = back_link_html(f"../seasons/{season}.html", f"Saison {season}")
+    html = PAGE_TEMPLATE.format(title=title, asset_prefix="../", body=body, back_link=back_link)
     out_path = os.path.join(DOCS_DIR, "wars", slug + ".html")
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(html)
@@ -238,29 +251,118 @@ def render_season_page(season, wars_in_season):
     frise_items = []
     for w in wars_in_season:
         our_idx = find_team_idx(w["result"]["guilds"], OUR_GUILD)
-        opp = ", ".join(opponent_names(w["result"], our_idx)) or "?"
-        label = f"Guerre {w['war_number']} — {opp}" if w["war_number"] else w["slug"]
-        frise_items.append((label, f"../wars/{w['slug']}.html"))
+        opp = ", ".join(opponent_names(w["result"], our_idx)) or w["slug"]
+        frise_items.append((opp, f"../wars/{w['slug']}.html", w["slug"]))
 
     body = render_frise(frise_items)
     body += render_history_table(wars_in_season, "../wars/")
 
-    html = PAGE_TEMPLATE.format(title=f"Saison {season}", asset_prefix="../", body=body)
+    back_link = back_link_html("../index.html", "Accueil")
+    html = PAGE_TEMPLATE.format(title=f"Saison {season}", asset_prefix="../", body=body, back_link=back_link)
     out_dir = os.path.join(DOCS_DIR, "seasons")
     os.makedirs(out_dir, exist_ok=True)
     with open(os.path.join(out_dir, f"{season}.html"), "w", encoding="utf-8") as f:
         f.write(html)
 
 
-def render_index(all_wars, seasons):
+def compute_season_averages(seasons):
+    """uid -> per-season [sum_pts, war_count], plus display names, overall
+    totals/war-counts/averages across every war played on OUR_GUILD's team."""
+    season_stats = defaultdict(dict)  # uid -> season -> [sum_pts, war_count]
+    display_names = {}
+    for season, wars_in_season in seasons.items():
+        for w in wars_in_season:
+            result = w["result"]
+            our_idx = find_team_idx(result["guilds"], OUR_GUILD)
+            for uid, ps in result["player_stats"].items():
+                if ps["team"] != our_idx:
+                    continue
+                entry = season_stats[uid].setdefault(season, [0.0, 0])
+                entry[0] += ps["pts"]
+                entry[1] += 1
+                display_names[uid] = result["players"].get(uid, {}).get("displayName", uid)
+
+    totals = {uid: sum(s for s, _ in per_season.values()) for uid, per_season in season_stats.items()}
+    war_counts = {uid: sum(c for _, c in per_season.values()) for uid, per_season in season_stats.items()}
+    averages = {uid: totals[uid] / war_counts[uid] for uid in season_stats}
+    return season_stats, display_names, totals, war_counts, averages
+
+
+def render_season_average_table(season_numbers, season_stats, display_names, averages):
+    """Joueur x season table for the homepage: each season column shows the
+    player's average points per war played that season (not the raw per-war
+    results), plus the overall Moyenne across every war played."""
+    thead_cells = ["<th>Joueur</th>"]
+    for season in season_numbers:
+        thead_cells.append(f'<th><a href="seasons/{season}.html">Saison {season}</a></th>')
+    thead_cells.append("<th>Moyenne</th>")
+    thead = "".join(thead_cells)
+
+    body_rows = []
+    for uid in sorted(season_stats, key=lambda u: -averages[u]):
+        per_season = season_stats[uid]
+        cells = [f"<td>{html_escape(display_names[uid])}</td>"]
+        for season in season_numbers:
+            entry = per_season.get(season)
+            cells.append(f"<td>{entry[0] / entry[1]:.0f}</td>" if entry else "<td>-</td>")
+        cells.append(f"<td>{averages[uid]:.0f}</td>")
+        body_rows.append("<tr>" + "".join(cells) + "</tr>")
+
+    return f"""<table class="sortable">
+  <thead><tr>{thead}</tr></thead>
+  <tbody>{''.join(body_rows)}</tbody>
+</table>"""
+
+
+def render_average_chart(display_names, averages, active_uids=frozenset()):
+    """Bar chart of every player's overall average points, highest first
+    (leftmost), rendered as a static inline SVG (no JS dependency). Bars for
+    players present in the most recent war are highlighted green to show
+    who's currently active."""
+    order = sorted(averages, key=lambda u: -averages[u])
+    if not order:
+        return ""
+
+    bar_width, gap = 22, 6
+    chart_h, top_pad, bottom_pad = 220, 20, 130
+    max_avg = max(averages.values())
+    width = gap + len(order) * (bar_width + gap)
+    height = top_pad + chart_h + bottom_pad
+
+    bars = []
+    for i, uid in enumerate(order):
+        avg = averages[uid]
+        h = (avg / max_avg) * chart_h if max_avg else 0
+        x = gap + i * (bar_width + gap)
+        y = top_pad + (chart_h - h)
+        cx = x + bar_width / 2
+        fill = "#22c55e" if uid in active_uids else "#9aa4ff"
+        bars.append(f'<rect x="{x:.1f}" y="{y:.1f}" width="{bar_width}" height="{h:.1f}" rx="2" fill="{fill}"/>')
+        bars.append(f'<text x="{cx:.1f}" y="{y - 6:.1f}" class="chart-value">{avg:.0f}</text>')
+        label_y = top_pad + chart_h + 12
+        bars.append(
+            f'<text x="{cx:.1f}" y="{label_y}" class="chart-label" '
+            f'transform="rotate(-60 {cx:.1f} {label_y})">{html_escape(display_names[uid])}</text>'
+        )
+
+    svg = (
+        f'<svg viewBox="0 0 {width} {height}" width="{width}" height="{height}" '
+        f'xmlns="http://www.w3.org/2000/svg">' + "".join(bars) + "</svg>"
+    )
+    return f'<h2>Moyenne globale par joueur</h2><div class="chart-scroll">{svg}</div>'
+
+
+def render_index(seasons, active_uids=frozenset()):
     season_numbers = sorted(seasons.keys())
-    frise_items = [(f"Saison {s}", f"seasons/{s}.html") for s in season_numbers]
+    frise_items = [(f"Saison {s}", f"seasons/{s}.html", None) for s in season_numbers]
+    season_stats, display_names, totals, war_counts, averages = compute_season_averages(seasons)
 
     body = render_frise(frise_items)
-    body += render_history_table(all_wars, "wars/")
+    body += render_average_chart(display_names, averages, active_uids)
+    body += render_season_average_table(season_numbers, season_stats, display_names, averages)
     body += BAREME_HTML
 
-    html = PAGE_TEMPLATE.format(title="Tacticus Guild War Tracker", asset_prefix="", body=body)
+    html = PAGE_TEMPLATE.format(title="LJP Wars", asset_prefix="", body=body, back_link="")
     with open(os.path.join(DOCS_DIR, "index.html"), "w", encoding="utf-8") as f:
         f.write(html)
 
@@ -288,7 +390,7 @@ def main():
     all_wars.sort(key=lambda w: (w["season"], w["result"]["war_start"]))
 
     for w in all_wars:
-        render_war_page(w["slug"], w["result"])
+        render_war_page(w["slug"], w["result"], w["season"])
 
     seasons = defaultdict(list)
     for w in all_wars:
@@ -296,7 +398,14 @@ def main():
     for season, season_wars in seasons.items():
         render_season_page(season, season_wars)
 
-    render_index(all_wars, seasons)
+    active_uids = frozenset()
+    if all_wars:
+        last_war = all_wars[-1]
+        our_idx = find_team_idx(last_war["result"]["guilds"], OUR_GUILD)
+        active_uids = frozenset(
+            uid for uid, ps in last_war["result"]["player_stats"].items() if ps["team"] == our_idx
+        )
+    render_index(seasons, active_uids)
     print(f"Generated {len(all_wars)} war page(s), {len(seasons)} season page(s) + index.html into {DOCS_DIR}")
 
 

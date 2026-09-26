@@ -13,12 +13,15 @@ the user for the "Bloody Rose: Palatines" (season 27, war 1) migration:
   - fail     -> 0 pts, as in the normal formula
   - ms       -> raw MS count was ambiguous between 1 and 2 buffs per battle,
                 so multiplied by 1.5 before scoring at 2 pts each
-  - buffs    -> aggregate non-MS buff count (AP/AA/AR/FP/LP can't be told
-                apart), scored at 0.5 pt each like any other buff, and
-                surfaced in the AP column for visibility
+  - buffs    -> screenshot column is a per-battle AVERAGE, not a total, so
+                multiplied by TOKENS_PER_WAR and rounded up to recover the
+                war total; AP/AA/AR/FP/LP can't be told apart so it's scored
+                at 0.5 pt each like any other buff and surfaced in the AP
+                column for visibility
   - map/zone bonus -> unrecoverable, omitted entirely
 """
 import json
+import math
 
 from ranking import TOKENS_PER_WAR
 
@@ -50,16 +53,17 @@ def compute_legacy_ranking(json_path):
 
         other_wins = max(0, win - perfect)
         ms_effective = ms * 1.5
+        buffs_total = math.ceil(buffs * TOKENS_PER_WAR)
 
         pts = perfect * 10 + other_wins * 7 + finish * 5
         pts += ms_effective * 2
-        pts += buffs * 0.5
+        pts += buffs_total * 0.5
 
         player_stats[uid] = {
             "pts": pts, "kills": 0, "win": win, "fail": fail, "finish": finish,
             "played": win + finish + fail,
             "miss": max(0, TOKENS_PER_WAR - (win + finish + fail)),
-            "MS": ms_effective, "AP": buffs, "AA": 0, "AR": 0, "FP": 0, "LP": 0,
+            "MS": ms_effective, "AP": buffs_total, "AA": 0, "AR": 0, "FP": 0, "LP": 0,
             "1600": perfect, "1400": 0, "1200_1050": other_wins, "1100_850": 0, "650-": finish,
             "team": 0,
         }

@@ -1,0 +1,277 @@
+{
+  "season": 24,
+  "war_number": 4,
+  "opponent": "Deathwing [PL]",
+  "players": {
+    "RaK": {
+      "userId": "2d698868-6128-4f3a-b6d3-17d49f99197d",
+      "win": 10,
+      "finish": 0,
+      "ms": 10,
+      "perfect": 7,
+      "fail": 0,
+      "buffs": 4.1
+    },
+    "Eliox": {
+      "userId": "229ffc65-90da-482f-aa92-3973ee68ecd1",
+      "win": 10,
+      "finish": 0,
+      "ms": 8,
+      "perfect": 8,
+      "fail": 0,
+      "buffs": 2.6
+    },
+    "Alvalero": {
+      "userId": "ed370f6c-9a28-48f6-a0eb-d7d21862de6d",
+      "win": 10,
+      "finish": 0,
+      "ms": 8,
+      "perfect": 6,
+      "fail": 0,
+      "buffs": 1.4
+    },
+    "Eks": {
+      "userId": "e9c1fbcf-06db-4d6b-acd4-61ec3557352e",
+      "win": 10,
+      "finish": 0,
+      "ms": 3,
+      "perfect": 10,
+      "fail": 0,
+      "buffs": 1.3
+    },
+    "Peuchy": {
+      "userId": "56eb29a8-b455-456d-b3ba-45603a209ed8",
+      "win": 10,
+      "finish": 0,
+      "ms": 7,
+      "perfect": 6,
+      "fail": 0,
+      "buffs": 2.2
+    },
+    "Thoramok": {
+      "userId": "30dacc28-5c0e-42ed-b3b5-3cf6932f30e7",
+      "win": 10,
+      "finish": 0,
+      "ms": 10,
+      "perfect": 3,
+      "fail": 0,
+      "buffs": 3.1
+    },
+    "Bqsylou": {
+      "userId": "796ed024-1b70-45e7-8bbe-b3aa82e56f38",
+      "win": 10,
+      "finish": 0,
+      "ms": 6,
+      "perfect": 6,
+      "fail": 0,
+      "buffs": 1.5
+    },
+    "Vindicator": {
+      "userId": "b870af68-8de9-4179-98a8-97b59f1bc8fc",
+      "win": 10,
+      "finish": 0,
+      "ms": 5,
+      "perfect": 6,
+      "fail": 0,
+      "buffs": 2.5
+    },
+    "Zebulon": {
+      "userId": "9b189944-b392-48b1-b5c4-a4b6ff95f196",
+      "win": 10,
+      "finish": 0,
+      "ms": 3,
+      "perfect": 8,
+      "fail": 0,
+      "buffs": 0.9
+    },
+    "Shadow": {
+      "userId": "587af761-0c7c-4ff4-ba02-12eace8d4c74",
+      "win": 10,
+      "finish": 0,
+      "ms": 5,
+      "perfect": 6,
+      "fail": 0,
+      "buffs": 1.7
+    },
+    "Garonne": {
+      "userId": "f7da5503-cf6c-4441-9419-fb53e06db57c",
+      "win": 8,
+      "finish": 1,
+      "ms": 9,
+      "perfect": 7,
+      "fail": 1,
+      "buffs": 4.2
+    },
+    "Albric": {
+      "userId": "a0bd0bdd-d2c4-4849-81f8-93a960b37faa",
+      "win": 8,
+      "finish": 1,
+      "ms": 9,
+      "perfect": 5,
+      "fail": 1,
+      "buffs": 3.8
+    },
+    "Psychward": {
+      "userId": "795808ac-4792-45cf-b787-1f0cda73e02d",
+      "win": 10,
+      "finish": 0,
+      "ms": 0,
+      "perfect": 5,
+      "fail": 0,
+      "buffs": 0.3
+    },
+    "Tromal": {
+      "userId": "legacy24:Tromal",
+      "win": 8,
+      "finish": 1,
+      "ms": 9,
+      "perfect": 3,
+      "fail": 1,
+      "buffs": 5.3
+    },
+    "Highmanny": {
+      "userId": "aa1e1ede-db2f-42ec-967a-2e2ae33c088d",
+      "win": 8,
+      "finish": 1,
+      "ms": 5,
+      "perfect": 3,
+      "fail": 1,
+      "buffs": 2.3
+    },
+    "Nizz": {
+      "userId": "177ea058-1331-43e4-96cf-c46b8283e3d5",
+      "win": 9,
+      "finish": 0,
+      "ms": 2,
+      "perfect": 4,
+      "fail": 1,
+      "buffs": 1.4
+    },
+    "Sephiroth": {
+      "userId": "140a35dd-c40e-4040-a43d-964c6d9a554b",
+      "win": 7,
+      "finish": 1,
+      "ms": 7,
+      "perfect": 5,
+      "fail": 2,
+      "buffs": 3.1
+    },
+    "Ellimi": {
+      "userId": "6b82a0b3-74b3-4ade-8538-50ba7fef1b95",
+      "win": 7,
+      "finish": 2,
+      "ms": 0,
+      "perfect": 5,
+      "fail": 1,
+      "buffs": 0.7
+    },
+    "Qiramond": {
+      "userId": "75d105cd-b208-4ea9-b1da-000813bddb51",
+      "win": 7,
+      "finish": 1,
+      "ms": 6,
+      "perfect": 5,
+      "fail": 2,
+      "buffs": 2.4
+    },
+    "RandAlThor": {
+      "userId": "2972c577-1bfa-4ac6-84fc-2260b48023fd",
+      "win": 7,
+      "finish": 1,
+      "ms": 6,
+      "perfect": 5,
+      "fail": 2,
+      "buffs": 3.5
+    },
+    "Jawohlkaputt": {
+      "userId": "legacy24:Jawohlkaputt",
+      "win": 8,
+      "finish": 1,
+      "ms": 0,
+      "perfect": 2,
+      "fail": 1,
+      "buffs": 0.6
+    },
+    "Bixa": {
+      "userId": "5dfd70a7-78ec-46b7-9ac0-ea8fcbc11d45",
+      "win": 8,
+      "finish": 1,
+      "ms": 4,
+      "perfect": 4,
+      "fail": 1,
+      "buffs": 2.1
+    },
+    "Razahrds": {
+      "userId": "0c8a2d6b-f331-4e0f-b842-baf874a28f55",
+      "win": 5,
+      "finish": 2,
+      "ms": 7,
+      "perfect": 4,
+      "fail": 3,
+      "buffs": 1.9
+    },
+    "RegalBaston": {
+      "userId": "6b260834-c689-49e8-bdba-b9f306346af4",
+      "win": 6,
+      "finish": 2,
+      "ms": 8,
+      "perfect": 1,
+      "fail": 2,
+      "buffs": 4.0
+    },
+    "Stitchy": {
+      "userId": "af177e79-a14b-4af9-84d5-7a76cc3d0683",
+      "win": 6,
+      "finish": 2,
+      "ms": 1,
+      "perfect": 6,
+      "fail": 2,
+      "buffs": 0.8
+    },
+    "Ezekiel": {
+      "userId": "legacy24:Ezekiel",
+      "win": 6,
+      "finish": 2,
+      "ms": 1,
+      "perfect": 4,
+      "fail": 2,
+      "buffs": 1.0
+    },
+    "Lafleur": {
+      "userId": "ea0c76dc-03f0-4c4a-b7f5-f7df21a5473e",
+      "win": 6,
+      "finish": 2,
+      "ms": 1,
+      "perfect": 4,
+      "fail": 2,
+      "buffs": 2.0
+    },
+    "Zyxs": {
+      "userId": "8eaa6bb4-657d-40db-93ba-17329dff3e0e",
+      "win": 7,
+      "finish": 1,
+      "ms": 0,
+      "perfect": 4,
+      "fail": 2,
+      "buffs": 0.5
+    },
+    "Thogri": {
+      "userId": "6d0c2f9f-4460-424a-8f74-ba3ef7091cca",
+      "win": 6,
+      "finish": 2,
+      "ms": 0,
+      "perfect": 4,
+      "fail": 2,
+      "buffs": 0.9
+    },
+    "Vahal": {
+      "userId": "9fe1a2d1-d467-420a-ace2-634fa0267fa5",
+      "win": 4,
+      "finish": 3,
+      "ms": 0,
+      "perfect": 2,
+      "fail": 3,
+      "buffs": 0.3
+    }
+  }
+}

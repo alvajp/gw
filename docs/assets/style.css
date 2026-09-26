@@ -1,10 +1,18 @@
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   margin: 0;
-  padding: 0 1.5rem 3rem;
+  padding: 0;
   background: #14161c;
   color: #e6e6ea;
 }
+header, main {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
+  box-sizing: border-box;
+}
+main { padding-bottom: 3rem; }
 header {
   padding: 1.5rem 0 0.5rem;
 }
@@ -43,6 +51,11 @@ th {
   user-select: none;
 }
 th:hover { background: #262a35; }
+th a {
+  color: #e6e6ea;
+  text-decoration: none;
+}
+th a:hover { color: #9aa4ff; }
 tbody tr:nth-child(even) { background: #1a1d24; }
 ul { line-height: 1.8; }
 
@@ -81,9 +94,59 @@ ul { line-height: 1.8; }
   background: #9aa4ff;
   border: 2px solid #14161c;
 }
+.frise-dot.frise-dot-win { background: #22c55e; }
+
+.result-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: none;
+  border: 1px solid #2a2d38;
+  border-radius: 999px;
+  padding: 0.35rem 0.9rem 0.35rem 0.35rem;
+  cursor: pointer;
+  color: #e6e6ea;
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+}
+.result-toggle-track {
+  width: 34px;
+  height: 18px;
+  border-radius: 999px;
+  background: #2a2d38;
+  position: relative;
+  transition: background 0.15s;
+}
+.result-toggle-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #e6e6ea;
+  transition: left 0.15s;
+}
+.result-toggle.is-win .result-toggle-track { background: #22c55e; }
+.result-toggle.is-win .result-toggle-thumb { left: 18px; }
 .frise-label {
   font-size: 0.8rem;
   white-space: nowrap;
   text-align: center;
 }
 .frise-item:hover .frise-label { color: #9aa4ff; }
+
+.chart-scroll {
+  overflow-x: auto;
+  margin-bottom: 2rem;
+}
+.chart-value {
+  font-size: 9px;
+  fill: #e6e6ea;
+  text-anchor: middle;
+}
+.chart-label {
+  font-size: 10px;
+  fill: #e6e6ea;
+  text-anchor: end;
+}
