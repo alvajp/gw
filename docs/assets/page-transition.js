@@ -198,6 +198,10 @@
         if (window.initSortableTables) window.initSortableTables(liveTableWrap);
       }
 
+      const liveBareme = document.getElementById("bareme-wrap");
+      const newBareme = doc.getElementById("bareme-wrap");
+      if (liveBareme) liveBareme.innerHTML = newBareme ? newBareme.innerHTML : "";
+
       const liveTitle = document.getElementById("page-title");
       const newTitle = doc.getElementById("page-title");
       if (liveTitle && newTitle) liveTitle.textContent = newTitle.textContent;

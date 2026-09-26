@@ -67,14 +67,19 @@ th a:hover { color: #9aa4ff; }
 tbody tr:nth-child(even) { background: #23262f; }
 ul { line-height: 1.8; }
 
+.frise-scroll {
+  overflow-x: auto;
+  margin: 1.5rem 0 2.5rem;
+}
 .frise {
   display: flex;
   align-items: flex-start;
   gap: 2.5rem;
-  margin: 1.5rem 0 2.5rem;
   padding: 0.5rem 0.5rem 0.5rem 0;
   position: relative;
-  overflow-x: auto;
+  width: max-content;
+  min-width: 100%;
+  box-sizing: border-box;
 }
 .frise::before {
   content: "";
@@ -155,6 +160,7 @@ ul { line-height: 1.8; }
   display: flex;
   gap: 0.5rem;
   margin: 1.5rem 0 1rem;
+  overflow-x: auto;
 }
 .chip {
   border: 1px solid #2a2d38;
@@ -165,6 +171,7 @@ ul { line-height: 1.8; }
   font-size: 0.85rem;
   font-family: inherit;
   cursor: pointer;
+  flex-shrink: 0;
 }
 .chip:hover { background: #262a35; }
 .chip.active { border-color: #9aa4ff; color: #9aa4ff; }

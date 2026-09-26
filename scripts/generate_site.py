@@ -242,7 +242,7 @@ def render_frise(items, transition=False):
             f'<a class="frise-item" href="{href}"{attr}><span class="{dot_class}"></span>'
             f'<span class="frise-label">{html_escape(label)}</span></a>'
         )
-    return '<div class="frise" id="frise">' + "".join(lis) + "</div>"
+    return '<div class="frise-scroll"><div class="frise" id="frise">' + "".join(lis) + "</div></div>"
 
 
 def render_result_badge(outcome):
@@ -339,6 +339,7 @@ PAGE_TEMPLATE = """<!doctype html>
 <html lang="fr">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{title}</title>
 <link rel="stylesheet" href="{asset_prefix}assets/style.css">
 </head>
@@ -414,6 +415,7 @@ def render_season_page(season, wars_in_season, active_uids=frozenset()):
     body = render_frise(frise_items)
     body += render_average_chart(display_names, averages, efficience, tokens, buffs, maps_, active_uids)
     body += f'<div id="table-wrap">{render_history_table(wars_in_season, "../wars/")}</div>'
+    body += '<div id="bareme-wrap"></div>'
 
     back_link = back_link_html("../index.html", "Accueil", transition=True)
     html = PAGE_TEMPLATE.format(title=f"Saison {season}", asset_prefix="../", body=body, back_link=back_link)
@@ -580,7 +582,7 @@ def render_index(seasons, active_uids=frozenset()):
     body = render_frise(frise_items, transition=True)
     body += render_average_chart(display_names, averages, efficience, tokens, buffs, maps_, active_uids)
     body += f'<div id="table-wrap">{render_season_average_table(season_numbers, season_stats, display_names, averages)}</div>'
-    body += BAREME_HTML
+    body += f'<div id="bareme-wrap">{BAREME_HTML}</div>'
 
     html = PAGE_TEMPLATE.format(title="LJP Wars", asset_prefix="", body=body, back_link="")
     with open(os.path.join(DOCS_DIR, "index.html"), "w", encoding="utf-8") as f:
