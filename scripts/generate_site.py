@@ -4,6 +4,7 @@ compute the ranking for each, and render the static site into docs/.
 
 Usage: python3 scripts/generate_site.py
 """
+import colorsys
 import math
 import os
 import re
@@ -22,7 +23,7 @@ DOCS_DIR = os.path.join(ROOT, "docs")
 OUR_GUILD = "Les Joyeux Psychopathes !"
 
 COLS = [
-    ("pts", "Points"), ("reussites", "Réussites"), ("buffs_pts", "Buffs"), ("map_pts", "Map"),
+    ("pts", "Points"), ("reussites", "Tokens"), ("buffs_pts", "Buffs"), ("map_pts", "Maps"),
     ("win", "Wins"), ("fail", "Fails"), ("miss", "Miss"), ("finish", "Finishes"),
     ("MS", "MS"), ("AP", "AP"), ("AA", "AA"), ("AR", "AR"), ("FP", "FP"), ("LP", "LP"),
     ("1600", "1600"), ("1400", "1400"), ("1200_1050", "1200(1050)"), ("1100_850", "1100(850)"), ("650-", "650-"),
@@ -79,6 +80,44 @@ def round_pts(x):
     return int(math.floor(x + 0.5))
 
 
+GRADIENT_LOW = (154, 164, 255)  # #9aa4ff, matches the chart's inactive bar color
+GRADIENT_HIGH = (34, 197, 94)  # #22c55e, matches the chart's active/win bar color
+
+
+def _rgb_to_hls(rgb):
+    r, g, b = (c / 255.0 for c in rgb)
+    return colorsys.rgb_to_hls(r, g, b)
+
+
+GRADIENT_LOW_HLS = _rgb_to_hls(GRADIENT_LOW)
+GRADIENT_HIGH_HLS = _rgb_to_hls(GRADIENT_HIGH)
+
+
+def value_to_bg(val, lo, hi):
+    """Map val within [lo, hi] to a blue->green background-color, for the
+    lowest->highest gradient on a table cell. Interpolates in HLS (hue along
+    its shortest path) rather than straight RGB: lerping RGB directly between
+    a blue and a green washes out into a grayish, low-saturation teal in the
+    middle, whereas HLS keeps the hue/saturation vivid all the way through.
+    Returns "" (no styling) when every row shares the same value, since
+    there's nothing to gradient."""
+    if hi <= lo:
+        return ""
+    t = max(0.0, min(1.0, (val - lo) / (hi - lo)))
+    h1, l1, s1 = GRADIENT_LOW_HLS
+    h2, l2, s2 = GRADIENT_HIGH_HLS
+    dh = h2 - h1
+    if dh > 0.5:
+        dh -= 1.0
+    elif dh < -0.5:
+        dh += 1.0
+    h = (h1 + dh * t) % 1.0
+    l = l1 + (l2 - l1) * t
+    s = s1 + (s2 - s1) * t
+    r, g, b = (round(c * 255) for c in colorsys.hls_to_rgb(h, l, s))
+    return f' style="background-color: rgb({r}, {g}, {b}); color: #000"'
+
+
 def slugify(name):
     s = name.lower().strip()
     s = re.sub(r"[^a-z0-9]+", "-", s)
@@ -123,22 +162,42 @@ def html_escape(s):
     return (str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"))
 
 
+GRADIENT_COLS = ("pts", "reussites", "buffs_pts", "map_pts")
+
+
 def render_table(rows, hard_cols, easy_cols):
     headers = ["Joueur"] + [label for _, label in COLS]
     headers += [name for _, name in hard_cols] + [name for _, name in easy_cols]
     thead = "".join(f"<th>{html_escape(h)}</th>" for h in headers)
 
-    body_rows = []
+    # First pass: compute the rounded pts/réussites/buffs/map values for every
+    # row so the gradient's low/high bounds are known before rendering cells.
+    computed = []
     for pname, ps in rows:
         reussites, buffs_pts, map_pts = compute_pts_breakdown(ps, hard_cols, easy_cols)
-        breakdown = {"reussites": reussites, "buffs_pts": buffs_pts, "map_pts": map_pts}
+        breakdown = {
+            "pts": round_pts(ps["pts"]),
+            "reussites": round_pts(reussites),
+            "buffs_pts": round_pts(buffs_pts),
+            "map_pts": round_pts(map_pts),
+        }
+        computed.append((pname, ps, breakdown))
+
+    bounds = {
+        key: (min(b[key] for _, _, b in computed), max(b[key] for _, _, b in computed))
+        for key in GRADIENT_COLS
+    } if computed else {}
+
+    body_rows = []
+    for pname, ps, breakdown in computed:
         cells = [f"<td>{html_escape(pname)}</td>"]
         for key, _label in COLS:
-            if key in ("pts", "reussites", "buffs_pts", "map_pts"):
-                val = round_pts(ps["pts"] if key == "pts" else breakdown[key])
+            if key in breakdown:
+                val = breakdown[key]
+                lo, hi = bounds[key]
+                cells.append(f"<td{value_to_bg(val, lo, hi)}>{val}</td>")
             else:
-                val = ps[key]
-            cells.append(f"<td>{val}</td>")
+                cells.append(f"<td>{ps[key]}</td>")
         for i in range(1, len(hard_cols) + 1):
             cells.append(f"<td>{ps.get(f'hard{i}', 0)}</td>")
         for i in range(1, len(easy_cols) + 1):
@@ -204,6 +263,8 @@ def render_history_table(wars_subset, war_href_prefix):
 
     totals = {uid: sum(per_war.values()) for uid, per_war in history.items()}
     averages = {uid: totals[uid] / len(history[uid]) for uid in history}
+    rounded_avg = {uid: round_pts(v) for uid, v in averages.items()}
+    avg_lo, avg_hi = (min(rounded_avg.values()), max(rounded_avg.values())) if rounded_avg else (0, 0)
     body_rows = []
     for uid in sorted(history, key=lambda u: -totals[u]):
         per_war = history[uid]
@@ -212,7 +273,7 @@ def render_history_table(wars_subset, war_href_prefix):
             v = per_war.get(w["slug"])
             cells.append(f"<td>{round_pts(v)}</td>" if v is not None else "<td>-</td>")
         cells.append(f"<td>{round_pts(totals[uid])}</td>")
-        cells.append(f"<td>{round_pts(averages[uid])}</td>")
+        cells.append(f"<td{value_to_bg(rounded_avg[uid], avg_lo, avg_hi)}>{rounded_avg[uid]}</td>")
         body_rows.append("<tr>" + "".join(cells) + "</tr>")
 
     return f"""<div class="table-scroll"><table class="sortable">
@@ -380,6 +441,8 @@ def render_season_average_table(season_numbers, season_stats, display_names, ave
     thead_cells.append("<th>Moyenne</th>")
     thead = "".join(thead_cells)
 
+    rounded_avg = {uid: round_pts(averages[uid]) for uid in season_stats}
+    avg_lo, avg_hi = (min(rounded_avg.values()), max(rounded_avg.values())) if rounded_avg else (0, 0)
     body_rows = []
     for uid in sorted(season_stats, key=lambda u: -averages[u]):
         per_season = season_stats[uid]
@@ -387,7 +450,7 @@ def render_season_average_table(season_numbers, season_stats, display_names, ave
         for season in season_numbers:
             entry = per_season.get(season)
             cells.append(f"<td>{round_pts(entry[0] / entry[1])}</td>" if entry else "<td>-</td>")
-        cells.append(f"<td>{round_pts(averages[uid])}</td>")
+        cells.append(f"<td{value_to_bg(rounded_avg[uid], avg_lo, avg_hi)}>{rounded_avg[uid]}</td>")
         body_rows.append("<tr>" + "".join(cells) + "</tr>")
 
     return f"""<div class="table-scroll"><table class="sortable">
