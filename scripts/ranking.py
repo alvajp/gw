@@ -184,10 +184,13 @@ def compute_ranking(json_path, maps):
     for ps in player_stats.values():
         ps["miss"] = max(0, TOKENS_PER_WAR - ps["played"])
 
+    war_start = logs[0]["createdOn"] if logs else 0
+
     return {
         "players": players,
         "guilds": guilds,
         "player_stats": player_stats,
         "hard_cols": hard_cols,
         "easy_cols": easy_cols,
+        "war_start": war_start,
     }

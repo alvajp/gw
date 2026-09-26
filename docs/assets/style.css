@@ -19,18 +19,23 @@ table {
   width: 100%;
   margin-bottom: 2rem;
   font-size: 0.85rem;
+  table-layout: fixed;
 }
 th, td {
   border: 1px solid #2a2d38;
   padding: 0.3rem 0.5rem;
   text-align: right;
   white-space: nowrap;
+  width: 4.5em;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 th:first-child, td:first-child {
   text-align: left;
   position: sticky;
   left: 0;
   background: #14161c;
+  width: 10em;
 }
 th {
   cursor: pointer;
@@ -40,3 +45,45 @@ th {
 th:hover { background: #262a35; }
 tbody tr:nth-child(even) { background: #1a1d24; }
 ul { line-height: 1.8; }
+
+.frise {
+  display: flex;
+  align-items: flex-start;
+  gap: 2.5rem;
+  margin: 1.5rem 0 2.5rem;
+  padding: 0.5rem 0.5rem 0.5rem 0;
+  position: relative;
+  overflow-x: auto;
+}
+.frise::before {
+  content: "";
+  position: absolute;
+  top: 0.9rem;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #2a2d38;
+}
+.frise-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  text-decoration: none;
+  color: #e6e6ea;
+  flex-shrink: 0;
+  position: relative;
+}
+.frise-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #9aa4ff;
+  border: 2px solid #14161c;
+}
+.frise-label {
+  font-size: 0.8rem;
+  white-space: nowrap;
+  text-align: center;
+}
+.frise-item:hover .frise-label { color: #9aa4ff; }
