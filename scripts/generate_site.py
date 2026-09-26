@@ -80,6 +80,23 @@ def round_pts(x):
     return int(math.floor(x + 0.5))
 
 
+def round_breakdown(total, parts):
+    """Round a list of floats that exactly sum to `total` into integers that
+    sum to exactly round_pts(total), using the largest-remainder method.
+    Rounding each part independently (round_pts applied separately) can be
+    off by +/-1 vs the displayed total, since round(a)+round(b) != round(a+b)
+    in general -- this keeps the displayed breakdown columns (e.g. Tokens +
+    Buffs + Maps) always adding up to the displayed Points column."""
+    target = round_pts(total)
+    floors = [math.floor(p) for p in parts]
+    remainder = max(0, min(len(parts), target - sum(floors)))
+    order = sorted(range(len(parts)), key=lambda i: parts[i] - floors[i], reverse=True)
+    result = floors[:]
+    for i in order[:remainder]:
+        result[i] += 1
+    return result
+
+
 GRADIENT_LOW = (154, 164, 255)  # #9aa4ff, matches the chart's inactive bar color
 GRADIENT_HIGH = (34, 197, 94)  # #22c55e, matches the chart's active/win bar color
 
@@ -175,11 +192,12 @@ def render_table(rows, hard_cols, easy_cols):
     computed = []
     for pname, ps in rows:
         reussites, buffs_pts, map_pts = compute_pts_breakdown(ps, hard_cols, easy_cols)
+        reussites_i, buffs_pts_i, map_pts_i = round_breakdown(ps["pts"], [reussites, buffs_pts, map_pts])
         breakdown = {
             "pts": round_pts(ps["pts"]),
-            "reussites": round_pts(reussites),
-            "buffs_pts": round_pts(buffs_pts),
-            "map_pts": round_pts(map_pts),
+            "reussites": reussites_i,
+            "buffs_pts": buffs_pts_i,
+            "map_pts": map_pts_i,
         }
         computed.append((pname, ps, breakdown))
 
@@ -284,13 +302,17 @@ def render_history_table(wars_subset, war_href_prefix):
 
 def compute_wars_averages(wars_subset):
     """uid -> average points across wars_subset (OUR_GUILD's team only), plus
-    display names and an "efficience" ratio ((fails + misses) / (wins + finishes))."""
+    display names, an "efficience" ratio ((fails + misses) / (wins + finishes)),
+    and the Tokens/Buffs/Maps point totals (column-wise sums of the same
+    breakdown shown in the per-war tables) summed across every war played."""
     history = defaultdict(list)
     fail_miss_win_finish = defaultdict(lambda: [0, 0, 0, 0])
+    tokens, buffs, maps_ = defaultdict(float), defaultdict(float), defaultdict(float)
     display_names = {}
     for w in wars_subset:
         result = w["result"]
         our_idx = find_team_idx(result["guilds"], OUR_GUILD)
+        hard_cols, easy_cols = result["hard_cols"], result["easy_cols"]
         for uid, ps in result["player_stats"].items():
             if ps["team"] != our_idx:
                 continue
@@ -300,13 +322,17 @@ def compute_wars_averages(wars_subset):
             fmwf[1] += ps["miss"]
             fmwf[2] += ps["win"]
             fmwf[3] += ps["finish"]
+            reussites, buffs_pts, map_pts = compute_pts_breakdown(ps, hard_cols, easy_cols)
+            tokens[uid] += reussites
+            buffs[uid] += buffs_pts
+            maps_[uid] += map_pts
             display_names[uid] = result["players"].get(uid, {}).get("displayName", uid)
     averages = {uid: sum(pts) / len(pts) for uid, pts in history.items()}
     efficience = {
         uid: ((fail + miss) / (win + finish) if (win + finish) > 0 else 0.0)
         for uid, (fail, miss, win, finish) in fail_miss_win_finish.items()
     }
-    return display_names, averages, efficience
+    return display_names, averages, efficience, tokens, buffs, maps_
 
 
 PAGE_TEMPLATE = """<!doctype html>
@@ -383,10 +409,10 @@ def render_season_page(season, wars_in_season, active_uids=frozenset()):
         opp = ", ".join(opponent_names(w["result"], our_idx)) or w["slug"]
         frise_items.append((opp, f"../wars/{w['slug']}.html", w.get("outcome") == "win"))
 
-    display_names, averages, efficience = compute_wars_averages(wars_in_season)
+    display_names, averages, efficience, tokens, buffs, maps_ = compute_wars_averages(wars_in_season)
 
     body = render_frise(frise_items)
-    body += render_average_chart(display_names, averages, efficience, active_uids)
+    body += render_average_chart(display_names, averages, efficience, tokens, buffs, maps_, active_uids)
     body += f'<div id="table-wrap">{render_history_table(wars_in_season, "../wars/")}</div>'
 
     back_link = back_link_html("../index.html", "Accueil", transition=True)
@@ -400,14 +426,17 @@ def render_season_page(season, wars_in_season, active_uids=frozenset()):
 def compute_season_averages(seasons):
     """uid -> per-season [sum_pts, war_count], plus display names, overall
     totals/war-counts/averages across every war played on OUR_GUILD's team,
-    and an overall "efficience" ratio ((fails + misses) / (wins + finishes))."""
+    an overall "efficience" ratio ((fails + misses) / (wins + finishes)), and
+    the Tokens/Buffs/Maps point totals summed across every war played."""
     season_stats = defaultdict(dict)  # uid -> season -> [sum_pts, war_count]
     fail_miss_win_finish = defaultdict(lambda: [0, 0, 0, 0])
+    tokens, buffs, maps_ = defaultdict(float), defaultdict(float), defaultdict(float)
     display_names = {}
     for season, wars_in_season in seasons.items():
         for w in wars_in_season:
             result = w["result"]
             our_idx = find_team_idx(result["guilds"], OUR_GUILD)
+            hard_cols, easy_cols = result["hard_cols"], result["easy_cols"]
             for uid, ps in result["player_stats"].items():
                 if ps["team"] != our_idx:
                     continue
@@ -419,6 +448,10 @@ def compute_season_averages(seasons):
                 fmwf[1] += ps["miss"]
                 fmwf[2] += ps["win"]
                 fmwf[3] += ps["finish"]
+                reussites, buffs_pts, map_pts = compute_pts_breakdown(ps, hard_cols, easy_cols)
+                tokens[uid] += reussites
+                buffs[uid] += buffs_pts
+                maps_[uid] += map_pts
                 display_names[uid] = result["players"].get(uid, {}).get("displayName", uid)
 
     totals = {uid: sum(s for s, _ in per_season.values()) for uid, per_season in season_stats.items()}
@@ -428,7 +461,7 @@ def compute_season_averages(seasons):
         uid: ((fail + miss) / (win + finish) if (win + finish) > 0 else 0.0)
         for uid, (fail, miss, win, finish) in fail_miss_win_finish.items()
     }
-    return season_stats, display_names, totals, war_counts, averages, efficience
+    return season_stats, display_names, totals, war_counts, averages, efficience, tokens, buffs, maps_
 
 
 def render_season_average_table(season_numbers, season_stats, display_names, averages):
@@ -501,16 +534,21 @@ def render_metric_svg(metric_key, display_names, values, active_uids, fmt, ascen
     )
 
 
-def render_average_chart(display_names, averages, efficience, active_uids=frozenset()):
-    """Chip-toggled bar chart: "Moyenne" (avg points, shown by default) vs
-    "Efficience" (fails / (wins + finishes)), both rendered up front as
-    static inline SVGs (no JS dependency beyond the show/hide toggle)."""
+def render_average_chart(display_names, averages, efficience, tokens, buffs, maps_, active_uids=frozenset()):
+    """Chip-toggled bar chart: "Moyenne" (avg points, shown by default),
+    "Efficience" (fails / (wins + finishes)), and the Tokens/Buffs/Maps point
+    totals (column-wise sums of the same breakdown shown in the per-war
+    tables), all rendered up front as static inline SVGs (no JS dependency
+    beyond the show/hide toggle)."""
     if not averages:
         return ""
 
     metrics = [
         ("moyenne", "Moyenne", averages, lambda v: str(round_pts(v)), False),
         ("efficience", "Efficience", efficience, lambda v: f"{v * 100:.0f}%", True),
+        ("tokens", "Tokens", tokens, lambda v: str(round_pts(v)), False),
+        ("buffs", "Buffs", buffs, lambda v: str(round_pts(v)), False),
+        ("maps", "Maps", maps_, lambda v: str(round_pts(v)), False),
     ]
 
     chips = "".join(
@@ -530,10 +568,10 @@ def render_average_chart(display_names, averages, efficience, active_uids=frozen
 def render_index(seasons, active_uids=frozenset()):
     season_numbers = sorted(seasons.keys())
     frise_items = [(f"Saison {s}", f"seasons/{s}.html", False) for s in season_numbers]
-    season_stats, display_names, totals, war_counts, averages, efficience = compute_season_averages(seasons)
+    season_stats, display_names, totals, war_counts, averages, efficience, tokens, buffs, maps_ = compute_season_averages(seasons)
 
     body = render_frise(frise_items, transition=True)
-    body += render_average_chart(display_names, averages, efficience, active_uids)
+    body += render_average_chart(display_names, averages, efficience, tokens, buffs, maps_, active_uids)
     body += f'<div id="table-wrap">{render_season_average_table(season_numbers, season_stats, display_names, averages)}</div>'
     body += BAREME_HTML
 
