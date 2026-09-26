@@ -153,8 +153,12 @@ ul { line-height: 1.8; }
   font-size: 0.8rem;
   white-space: nowrap;
   text-align: center;
+  border: 1px solid #2a2d38;
+  border-radius: 999px;
+  padding: 0.3rem 0.8rem;
+  background: #1e2129;
 }
-.frise-item:hover .frise-label { color: #9aa4ff; }
+.frise-item:hover .frise-label { color: #9aa4ff; border-color: #9aa4ff; }
 
 .chips {
   display: flex;
