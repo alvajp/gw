@@ -7,6 +7,7 @@
 (function () {
   const FRISE_MS = 420;
   const CHART_MS = 480;
+  const TITLE_MS = 420;
 
   function easeIn(t) { return t * t * t; }
   function easeOut(t) { return 1 - Math.pow(1 - t, 3); }
@@ -32,6 +33,87 @@
   function lerpColor(c1, c2, t) {
     const a = hexToRgb(c1), b = hexToRgb(c2);
     return "rgb(" + Math.round(lerp(a[0], b[0], t)) + ", " + Math.round(lerp(a[1], b[1], t)) + ", " + Math.round(lerp(a[2], b[2], t)) + ")";
+  }
+
+  // FLIP-via-clone helper used for the index<->season title/breadcrumb swap:
+  // captures an element's screen rect + relevant computed style, then a
+  // fixed-position ghost <div> is animated from a "from" snapshot to a "to"
+  // snapshot while the real target element stays hidden (visibility, so it
+  // keeps its layout space) until the ghost lands, at which point the ghost
+  // is discarded and the real element is revealed in place.
+  function captureRect(el) {
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    const cs = getComputedStyle(el);
+    return {
+      left: r.left, top: r.top, width: r.width, height: r.height,
+      fontSize: cs.fontSize, fontWeight: cs.fontWeight, color: cs.color,
+      background: cs.backgroundColor, borderRadius: cs.borderRadius,
+      border: cs.border, padding: cs.padding, letterSpacing: cs.letterSpacing,
+    };
+  }
+
+  function applyRect(el, snap) {
+    el.style.left = snap.left + "px";
+    el.style.top = snap.top + "px";
+    el.style.width = snap.width + "px";
+    el.style.height = snap.height + "px";
+    el.style.fontSize = snap.fontSize;
+    el.style.fontWeight = snap.fontWeight;
+    el.style.color = snap.color;
+    el.style.background = snap.background;
+    el.style.borderRadius = snap.borderRadius;
+    el.style.border = snap.border;
+    el.style.padding = snap.padding;
+    el.style.letterSpacing = snap.letterSpacing;
+  }
+
+  function flipMove(text, fromSnap, toSnap, targetEl, prefix) {
+    if (!fromSnap || !toSnap) return;
+    const ghost = document.createElement("div");
+    ghost.style.position = "fixed";
+    ghost.style.margin = "0";
+    ghost.style.boxSizing = "border-box";
+    ghost.style.zIndex = "1000";
+    ghost.style.display = "flex";
+    ghost.style.alignItems = "center";
+    ghost.style.whiteSpace = "nowrap";
+    ghost.style.overflow = "hidden";
+    ghost.style.pointerEvents = "none";
+    ghost.style.gap = "0.35em";
+
+    // The arrow is present (and already sized/positioned for) from the
+    // start so the text doesn't reflow when the ghost is swapped back for
+    // the real element -- it just fades in over the move instead of
+    // popping in abruptly at the end.
+    let prefixSpan = null;
+    if (prefix) {
+      prefixSpan = document.createElement("span");
+      prefixSpan.textContent = prefix;
+      prefixSpan.style.opacity = "0";
+      prefixSpan.style.transition = "opacity " + TITLE_MS + "ms ease-out";
+      ghost.appendChild(prefixSpan);
+    }
+    const textSpan = document.createElement("span");
+    textSpan.textContent = text;
+    ghost.appendChild(textSpan);
+
+    const props = ["left", "top", "width", "height", "font-size", "color", "background-color", "border-color", "padding"];
+    ghost.style.transition = props.map(function (p) { return p + " " + TITLE_MS + "ms cubic-bezier(0.25, 0.46, 0.45, 0.94)"; }).join(", ");
+    applyRect(ghost, fromSnap);
+    document.body.appendChild(ghost);
+    if (targetEl) targetEl.style.visibility = "hidden";
+
+    void ghost.offsetWidth; // force reflow before animating to the "to" snapshot
+    requestAnimationFrame(function () {
+      applyRect(ghost, toSnap);
+      if (prefixSpan) prefixSpan.style.opacity = "1";
+    });
+
+    setTimeout(function () {
+      ghost.remove();
+      if (targetEl) targetEl.style.visibility = "";
+    }, TITLE_MS + 40);
   }
 
   function transitionFrise(liveFrise, newInnerHTML) {
@@ -87,6 +169,10 @@
     const liveChips = liveWrap.querySelector(".chips");
     const newChips = newWrap.querySelector(".chips");
     if (liveChips && newChips) liveChips.outerHTML = newChips.outerHTML;
+
+    const liveLegend = liveWrap.querySelector(".chart-legend");
+    const newLegend = newWrap.querySelector(".chart-legend");
+    if (liveLegend) liveLegend.textContent = newLegend ? newLegend.textContent : "";
 
     const liveScrolls = liveWrap.querySelectorAll(".chart-scroll[data-metric]");
     const newScrolls = newWrap.querySelectorAll(".chart-scroll[data-metric]");
@@ -183,32 +269,135 @@
     });
   }
 
-  function go(url) {
-    fetchDoc(url).then(function (doc) {
-      const liveFrise = document.getElementById("frise");
-      const newFrise = doc.getElementById("frise");
-      if (liveFrise && newFrise) transitionFrise(liveFrise, newFrise.innerHTML);
+  function go(url, link) {
+    // Forward = a frise-item click, at any level (index -> season, or
+    // season -> war): the current title shrinks into the breadcrumb, the
+    // clicked frise pill grows into the new H1. Backward = a breadcrumb
+    // click going back up a level (kept as a simple crossfade, per plan).
+    const forward = !!(link && link.closest("#frise"));
+    const backward = !!(link && link.closest("#breadcrumb"));
 
-      transitionChart(document.getElementById("chart-wrap"), doc.getElementById("chart-wrap"));
-
-      const liveTableWrap = document.getElementById("table-wrap");
-      const newTableWrap = doc.getElementById("table-wrap");
-      if (liveTableWrap && newTableWrap) {
-        liveTableWrap.innerHTML = newTableWrap.innerHTML;
-        if (window.initSortableTables) window.initSortableTables(liveTableWrap);
+    let heroFrom = null;
+    let heroText = null;
+    let friseLabelFrom = null;
+    let friseLabelText = null;
+    if (forward) {
+      const hero = document.getElementById("page-title");
+      if (hero) {
+        heroFrom = captureRect(hero);
+        heroText = hero.textContent;
       }
+      const label = link.querySelector(".frise-label");
+      if (label) {
+        friseLabelFrom = captureRect(label);
+        friseLabelText = label.textContent;
+      }
+    }
 
-      const liveBareme = document.getElementById("bareme-wrap");
-      const newBareme = doc.getElementById("bareme-wrap");
-      if (liveBareme) liveBareme.innerHTML = newBareme ? newBareme.innerHTML : "";
+    // The index's hero title is a different font-size than a season's plain
+    // H1, so swapping title/breadcrumb content changes <header>'s natural
+    // height. Left alone that reflows everything below (the frise!) in a
+    // single instant jump. Lock the header at its pre-nav height across the
+    // swap and animate it to the new height in step with the title ghost so
+    // the frise slides smoothly instead of snapping.
+    const header = document.querySelector("header");
+    const headerFromH = header ? header.getBoundingClientRect().height : null;
+
+    fetchDoc(url).then(function (doc) {
+      // index<->season share the frise+chart+table-wrap+bareme-wrap layout
+      // and get the fine-grained per-piece animations below. A war page has
+      // none of that (just a result badge + guild tables), so any
+      // transition involving one falls back to a plain crossfade of the
+      // whole <main> instead -- there's no equivalent piece to animate to.
+      const richTransition = !!(document.getElementById("chart-wrap") && doc.getElementById("chart-wrap"));
+
+      if (richTransition) {
+        const liveFrise = document.getElementById("frise");
+        const newFrise = doc.getElementById("frise");
+        if (liveFrise && newFrise) transitionFrise(liveFrise, newFrise.innerHTML);
+
+        transitionChart(document.getElementById("chart-wrap"), doc.getElementById("chart-wrap"));
+
+        const liveTableWrap = document.getElementById("table-wrap");
+        const newTableWrap = doc.getElementById("table-wrap");
+        if (liveTableWrap && newTableWrap) {
+          liveTableWrap.innerHTML = newTableWrap.innerHTML;
+          if (window.initSortableTables) window.initSortableTables(liveTableWrap);
+        }
+
+        const liveBareme = document.getElementById("bareme-wrap");
+        const newBareme = doc.getElementById("bareme-wrap");
+        if (liveBareme) liveBareme.innerHTML = newBareme ? newBareme.innerHTML : "";
+      } else {
+        const liveMain = document.querySelector("main");
+        const newMain = doc.querySelector("main");
+        if (liveMain && newMain) {
+          const newMainHTML = newMain.innerHTML;
+          liveMain.style.transition = "opacity 200ms ease-out";
+          liveMain.style.opacity = "0";
+          setTimeout(function () {
+            liveMain.innerHTML = newMainHTML;
+            if (window.initSortableTables) window.initSortableTables(liveMain);
+            void liveMain.offsetWidth;
+            liveMain.style.opacity = "1";
+            setTimeout(function () { liveMain.style.transition = ""; }, 220);
+          }, 200);
+        }
+      }
 
       const liveTitle = document.getElementById("page-title");
       const newTitle = doc.getElementById("page-title");
-      if (liveTitle && newTitle) liveTitle.textContent = newTitle.textContent;
-
       const liveBreadcrumb = document.getElementById("breadcrumb");
       const newBreadcrumb = doc.getElementById("breadcrumb");
-      if (liveBreadcrumb && newBreadcrumb) liveBreadcrumb.innerHTML = newBreadcrumb.innerHTML;
+
+      let headerToH = null;
+      if (liveTitle && newTitle) {
+        liveTitle.className = newTitle.className;
+        liveTitle.textContent = newTitle.textContent;
+        if (liveBreadcrumb && newBreadcrumb) liveBreadcrumb.innerHTML = newBreadcrumb.innerHTML;
+
+        if (header && headerFromH != null) {
+          // Measure the natural height with the new content, then relock to
+          // the old height immediately (still in the same synchronous
+          // block, so nothing paints in between) -- this is what stops the
+          // frise from snapping to its new spot before we've had a chance
+          // to animate there.
+          header.style.height = "auto";
+          headerToH = header.getBoundingClientRect().height;
+          header.style.height = headerFromH + "px";
+          header.style.overflow = "hidden";
+        }
+      }
+
+      if (forward && liveTitle && newTitle && liveBreadcrumb && newBreadcrumb) {
+        const titleTo = captureRect(liveTitle);
+        const breadcrumbLink = liveBreadcrumb.querySelector("a");
+        const breadcrumbTo = breadcrumbLink ? captureRect(breadcrumbLink) : null;
+
+        if (friseLabelFrom && friseLabelText) flipMove(friseLabelText, friseLabelFrom, titleTo, liveTitle);
+        if (heroFrom && heroText && breadcrumbTo) flipMove(heroText, heroFrom, breadcrumbTo, breadcrumbLink, "←");
+      } else if (backward && liveTitle) {
+        liveTitle.style.transition = "none";
+        liveTitle.style.opacity = "0";
+        liveTitle.style.transform = "translateY(-6px)";
+        void liveTitle.offsetWidth;
+        liveTitle.style.transition = "opacity " + TITLE_MS + "ms ease-out, transform " + TITLE_MS + "ms ease-out";
+        liveTitle.style.opacity = "1";
+        liveTitle.style.transform = "translateY(0)";
+      }
+
+      if (header && headerToH != null) {
+        header.style.transition = "height " + TITLE_MS + "ms cubic-bezier(0.25, 0.46, 0.45, 0.94)";
+        void header.offsetHeight; // reflow so the locked "from" height is committed before transitioning
+        requestAnimationFrame(function () {
+          header.style.height = headerToH + "px";
+        });
+        setTimeout(function () {
+          header.style.height = "";
+          header.style.overflow = "";
+          header.style.transition = "";
+        }, TITLE_MS + 40);
+      }
 
       document.title = doc.title;
       history.pushState({ transition: true }, "", url);
@@ -221,7 +410,7 @@
     const link = e.target.closest('a[data-transition="true"]');
     if (!link) return;
     e.preventDefault();
-    go(link.getAttribute("href"));
+    go(link.getAttribute("href"), link);
   });
 
   window.addEventListener("popstate", function () {

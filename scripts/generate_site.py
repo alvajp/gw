@@ -20,6 +20,27 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WARS_DIR = os.path.join(ROOT, "data", "wars")
 DOCS_DIR = os.path.join(ROOT, "docs")
 
+
+def _assets_version():
+    """Hash of every assets/* file's contents, used as a `?v=` cache-buster on
+    <link>/<script> tags so browsers don't keep serving a stale cached CSS/JS
+    file after we edit it (this bit us: chart-toggle.js changes weren't
+    picked up by an already-open tab until a hard refresh)."""
+    import hashlib
+
+    assets_dir = os.path.join(DOCS_DIR, "assets")
+    h = hashlib.sha256()
+    if os.path.isdir(assets_dir):
+        for name in sorted(os.listdir(assets_dir)):
+            path = os.path.join(assets_dir, name)
+            if os.path.isfile(path):
+                with open(path, "rb") as f:
+                    h.update(f.read())
+    return h.hexdigest()[:10]
+
+
+ASSETS_VERSION = _assets_version()
+
 OUR_GUILD = "Les Joyeux Psychopathes !"
 
 COLS = [
@@ -229,17 +250,26 @@ def render_table(rows, hard_cols, easy_cols):
 
 
 def render_frise(items, transition=False):
-    """items: list of (label, href, is_win). is_win colors the dot green
-    when the war is recorded as a win — pass False when the item isn't a
-    single war (e.g. the per-season items on the homepage). transition=True
-    marks links as animated client-side navigation targets (only valid
-    between page shapes that share the frise+chart layout, i.e. index<->season)."""
+    """items: list of (label, href, outcome, above). outcome is "win"/"loss"/
+    None and colors the dot green/red accordingly (None keeps the neutral
+    color — used for items that aren't a single war, e.g. the per-season
+    items on the homepage). above is an optional short string (e.g. the war
+    number within its season) rendered above the dot; pass None to omit it.
+    transition=True marks links as animated client-side navigation targets
+    (only valid between page shapes that share the frise+chart layout, i.e.
+    index<->season)."""
     attr = ' data-transition="true"' if transition else ""
     lis = []
-    for label, href, is_win in items:
-        dot_class = "frise-dot frise-dot-win" if is_win else "frise-dot"
+    for label, href, outcome, above in items:
+        if outcome == "win":
+            dot_class = "frise-dot frise-dot-win"
+        elif outcome == "loss":
+            dot_class = "frise-dot frise-dot-loss"
+        else:
+            dot_class = "frise-dot"
+        above_html = f'<span class="frise-above">{html_escape(above)}</span>' if above else ""
         lis.append(
-            f'<a class="frise-item" href="{href}"{attr}><span class="{dot_class}"></span>'
+            f'<a class="frise-item" href="{href}"{attr}>{above_html}<span class="{dot_class}"></span>'
             f'<span class="frise-label">{html_escape(label)}</span></a>'
         )
     return (
@@ -345,16 +375,16 @@ PAGE_TEMPLATE = """<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{title}</title>
-<link rel="stylesheet" href="{asset_prefix}assets/style.css">
+<link rel="stylesheet" href="{asset_prefix}assets/style.css?v={v}">
 </head>
 <body>
-<header><div class="breadcrumb" id="breadcrumb">{back_link}</div><h1 id="page-title">{title}</h1></header>
+<header><div class="breadcrumb" id="breadcrumb">{back_link}</div><h1 id="page-title" class="{title_class}">{title}</h1></header>
 <main>
 {body}
 </main>
-<script src="{asset_prefix}assets/sort-table.js"></script>
-<script src="{asset_prefix}assets/chart-toggle.js"></script>
-<script src="{asset_prefix}assets/page-transition.js"></script>
+<script src="{asset_prefix}assets/sort-table.js?v={v}"></script>
+<script src="{asset_prefix}assets/chart-toggle.js?v={v}"></script>
+<script src="{asset_prefix}assets/page-transition.js?v={v}"></script>
 </body>
 </html>"""
 
@@ -398,8 +428,8 @@ def render_war_page(slug, result, season, outcome=None):
         body += "<h2>Adversaires</h2>" + "".join(other_tables)
 
     title = ", ".join(opponent_names(result, our_idx)) or slug
-    back_link = back_link_html(f"../seasons/{season}.html", f"Saison {season}")
-    html = PAGE_TEMPLATE.format(title=title, asset_prefix="../", body=body, back_link=back_link)
+    back_link = back_link_html(f"../seasons/{season}.html", f"Saison {season}", transition=True)
+    html = PAGE_TEMPLATE.format(title=title, asset_prefix="../", body=body, back_link=back_link, title_class="", v=ASSETS_VERSION)
     out_path = os.path.join(DOCS_DIR, "wars", slug + ".html")
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(html)
@@ -412,17 +442,18 @@ def render_season_page(season, wars_in_season, active_uids=frozenset()):
     for w in wars_in_season:
         our_idx = find_team_idx(w["result"]["guilds"], OUR_GUILD)
         opp = ", ".join(opponent_names(w["result"], our_idx)) or w["slug"]
-        frise_items.append((opp, f"../wars/{w['slug']}.html", w.get("outcome") == "win"))
+        above = str(w["war_number"]) if w.get("war_number") else None
+        frise_items.append((opp, f"../wars/{w['slug']}.html", w.get("outcome"), above))
 
     display_names, averages, efficience, tokens, buffs, maps_ = compute_wars_averages(wars_in_season)
 
-    body = render_frise(frise_items)
-    body += render_average_chart(display_names, averages, efficience, tokens, buffs, maps_, active_uids)
+    body = render_frise(frise_items, transition=True)
+    body += render_average_chart(display_names, averages, efficience, tokens, buffs, maps_, active_uids, scope="season")
     body += f'<div id="table-wrap">{render_history_table(wars_in_season, "../wars/")}</div>'
     body += '<div id="bareme-wrap"></div>'
 
-    back_link = back_link_html("../index.html", "Accueil", transition=True)
-    html = PAGE_TEMPLATE.format(title=f"Saison {season}", asset_prefix="../", body=body, back_link=back_link)
+    back_link = back_link_html("../index.html", "Classement général", transition=True)
+    html = PAGE_TEMPLATE.format(title=f"Saison {season}", asset_prefix="../", body=body, back_link=back_link, title_class="", v=ASSETS_VERSION)
     out_dir = os.path.join(DOCS_DIR, "seasons")
     os.makedirs(out_dir, exist_ok=True)
     with open(os.path.join(out_dir, f"{season}.html"), "w", encoding="utf-8") as f:
@@ -544,7 +575,7 @@ def render_metric_svg(metric_key, display_names, values, active_uids, fmt, ascen
     )
 
 
-def render_average_chart(display_names, averages, efficience, tokens, buffs, maps_, active_uids=frozenset()):
+def render_average_chart(display_names, averages, efficience, tokens, buffs, maps_, active_uids=frozenset(), scope="global"):
     """Chip-toggled bar chart: "Moyenne" (avg points, shown by default),
     "Efficience" (success rate = 1 - fails / (wins + finishes), so higher is
     better like every other metric here), and the Tokens/Buffs/Maps point
@@ -556,6 +587,19 @@ def render_average_chart(display_names, averages, efficience, tokens, buffs, map
 
     reussite_rate = {uid: 1 - v for uid, v in efficience.items()}
 
+    moyenne_legend = (
+        "Moyenne des scores cumulés sur la saison"
+        if scope == "season"
+        else "Moyenne des scores cumulés au global"
+    )
+    legends = {
+        "moyenne": moyenne_legend,
+        "efficience": "Taux de victoires + finishes",
+        "tokens": "Somme des points accumulés grâce aux tokens (de 5pts à 10pts)",
+        "buffs": "Somme des points accumulés en remportant une victoire sur une zone sous buff (MS: 2pts , Autres 0.5pts)",
+        "maps": "Somme des points accumulés en remportant une victoire sur une map difficile (de 0.5pts à 2pts)",
+    }
+
     metrics = [
         ("moyenne", "Moyenne", averages, lambda v: str(round_pts(v)), False),
         ("efficience", "Efficience", reussite_rate, lambda v: f"{v * 100:.0f}%", False),
@@ -565,7 +609,7 @@ def render_average_chart(display_names, averages, efficience, tokens, buffs, map
     ]
 
     chips = "".join(
-        f'<button type="button" class="chip{" active" if i == 0 else ""}" data-metric="{key}">{html_escape(label)}</button>'
+        f'<button type="button" class="chip{" active" if i == 0 else ""}" data-metric="{key}" data-legend="{html_escape(legends[key])}">{html_escape(label)}</button>'
         for i, (key, label, _values, _fmt, _ascending) in enumerate(metrics)
     )
 
@@ -575,20 +619,24 @@ def render_average_chart(display_names, averages, efficience, tokens, buffs, map
         svg = render_metric_svg(key, display_names, values, active_uids, fmt, ascending=ascending)
         charts.append(f'<div class="chart-scroll" data-metric="{key}"{style}>{svg}</div>')
 
-    return f'<div id="chart-wrap"><div class="chips">{chips}</div>{"".join(charts)}</div>'
+    return (
+        f'<div id="chart-wrap"><div class="chips">{chips}</div>'
+        f'<p class="chart-legend">{html_escape(legends["moyenne"])}</p>'
+        f'{"".join(charts)}</div>'
+    )
 
 
 def render_index(seasons, active_uids=frozenset()):
     season_numbers = sorted(seasons.keys())
-    frise_items = [(f"Saison {s}", f"seasons/{s}.html", False) for s in season_numbers]
+    frise_items = [(f"Saison {s}", f"seasons/{s}.html", None, None) for s in season_numbers]
     season_stats, display_names, totals, war_counts, averages, efficience, tokens, buffs, maps_ = compute_season_averages(seasons)
 
     body = render_frise(frise_items, transition=True)
-    body += render_average_chart(display_names, averages, efficience, tokens, buffs, maps_, active_uids)
+    body += render_average_chart(display_names, averages, efficience, tokens, buffs, maps_, active_uids, scope="global")
     body += f'<div id="table-wrap">{render_season_average_table(season_numbers, season_stats, display_names, averages)}</div>'
     body += f'<div id="bareme-wrap">{BAREME_HTML}</div>'
 
-    html = PAGE_TEMPLATE.format(title="LJP Wars", asset_prefix="", body=body, back_link="")
+    html = PAGE_TEMPLATE.format(title="Classement général", asset_prefix="", body=body, back_link="", title_class="hero-title", v=ASSETS_VERSION)
     with open(os.path.join(DOCS_DIR, "index.html"), "w", encoding="utf-8") as f:
         f.write(html)
 

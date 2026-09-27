@@ -14,5 +14,7 @@
     wrap.querySelectorAll(".chart-scroll[data-metric]").forEach(function (el) {
       el.style.display = el.dataset.metric === chip.dataset.metric ? "" : "none";
     });
+    const legend = wrap.querySelector(".chart-legend");
+    if (legend) legend.textContent = chip.dataset.legend || "";
   });
 })();

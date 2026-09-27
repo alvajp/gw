@@ -28,7 +28,16 @@ header a {
 .breadcrumb {
   min-height: 1.35rem;
 }
-h1 { margin: 0.3rem 0 1rem; }
+h1 {
+  margin: 0.3rem 0 1rem;
+  /* Fixed (not font-size-relative) so the header is exactly the same total
+     height on every page shape, regardless of which title class is active
+     -- otherwise index's bigger hero-title makes the header taller than a
+     season/war page's, and swapping between them on nav shifts everything
+     below (the frise!) up or down. */
+  line-height: 3rem;
+}
+h1.hero-title { font-size: 2.5rem; }
 .table-scroll {
   overflow-x: auto;
   margin-bottom: 2rem;
@@ -72,16 +81,24 @@ ul { line-height: 1.8; }
 
 .frise-wrap {
   position: relative;
-  margin: 1.5rem 0 2.5rem;
+  /* Top margin trimmed by exactly the 1.1rem the war-number caption needs
+     (see .frise below): the caption floats in that reclaimed space via
+     absolute positioning, so the dot/label/line keep the exact page
+     position they had before captions existed -- nothing else shifts,
+     whether or not a given frise has captions. */
+  margin: 0.4rem 0 2.5rem;
 }
 .frise-wrap::before {
   /* Bleeds past header/main's own left/right gutter so the line reaches the
      true edge of the page container instead of stopping short at the inner
      padding -- .frise-scroll can't host this itself since its overflow-x:auto
-     would clip anything sticking out past its own box. */
+     would clip anything sticking out past its own box. Top offset must pass
+     through the dot's vertical center: .frise's own margin-top (1.1rem) +
+     .frise-scroll's padding-top (0.5rem) + half the dot's height
+     (14px/2 = 0.4375rem) = 2.0375rem. */
   content: "";
   position: absolute;
-  top: 0.9rem;
+  top: 2.0375rem;
   left: calc(var(--gutter) * -1);
   right: calc(var(--gutter) * -1);
   height: 2px;
@@ -89,16 +106,31 @@ ul { line-height: 1.8; }
 }
 .frise-scroll {
   overflow-x: auto;
+  /* Lives here rather than on .frise itself: .frise is the positioned
+     ancestor for .frise-old-layer (position:absolute), and an absolutely
+     positioned child's "top:0" ignores its containing block's own padding
+     -- so during the transition, the outgoing items would snap 0.5rem
+     higher than where they normally sit in-flow. Padding on this
+     non-positioned wrapper applies equally to both cases. */
+  padding: 0.5rem 0.5rem 0.5rem 0;
 }
 .frise {
   display: flex;
   align-items: flex-start;
-  gap: 2.5rem;
-  padding: 0.5rem 0.5rem 0.5rem 0;
+  gap: 1.5rem;
   position: relative;
   width: max-content;
   min-width: 100%;
   box-sizing: border-box;
+  /* Reserves room for .frise-above above the dots without pushing the dots
+     themselves down -- margin (unlike padding on this same element) doesn't
+     shift the padding-edge origin that .frise-old-layer's "top:0" resolves
+     against, so it can't reintroduce the padding-mismatch bug described
+     above. Also margin (unlike frise-scroll's padding) sits outside this
+     element's own box, so it isn't clipped by the "overflow:hidden" that
+     .frise-transitioning applies to this same element during a page
+     transition -- padding here would've made captions flicker-clip mid-animation. */
+  margin-top: 1.1rem;
 }
 .frise-item {
   display: flex;
@@ -116,14 +148,30 @@ ul { line-height: 1.8; }
   border-radius: 50%;
   background: #9aa4ff;
   border: 2px solid #14161c;
+  transition: transform 150ms ease;
 }
 .frise-dot.frise-dot-win { background: #22c55e; }
+.frise-dot.frise-dot-loss { background: #ef4444; }
+.frise-item:hover .frise-dot { transform: scale(1.2); }
+.frise-above {
+  /* Absolutely positioned (not a normal flex child) so its presence/absence
+     never affects where the dot or label sit -- see .frise's margin-top
+     comment for where the space it floats in comes from. */
+  position: absolute;
+  top: -1.1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.7rem;
+  line-height: 1;
+  color: #8b8f9c;
+  white-space: nowrap;
+}
 
 .frise.frise-transitioning { overflow: hidden; }
 .frise-old-layer, .frise-new-layer {
   display: flex;
   align-items: flex-start;
-  gap: 2.5rem;
+  gap: 1.5rem;
 }
 .frise-old-layer {
   position: absolute;
@@ -160,15 +208,24 @@ ul { line-height: 1.8; }
 .result-badge.is-win { border-color: #22c55e; color: #22c55e; }
 .result-badge.is-loss { border-color: #ef4444; color: #ef4444; }
 .frise-label {
-  font-size: 0.8rem;
+  /* Navigation idiom: a link, not a toggle -- deliberately kept visually
+     distinct from .chip (filter idiom, see below) so hovering a frise item
+     doesn't read as "selecting" it the way an active chip does. Border is
+     transparent (not #2a2d38) so nothing shifts on hover, only the
+     background/dot react. */
+  position: relative;
+  font-size: 0.95rem;
   white-space: nowrap;
   text-align: center;
-  border: 1px solid #2a2d38;
+  border: 1px solid transparent;
   border-radius: 999px;
-  padding: 0.3rem 0.8rem;
+  padding: 0.5rem 1.1rem;
   background: #1e2129;
+  transition: background-color 150ms ease;
 }
-.frise-item:hover .frise-label { color: #9aa4ff; border-color: #9aa4ff; }
+.frise-item:hover .frise-label {
+  background: #262a35;
+}
 
 .chips {
   display: flex;
@@ -189,6 +246,11 @@ ul { line-height: 1.8; }
 }
 .chip:hover { background: #262a35; }
 .chip.active { border-color: #9aa4ff; color: #9aa4ff; }
+.chart-legend {
+  margin: 0 0 1rem;
+  font-size: 0.8rem;
+  color: #8b8f9c;
+}
 
 .chart-scroll {
   overflow-x: auto;
@@ -228,6 +290,13 @@ ul { line-height: 1.8; }
 @media (max-width: 480px) {
   :root { --gutter: 1rem; }
   h1 { font-size: 1.4rem; }
+  /* h1.hero-title (index only) is more specific than the plain h1 rule
+     above, so it wouldn't otherwise shrink on mobile -- left at 2.5rem, a
+     long title like "Classement général" wraps to 2 lines, which breaks
+     the fixed 3rem line-height's "same header height on every page" trick
+     (2 wrapped lines = 6rem, not 3rem) and shows up as the frise jumping
+     when navigating to/from a season page. */
+  h1.hero-title { font-size: 1.6rem; }
   table, th, td { font-size: 0.75rem; }
   th, td { padding: 0.25rem 0.4rem; }
 }
