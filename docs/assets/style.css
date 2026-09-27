@@ -25,21 +25,22 @@ header {
   /* Absolutely positioned (empty on every page but index) so its presence
      never adds to header's own flow height -- header must stay exactly the
      same height across page shapes for the frise not to jump on nav (see
-     h1's line-height comment). Vertical center matches the h1's own text
-     center: header's padding-top (1.5rem) + breadcrumb's min-height
-     (1.35rem -- fixed regardless of content, so this holds whether the
-     breadcrumb holds a back-link, index's guild-name label, or nothing) +
-     h1's margin-top (0.3rem) + half of h1's line-height (3rem / 2 = 1.5rem) =
-     4.65rem from header's top edge. This self-centers on the toggle's own
-     height (translateY(-50%)), so it holds regardless of the toggle's
-     exact size. */
+     h1's line-height comment). Sits on the breadcrumb's own line (header's
+     padding-top, 1.5rem from header's top edge) rather than centered on the
+     h1 -- a long title (e.g. shrunk "Classement général" wrapping) would
+     otherwise collide with it there, on any screen size, not just mobile.
+     Shares the breadcrumb's fixed min-height (1.35rem) so both lines up
+     regardless of which page/breakpoint. */
   position: absolute;
-  top: 4.65rem;
+  top: 1.5rem;
   right: var(--gutter);
-  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  height: 1.35rem;
 }
 .toggle {
   display: inline-flex;
+  flex-direction: row-reverse;
   align-items: center;
   gap: 0.6rem;
   border: none;
@@ -380,8 +381,9 @@ ul { line-height: 1.8; }
   table, th, td { font-size: 0.75rem; }
   th, td { padding: 0.25rem 0.4rem; }
   /* The toggle's longer label ("Joueurs actifs seulement") is wide enough
-     to crowd into the shrunk mobile title otherwise -- shrink the label
-     itself rather than the position math above, which stays valid at any
-     font-size since it's driven by line-height/margin, not text size. */
+     to crowd into the shrunk mobile breadcrumb/guild-name label otherwise --
+     shrink the label itself rather than the position math above (see
+     #header-extra), which stays valid at any font-size since it's driven by
+     line-height/margin, not text size. */
   #header-extra .toggle { font-size: 0.65rem; gap: 0.4rem; }
 }
