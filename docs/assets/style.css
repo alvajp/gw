@@ -71,11 +71,6 @@ th {
   user-select: none;
 }
 th:hover { background: #313745; }
-th a {
-  color: #e6e6ea;
-  text-decoration: none;
-}
-th a:hover { color: #9aa4ff; }
 tbody tr:nth-child(even) { background: #23262f; }
 ul { line-height: 1.8; }
 

@@ -287,7 +287,7 @@ def render_result_badge(outcome):
     return f'<p class="{cls}">{label}</p>'
 
 
-def render_history_table(wars_subset, war_href_prefix):
+def render_history_table(wars_subset):
     """wars_subset: list of war dicts (with 'slug' and 'result'), already in
     chronological order. Renders a Joueur x war-columns table with a Total
     column, restricted to players who were on OUR_GUILD's team in that war."""
@@ -306,9 +306,7 @@ def render_history_table(wars_subset, war_href_prefix):
 
     thead_cells = ["<th>Joueur</th>"]
     for w in wars_subset:
-        thead_cells.append(
-            f'<th><a href="{war_href_prefix}{w["slug"]}.html">{html_escape(header_labels[w["slug"]])}</a></th>'
-        )
+        thead_cells.append(f'<th>{html_escape(header_labels[w["slug"]])}</th>')
     thead_cells.append("<th>Total</th>")
     thead_cells.append("<th>Moyenne</th>")
     thead = "".join(thead_cells)
@@ -449,7 +447,7 @@ def render_season_page(season, wars_in_season, active_uids=frozenset()):
 
     body = render_frise(frise_items, transition=True)
     body += render_average_chart(display_names, averages, efficience, tokens, buffs, maps_, active_uids, scope="season")
-    body += f'<div id="table-wrap">{render_history_table(wars_in_season, "../wars/")}</div>'
+    body += f'<div id="table-wrap">{render_history_table(wars_in_season)}</div>'
     body += '<div id="bareme-wrap"></div>'
 
     back_link = back_link_html("../index.html", "Classement général", transition=True)
@@ -507,7 +505,7 @@ def render_season_average_table(season_numbers, season_stats, display_names, ave
     results), plus the overall Moyenne across every war played."""
     thead_cells = ["<th>Joueur</th>"]
     for season in season_numbers:
-        thead_cells.append(f'<th><a href="seasons/{season}.html">Saison {season}</a></th>')
+        thead_cells.append(f"<th>Saison {season}</th>")
     thead_cells.append("<th>Moyenne</th>")
     thead = "".join(thead_cells)
 
