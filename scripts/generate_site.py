@@ -242,7 +242,11 @@ def render_frise(items, transition=False):
             f'<a class="frise-item" href="{href}"{attr}><span class="{dot_class}"></span>'
             f'<span class="frise-label">{html_escape(label)}</span></a>'
         )
-    return '<div class="frise-scroll"><div class="frise" id="frise">' + "".join(lis) + "</div></div>"
+    return (
+        '<div class="frise-wrap"><div class="frise-scroll"><div class="frise" id="frise">'
+        + "".join(lis)
+        + "</div></div></div>"
+    )
 
 
 def render_result_badge(outcome):

@@ -1,3 +1,6 @@
+:root {
+  --gutter: 1.5rem;
+}
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   margin: 0;
@@ -8,8 +11,8 @@ body {
 header, main {
   max-width: 1400px;
   margin: 0 auto;
-  padding-left: 1.5rem;
-  padding-right: 1.5rem;
+  padding-left: var(--gutter);
+  padding-right: var(--gutter);
   box-sizing: border-box;
 }
 main { padding-bottom: 3rem; }
@@ -67,9 +70,25 @@ th a:hover { color: #9aa4ff; }
 tbody tr:nth-child(even) { background: #23262f; }
 ul { line-height: 1.8; }
 
+.frise-wrap {
+  position: relative;
+  margin: 1.5rem 0 2.5rem;
+}
+.frise-wrap::before {
+  /* Bleeds past header/main's own left/right gutter so the line reaches the
+     true edge of the page container instead of stopping short at the inner
+     padding -- .frise-scroll can't host this itself since its overflow-x:auto
+     would clip anything sticking out past its own box. */
+  content: "";
+  position: absolute;
+  top: 0.9rem;
+  left: calc(var(--gutter) * -1);
+  right: calc(var(--gutter) * -1);
+  height: 2px;
+  background: #2a2d38;
+}
 .frise-scroll {
   overflow-x: auto;
-  margin: 1.5rem 0 2.5rem;
 }
 .frise {
   display: flex;
@@ -80,15 +99,6 @@ ul { line-height: 1.8; }
   width: max-content;
   min-width: 100%;
   box-sizing: border-box;
-}
-.frise::before {
-  content: "";
-  position: absolute;
-  top: 0.9rem;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: #2a2d38;
 }
 .frise-item {
   display: flex;
@@ -216,10 +226,7 @@ ul { line-height: 1.8; }
 }
 
 @media (max-width: 480px) {
-  header, main {
-    padding-left: 1rem;
-    padding-right: 1rem;
-  }
+  :root { --gutter: 1rem; }
   h1 { font-size: 1.4rem; }
   table, th, td { font-size: 0.75rem; }
   th, td { padding: 0.25rem 0.4rem; }
