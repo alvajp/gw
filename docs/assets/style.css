@@ -17,8 +17,23 @@ header, main {
 }
 main { padding-bottom: 3rem; }
 header {
+  position: relative;
   padding-top: 1.5rem;
   padding-bottom: 0.5rem;
+}
+#header-extra {
+  /* Absolutely positioned (empty on every page but index) so its presence
+     never adds to header's own flow height -- header must stay exactly the
+     same height across page shapes for the frise not to jump on nav (see
+     h1's line-height comment). Vertical center matches the h1's own text
+     center: header's padding-top (1.5rem) + breadcrumb's min-height
+     (1.35rem, exact here since index's breadcrumb is always empty) + h1's
+     margin-top (0.3rem) + half of h1's line-height (3rem / 2 = 1.5rem) =
+     4.65rem from header's top edge. */
+  position: absolute;
+  top: 4.65rem;
+  right: var(--gutter);
+  transform: translateY(-50%);
 }
 header a {
   color: #9aa4ff;
@@ -294,4 +309,9 @@ ul { line-height: 1.8; }
   h1.hero-title { font-size: 1.6rem; }
   table, th, td { font-size: 0.75rem; }
   th, td { padding: 0.25rem 0.4rem; }
+  /* The toggle's longer label ("Joueurs actifs seulement") is wide enough
+     to crowd into the shrunk mobile title otherwise -- shrink the pill
+     itself rather than the position math above, which stays valid at any
+     font-size since it's driven by line-height/margin, not text size. */
+  #header-extra .chip { font-size: 0.65rem; padding: 0.3rem 0.6rem; }
 }

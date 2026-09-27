@@ -376,12 +376,13 @@ PAGE_TEMPLATE = """<!doctype html>
 <link rel="stylesheet" href="{asset_prefix}assets/style.css?v={v}">
 </head>
 <body>
-<header><div class="breadcrumb" id="breadcrumb">{back_link}</div><h1 id="page-title" class="{title_class}">{title}</h1></header>
+<header><div class="breadcrumb" id="breadcrumb">{back_link}</div><h1 id="page-title" class="{title_class}">{title}</h1><div id="header-extra">{header_extra}</div></header>
 <main>
 {body}
 </main>
 <script src="{asset_prefix}assets/sort-table.js?v={v}"></script>
 <script src="{asset_prefix}assets/chart-toggle.js?v={v}"></script>
+<script src="{asset_prefix}assets/active-toggle.js?v={v}"></script>
 <script src="{asset_prefix}assets/page-transition.js?v={v}"></script>
 </body>
 </html>"""
@@ -427,7 +428,7 @@ def render_war_page(slug, result, season, outcome=None):
 
     title = ", ".join(opponent_names(result, our_idx)) or slug
     back_link = back_link_html(f"../seasons/{season}.html", f"Saison {season}", transition=True)
-    html = PAGE_TEMPLATE.format(title=title, asset_prefix="../", body=body, back_link=back_link, title_class="", v=ASSETS_VERSION)
+    html = PAGE_TEMPLATE.format(title=title, asset_prefix="../", body=body, back_link=back_link, title_class="", header_extra="", v=ASSETS_VERSION)
     out_path = os.path.join(DOCS_DIR, "wars", slug + ".html")
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(html)
@@ -451,7 +452,7 @@ def render_season_page(season, wars_in_season, active_uids=frozenset()):
     body += '<div id="bareme-wrap"></div>'
 
     back_link = back_link_html("../index.html", "Classement général", transition=True)
-    html = PAGE_TEMPLATE.format(title=f"Saison {season}", asset_prefix="../", body=body, back_link=back_link, title_class="", v=ASSETS_VERSION)
+    html = PAGE_TEMPLATE.format(title=f"Saison {season}", asset_prefix="../", body=body, back_link=back_link, title_class="", header_extra="", v=ASSETS_VERSION)
     out_dir = os.path.join(DOCS_DIR, "seasons")
     os.makedirs(out_dir, exist_ok=True)
     with open(os.path.join(out_dir, f"{season}.html"), "w", encoding="utf-8") as f:
@@ -499,10 +500,13 @@ def compute_season_averages(seasons):
     return season_stats, display_names, totals, war_counts, averages, efficience, tokens, buffs, maps_
 
 
-def render_season_average_table(season_numbers, season_stats, display_names, averages):
+def render_season_average_table(season_numbers, season_stats, display_names, averages, active_uids=frozenset()):
     """Joueur x season table for the homepage: each season column shows the
     player's average points per war played that season (not the raw per-war
-    results), plus the overall Moyenne across every war played."""
+    results), plus the overall Moyenne across every war played. Rows are
+    tagged data-uid/data-active so the "Joueurs actifs seulement" header
+    toggle (active-toggle.js) can hide anyone not on the roster in the most
+    recently recorded war, without needing a server round-trip."""
     thead_cells = ["<th>Joueur</th>"]
     for season in season_numbers:
         thead_cells.append(f"<th>Saison {season}</th>")
@@ -519,7 +523,8 @@ def render_season_average_table(season_numbers, season_stats, display_names, ave
             entry = per_season.get(season)
             cells.append(f"<td>{round_pts(entry[0] / entry[1])}</td>" if entry else "<td>-</td>")
         cells.append(f"<td{value_to_bg(rounded_avg[uid], avg_lo, avg_hi)}>{rounded_avg[uid]}</td>")
-        body_rows.append("<tr>" + "".join(cells) + "</tr>")
+        is_active = "true" if uid in active_uids else "false"
+        body_rows.append(f'<tr data-uid="{uid}" data-active="{is_active}">' + "".join(cells) + "</tr>")
 
     return f"""<div class="table-scroll"><table class="sortable">
   <thead><tr>{thead}</tr></thead>
@@ -631,10 +636,23 @@ def render_index(seasons, active_uids=frozenset()):
 
     body = render_frise(frise_items, transition=True)
     body += render_average_chart(display_names, averages, efficience, tokens, buffs, maps_, active_uids, scope="global")
-    body += f'<div id="table-wrap">{render_season_average_table(season_numbers, season_stats, display_names, averages)}</div>'
+    body += f'<div id="table-wrap">{render_season_average_table(season_numbers, season_stats, display_names, averages, active_uids)}</div>'
     body += f'<div id="bareme-wrap">{BAREME_HTML}</div>'
 
-    html = PAGE_TEMPLATE.format(title="Classement général", asset_prefix="", body=body, back_link="", title_class="hero-title", v=ASSETS_VERSION)
+    # Header-level filter (not a .chips row filter like the chart's, since
+    # it acts on the table below rather than the page's own content, and
+    # needs to live at the title's height on the far right -- see
+    # #header-extra in style.css) toggling the roster down to just players
+    # present in the most recently recorded war. Starts off (shows
+    # everyone); active-toggle.js flips the label/state and hides
+    # data-active="false" rows.
+    active_toggle = (
+        '<button type="button" id="active-toggle" class="chip" '
+        'data-label-off="Tous les joueurs" data-label-on="Joueurs actifs seulement">'
+        "Tous les joueurs</button>"
+    )
+
+    html = PAGE_TEMPLATE.format(title="Classement général", asset_prefix="", body=body, back_link="", title_class="hero-title", header_extra=active_toggle, v=ASSETS_VERSION)
     with open(os.path.join(DOCS_DIR, "index.html"), "w", encoding="utf-8") as f:
         f.write(html)
 

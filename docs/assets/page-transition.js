@@ -356,6 +356,14 @@
         liveTitle.textContent = newTitle.textContent;
         if (liveBreadcrumb && newBreadcrumb) liveBreadcrumb.innerHTML = newBreadcrumb.innerHTML;
 
+        // #header-extra (e.g. index's "Joueurs actifs seulement" toggle) is
+        // absolutely positioned so it never factors into the header height
+        // lock/animate below -- just swap it in wholesale like bareme-wrap,
+        // always landing back in its default "off" markup on a fresh page.
+        const liveExtra = document.getElementById("header-extra");
+        const newExtra = doc.getElementById("header-extra");
+        if (liveExtra) liveExtra.innerHTML = newExtra ? newExtra.innerHTML : "";
+
         if (header && headerFromH != null) {
           // Measure the natural height with the new content, then relock to
           // the old height immediately (still in the same synchronous
