@@ -172,14 +172,15 @@ def compute_ranking(json_path, maps):
         for acr in ("AR", "FP", "AP", "AA", "LP"):
             ps["pts"] += buff_counts.get(acr, 0) * 0.5
 
-        for i, (zone_type, _name) in enumerate(hard_cols, start=1):
-            if zt == zone_type:
-                ps[f"hard{i}"] += 1
-                ps["pts"] += 2
-        for i, (zone_type, _name) in enumerate(easy_cols, start=1):
-            if zt == zone_type:
-                ps[f"easy{i}"] += 1
-                ps["pts"] += 0.5
+        if tier in ("win", "finish"):
+            for i, (zone_type, _name) in enumerate(hard_cols, start=1):
+                if zt == zone_type:
+                    ps[f"hard{i}"] += 1
+                    ps["pts"] += 2
+            for i, (zone_type, _name) in enumerate(easy_cols, start=1):
+                if zt == zone_type:
+                    ps[f"easy{i}"] += 1
+                    ps["pts"] += 0.5
 
     for ps in player_stats.values():
         ps["miss"] = max(0, TOKENS_PER_WAR - ps["played"])
