@@ -27,14 +27,54 @@ header {
      same height across page shapes for the frise not to jump on nav (see
      h1's line-height comment). Vertical center matches the h1's own text
      center: header's padding-top (1.5rem) + breadcrumb's min-height
-     (1.35rem, exact here since index's breadcrumb is always empty) + h1's
-     margin-top (0.3rem) + half of h1's line-height (3rem / 2 = 1.5rem) =
-     4.65rem from header's top edge. */
+     (1.35rem -- fixed regardless of content, so this holds whether the
+     breadcrumb holds a back-link, index's guild-name label, or nothing) +
+     h1's margin-top (0.3rem) + half of h1's line-height (3rem / 2 = 1.5rem) =
+     4.65rem from header's top edge. This self-centers on the toggle's own
+     height (translateY(-50%)), so it holds regardless of the toggle's
+     exact size. */
   position: absolute;
   top: 4.65rem;
   right: var(--gutter);
   transform: translateY(-50%);
 }
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  border: none;
+  background: none;
+  padding: 0;
+  color: #e6e6ea;
+  font-family: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.toggle-track {
+  position: relative;
+  flex-shrink: 0;
+  width: 2.2rem;
+  height: 1.2rem;
+  border-radius: 999px;
+  background: #2a2d38;
+  transition: background-color 150ms ease;
+}
+.toggle-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  background: #8b8f9c;
+  transition: transform 150ms ease, background-color 150ms ease;
+}
+.toggle.active .toggle-track { background: #31365e; }
+.toggle.active .toggle-thumb {
+  background: #9aa4ff;
+  transform: translateX(1rem);
+}
+.toggle-label { white-space: nowrap; }
 header a {
   color: #9aa4ff;
   text-decoration: none;
@@ -42,6 +82,12 @@ header a {
 }
 .breadcrumb {
   min-height: 1.35rem;
+}
+.breadcrumb-label {
+  /* Same visual format as the breadcrumb back-link (header a) -- just not a
+     link (nothing to navigate to from index) and no leading arrow. */
+  color: #9aa4ff;
+  font-size: 0.9rem;
 }
 h1 {
   margin: 0.3rem 0 1rem;
@@ -276,6 +322,30 @@ ul { line-height: 1.8; }
   fill: #e6e6ea;
   text-anchor: end;
 }
+.chart-axis-label {
+  /* Reference scale for the score box-plot's fixed 0-1600 y-axis (see
+     render_boxplot_svg) -- muted like .chart-legend so it reads as a
+     background gridline label, not a per-bar value like .chart-value. */
+  font-size: 9px;
+  fill: #8b8f9c;
+  text-anchor: end;
+}
+.chart-box-group {
+  transition: opacity 150ms ease;
+}
+.chart-box-group .chart-box,
+.chart-box-group .chart-median {
+  transition: filter 150ms ease;
+}
+.chart-box-group:hover .chart-box,
+.chart-box-group:hover .chart-median {
+  /* --accent is set inline per-group (see render_boxplot_svg) so the glow
+     matches that player's own indigo/green without a second CSS rule per
+     color -- same idea as .frise-dot-win/.frise-dot-loss but driven by a
+     custom property instead of a class, since the color here is chosen
+     per-player (active roster) rather than a fixed win/loss pair. */
+  filter: drop-shadow(0 0 4px var(--accent));
+}
 
 * {
   scrollbar-width: thin;
@@ -310,8 +380,8 @@ ul { line-height: 1.8; }
   table, th, td { font-size: 0.75rem; }
   th, td { padding: 0.25rem 0.4rem; }
   /* The toggle's longer label ("Joueurs actifs seulement") is wide enough
-     to crowd into the shrunk mobile title otherwise -- shrink the pill
+     to crowd into the shrunk mobile title otherwise -- shrink the label
      itself rather than the position math above, which stays valid at any
      font-size since it's driven by line-height/margin, not text size. */
-  #header-extra .chip { font-size: 0.65rem; padding: 0.3rem 0.6rem; }
+  #header-extra .toggle { font-size: 0.65rem; gap: 0.4rem; }
 }

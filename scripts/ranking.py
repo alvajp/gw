@@ -92,6 +92,12 @@ def blank_stats():
         "1600": 0, "1400": 0, "1200_1050": 0, "1100_850": 0, "650-": 0,
         "hard1": 0, "hard2": 0, "hard3": 0, "easy1": 0, "easy2": 0, "easy3": 0,
         "team": None,
+        # Raw per-battle "adj" score (see below) for every battle played --
+        # not derivable from the bucketed tier counts above, and needed for
+        # the site's per-player score-variance box plot. Only populated here
+        # (from real activityLogs); legacy_ranking.py has no per-battle data
+        # at all, so its player_stats simply omit this key.
+        "scores": [],
     }
 
 
@@ -133,6 +139,7 @@ def compute_ranking(json_path, maps):
         ps = player_stats[uid]
         ps["team"] = team
         ps["played"] += 1
+        ps["scores"].append(adj)
 
         if tier == "win":
             k = 5

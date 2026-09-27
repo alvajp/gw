@@ -163,9 +163,9 @@
     if (!newWrap) { liveWrap.innerHTML = ""; return; }
 
     // The chip toggle always resets to the default "Moyenne" metric on a
-    // fresh page; keep the hidden "Efficience" chart in sync instantly
-    // (it isn't visible, so no animation needed) and only animate the
-    // default chart below.
+    // fresh page; keep the hidden "Efficience"/"Tokens"/"Buffs"/"Maps" charts
+    // in sync instantly (they aren't visible, so no animation needed) and
+    // only animate the default chart below.
     const liveChips = liveWrap.querySelector(".chips");
     const newChips = newWrap.querySelector(".chips");
     if (liveChips && newChips) liveChips.outerHTML = newChips.outerHTML;
@@ -174,11 +174,31 @@
     const newLegend = newWrap.querySelector(".chart-legend");
     if (liveLegend) liveLegend.textContent = newLegend ? newLegend.textContent : "";
 
-    const liveScrolls = liveWrap.querySelectorAll(".chart-scroll[data-metric]");
-    const newScrolls = newWrap.querySelectorAll(".chart-scroll[data-metric]");
-    liveScrolls.forEach(function (el, i) {
-      el.style.display = i === 0 ? "" : "none";
-      if (i > 0 && newScrolls[i]) el.innerHTML = newScrolls[i].innerHTML;
+    // Matched by (metric, active-filter) key, NOT by position: index.html's
+    // wrap is filterable (2 scrolls per metric, "all"+"active") while a
+    // season page's isn't (1 scroll per metric, no data-active-filter attr
+    // at all) -- a positional match silently pairs up the wrong metrics
+    // whenever the two sides have a different scroll count (e.g. index's
+    // "victoire-all" landing on season's "tokens" scroll), which is
+    // exactly what made a chip sometimes reveal the wrong chart after a
+    // frise/breadcrumb transition. Missing data-active-filter is normalized
+    // to "all" on both sides so a season scroll (no attribute) matches
+    // index's own "all" variant of the same metric.
+    function scrollKey(el) {
+      return el.dataset.metric + "|" + (el.dataset.activeFilter || "all");
+    }
+    const newScrollsByKey = new Map();
+    newWrap.querySelectorAll(".chart-scroll[data-metric]").forEach(function (el) {
+      newScrollsByKey.set(scrollKey(el), el);
+    });
+    liveWrap.querySelectorAll(".chart-scroll[data-metric]").forEach(function (el) {
+      const key = scrollKey(el);
+      const isDefault = key === "moyenne|all";
+      el.style.display = isDefault ? "" : "none";
+      if (!isDefault) {
+        const match = newScrollsByKey.get(key);
+        el.innerHTML = match ? match.innerHTML : "";
+      }
     });
 
     const liveSvg = liveWrap.querySelector("#avg-chart-moyenne");
@@ -317,6 +337,15 @@
         if (liveFrise && newFrise) transitionFrise(liveFrise, newFrise.innerHTML);
 
         transitionChart(document.getElementById("chart-wrap"), doc.getElementById("chart-wrap"));
+
+        // #chart-wrap-scores (the score-variance box plot) is always
+        // rendered, even empty (see render_score_chart in generate_site.py),
+        // specifically so this can be a plain innerHTML swap regardless of
+        // whether either side of the navigation actually has per-battle data
+        // -- no FLIP animation like the points chart above, just correctness.
+        const liveScoreWrap = document.getElementById("chart-wrap-scores");
+        const newScoreWrap = doc.getElementById("chart-wrap-scores");
+        if (liveScoreWrap) liveScoreWrap.innerHTML = newScoreWrap ? newScoreWrap.innerHTML : "";
 
         const liveTableWrap = document.getElementById("table-wrap");
         const newTableWrap = doc.getElementById("table-wrap");

@@ -42,6 +42,10 @@ def _assets_version():
 ASSETS_VERSION = _assets_version()
 
 OUR_GUILD = "Les Joyeux Psychopathes !"
+# Shorter display form for the index page's header label (the in-game name
+# above is the exact string used to match team data, kept separate so
+# tightening it up cosmetically can't accidentally break that matching).
+OUR_GUILD_LABEL = "Les Joyeux Psychos"
 
 COLS = [
     ("pts", "Points"), ("reussites", "Tokens"), ("buffs_pts", "Buffs"), ("map_pts", "Maps"),
@@ -334,37 +338,55 @@ def render_history_table(wars_subset):
 
 def compute_wars_averages(wars_subset):
     """uid -> average points across wars_subset (OUR_GUILD's team only), plus
-    display names, an "efficience" ratio ((fails + misses) / (wins + finishes)),
-    and the Tokens/Buffs/Maps point totals (column-wise sums of the same
-    breakdown shown in the per-war tables) summed across every war played."""
+    display names, a "win_rate" ((wins + finishes) / all 10 tokens per war,
+    i.e. (win+finish) / (win+finish+fail+miss) -- a literal "chance of
+    getting a positive outcome (win or finish) out of every token available",
+    counting an unused token (miss) as a negative outcome just like a fail;
+    see compute_season_averages for why this replaced the old fails-vs-wins
+    "efficience" ratio), and the Tokens/Buffs/Maps point averages (column-wise
+    sums of the same breakdown shown in the per-war tables, divided by the
+    number of wars where that player's score was counted -- same denominator
+    as the points average for Tokens/Buffs, but a separate denominator for
+    Maps: legacy wars (see legacy_ranking.py) have no hard_cols/easy_cols at
+    all -- the map bonus is unrecoverable from their hand-transcribed source,
+    not legitimately zero -- so counting them here would understate the
+    average instead of just excluding wars where the metric genuinely
+    couldn't be scored."""
     history = defaultdict(list)
-    fail_miss_win_finish = defaultdict(lambda: [0, 0, 0, 0])
+    win_fail_finish_miss = defaultdict(lambda: [0, 0, 0, 0])
     tokens, buffs, maps_ = defaultdict(float), defaultdict(float), defaultdict(float)
+    maps_counts = defaultdict(int)
     display_names = {}
     for w in wars_subset:
         result = w["result"]
         our_idx = find_team_idx(result["guilds"], OUR_GUILD)
         hard_cols, easy_cols = result["hard_cols"], result["easy_cols"]
+        maps_scored = bool(hard_cols or easy_cols)
         for uid, ps in result["player_stats"].items():
             if ps["team"] != our_idx:
                 continue
             history[uid].append(ps["pts"])
-            fmwf = fail_miss_win_finish[uid]
-            fmwf[0] += ps["fail"]
-            fmwf[1] += ps["miss"]
-            fmwf[2] += ps["win"]
-            fmwf[3] += ps["finish"]
+            wffm = win_fail_finish_miss[uid]
+            wffm[0] += ps["win"]
+            wffm[1] += ps["fail"]
+            wffm[2] += ps["finish"]
+            wffm[3] += ps["miss"]
             reussites, buffs_pts, map_pts = compute_pts_breakdown(ps, hard_cols, easy_cols)
             tokens[uid] += reussites
             buffs[uid] += buffs_pts
-            maps_[uid] += map_pts
+            if maps_scored:
+                maps_[uid] += map_pts
+                maps_counts[uid] += 1
             display_names[uid] = result["players"].get(uid, {}).get("displayName", uid)
     averages = {uid: sum(pts) / len(pts) for uid, pts in history.items()}
-    efficience = {
-        uid: ((fail + miss) / (win + finish) if (win + finish) > 0 else 0.0)
-        for uid, (fail, miss, win, finish) in fail_miss_win_finish.items()
+    tokens = {uid: v / len(history[uid]) for uid, v in tokens.items()}
+    buffs = {uid: v / len(history[uid]) for uid, v in buffs.items()}
+    maps_ = {uid: v / maps_counts[uid] for uid, v in maps_.items() if maps_counts[uid]}
+    win_rate = {
+        uid: ((win + finish) / (win + fail + finish + miss) if (win + fail + finish + miss) > 0 else 0.0)
+        for uid, (win, fail, finish, miss) in win_fail_finish_miss.items()
     }
-    return display_names, averages, efficience, tokens, buffs, maps_
+    return display_names, averages, win_rate, tokens, buffs, maps_
 
 
 PAGE_TEMPLATE = """<!doctype html>
@@ -444,10 +466,12 @@ def render_season_page(season, wars_in_season, active_uids=frozenset()):
         above = str(w["war_number"]) if w.get("war_number") else None
         frise_items.append((opp, f"../wars/{w['slug']}.html", w.get("outcome"), above))
 
-    display_names, averages, efficience, tokens, buffs, maps_ = compute_wars_averages(wars_in_season)
+    display_names, averages, win_rate, tokens, buffs, maps_ = compute_wars_averages(wars_in_season)
+    score_display_names, score_distributions = compute_score_distributions(wars_in_season)
 
     body = render_frise(frise_items, transition=True)
-    body += render_average_chart(display_names, averages, efficience, tokens, buffs, maps_, active_uids, scope="season")
+    body += render_average_chart(display_names, averages, win_rate, tokens, buffs, maps_, active_uids, scope="season")
+    body += render_score_chart(score_display_names, score_distributions, active_uids)
     body += f'<div id="table-wrap">{render_history_table(wars_in_season)}</div>'
     body += '<div id="bareme-wrap"></div>'
 
@@ -461,43 +485,69 @@ def render_season_page(season, wars_in_season, active_uids=frozenset()):
 
 def compute_season_averages(seasons):
     """uid -> per-season [sum_pts, war_count], plus display names, overall
-    totals/war-counts/averages across every war played on OUR_GUILD's team,
-    an overall "efficience" ratio ((fails + misses) / (wins + finishes)), and
-    the Tokens/Buffs/Maps point totals summed across every war played."""
+    totals/war-counts/averages across every war played on OUR_GUILD's team, an
+    overall "win_rate" ((wins + finishes) / all 10 tokens per war, i.e.
+    (win+finish) / (win+finish+fail+miss) -- a literal "chance of getting a
+    positive outcome (win or finish) out of every token available", counting
+    an unused token (miss) as a negative outcome just like a fail -- e.g. 6
+    wins + 1 finish out of 10 tokens is a straightforward 70%), and the
+    Tokens/Buffs/Maps point averages (summed across every war played, then
+    divided by war_counts for Tokens/Buffs -- same denominator as the points
+    average -- but by a separate maps_counts for Maps: legacy wars (see
+    legacy_ranking.py) have no hard_cols/easy_cols at all, so the map bonus is
+    unrecoverable there rather than legitimately zero; counting those wars in
+    the denominator would understate the average instead of just excluding
+    wars where the metric genuinely couldn't be scored).
+
+    win_rate replaced an earlier "efficience" ratio ((fails + misses) /
+    (wins + finishes)) shown inverted as "1 - efficience" -- that ratio
+    compares fails+misses directly against wins+finishes rather than against
+    the total tokens available, so a bad enough war (more fails+misses than
+    wins/finishes) pushed it past 100%, showing as a nonsensical negative
+    "success rate" (e.g. -22%). win_rate is a true fraction of an
+    always-larger-or-equal denominator (win+fail+finish+miss, i.e. every
+    token), so it can't leave the 0-100% range."""
     season_stats = defaultdict(dict)  # uid -> season -> [sum_pts, war_count]
-    fail_miss_win_finish = defaultdict(lambda: [0, 0, 0, 0])
+    win_fail_finish_miss = defaultdict(lambda: [0, 0, 0, 0])
     tokens, buffs, maps_ = defaultdict(float), defaultdict(float), defaultdict(float)
+    maps_counts = defaultdict(int)
     display_names = {}
     for season, wars_in_season in seasons.items():
         for w in wars_in_season:
             result = w["result"]
             our_idx = find_team_idx(result["guilds"], OUR_GUILD)
             hard_cols, easy_cols = result["hard_cols"], result["easy_cols"]
+            maps_scored = bool(hard_cols or easy_cols)
             for uid, ps in result["player_stats"].items():
                 if ps["team"] != our_idx:
                     continue
                 entry = season_stats[uid].setdefault(season, [0.0, 0])
                 entry[0] += ps["pts"]
                 entry[1] += 1
-                fmwf = fail_miss_win_finish[uid]
-                fmwf[0] += ps["fail"]
-                fmwf[1] += ps["miss"]
-                fmwf[2] += ps["win"]
-                fmwf[3] += ps["finish"]
+                wffm = win_fail_finish_miss[uid]
+                wffm[0] += ps["win"]
+                wffm[1] += ps["fail"]
+                wffm[2] += ps["finish"]
+                wffm[3] += ps["miss"]
                 reussites, buffs_pts, map_pts = compute_pts_breakdown(ps, hard_cols, easy_cols)
                 tokens[uid] += reussites
                 buffs[uid] += buffs_pts
-                maps_[uid] += map_pts
+                if maps_scored:
+                    maps_[uid] += map_pts
+                    maps_counts[uid] += 1
                 display_names[uid] = result["players"].get(uid, {}).get("displayName", uid)
 
     totals = {uid: sum(s for s, _ in per_season.values()) for uid, per_season in season_stats.items()}
     war_counts = {uid: sum(c for _, c in per_season.values()) for uid, per_season in season_stats.items()}
     averages = {uid: totals[uid] / war_counts[uid] for uid in season_stats}
-    efficience = {
-        uid: ((fail + miss) / (win + finish) if (win + finish) > 0 else 0.0)
-        for uid, (fail, miss, win, finish) in fail_miss_win_finish.items()
+    tokens = {uid: v / war_counts[uid] for uid, v in tokens.items()}
+    buffs = {uid: v / war_counts[uid] for uid, v in buffs.items()}
+    maps_ = {uid: v / maps_counts[uid] for uid, v in maps_.items() if maps_counts[uid]}
+    win_rate = {
+        uid: ((win + finish) / (win + fail + finish + miss) if (win + fail + finish + miss) > 0 else 0.0)
+        for uid, (win, fail, finish, miss) in win_fail_finish_miss.items()
     }
-    return season_stats, display_names, totals, war_counts, averages, efficience, tokens, buffs, maps_
+    return season_stats, display_names, totals, war_counts, averages, win_rate, tokens, buffs, maps_
 
 
 def render_season_average_table(season_numbers, season_stats, display_names, averages, active_uids=frozenset()):
@@ -532,12 +582,14 @@ def render_season_average_table(season_numbers, season_stats, display_names, ave
 </table></div>"""
 
 
-def render_metric_svg(metric_key, display_names, values, active_uids, fmt, ascending=False):
+def render_metric_svg(metric_key, display_names, values, active_uids, fmt, ascending=False, id_suffix=""):
     """One inline SVG bar chart for a single metric, players sorted with the
     "best" value leftmost (highest first by default, or lowest first when
     `ascending` is set — e.g. for "Efficience" where lower is better). Bars
     for players present in the most recent war are highlighted green to show
-    who's currently active."""
+    who's currently active. id_suffix disambiguates the "active players only"
+    variant rendered alongside the full one on index.html (see
+    render_average_chart) so both can coexist without a duplicate SVG id."""
     order = sorted(values, key=lambda u: values[u] if ascending else -values[u])
     if not order:
         return ""
@@ -573,22 +625,24 @@ def render_metric_svg(metric_key, display_names, values, active_uids, fmt, ascen
         )
 
     return (
-        f'<svg id="avg-chart-{metric_key}" viewBox="0 0 {width} {height}" width="{width}" height="{height}" '
+        f'<svg id="avg-chart-{metric_key}{id_suffix}" viewBox="0 0 {width} {height}" width="{width}" height="{height}" '
         f'xmlns="http://www.w3.org/2000/svg">' + "".join(bars) + "</svg>"
     )
 
 
-def render_average_chart(display_names, averages, efficience, tokens, buffs, maps_, active_uids=frozenset(), scope="global"):
+def render_average_chart(display_names, averages, win_rate, tokens, buffs, maps_, active_uids=frozenset(), scope="global", filterable=False):
     """Chip-toggled bar chart: "Moyenne" (avg points, shown by default),
-    "Efficience" (success rate = 1 - fails / (wins + finishes), so higher is
-    better like every other metric here), and the Tokens/Buffs/Maps point
-    totals (column-wise sums of the same breakdown shown in the per-war
-    tables), all rendered up front as static inline SVGs (no JS dependency
+    "Victoire" ((wins + finishes) / all 10 tokens per war -- a literal
+    chance-of-a-positive-outcome percentage, replacing an earlier
+    "Efficience" ratio that compared fails+misses directly to wins+finishes
+    and could exceed 100%, see compute_season_averages), and the
+    Tokens/Buffs/Maps point averages
+    (column-wise sums of the same breakdown shown in the per-war tables,
+    divided by the number of wars counted -- same denominator as "Moyenne"
+    itself), all rendered up front as static inline SVGs (no JS dependency
     beyond the show/hide toggle)."""
     if not averages:
         return ""
-
-    reussite_rate = {uid: 1 - v for uid, v in efficience.items()}
 
     moyenne_legend = (
         "Moyenne des scores cumulés sur la saison"
@@ -597,15 +651,15 @@ def render_average_chart(display_names, averages, efficience, tokens, buffs, map
     )
     legends = {
         "moyenne": moyenne_legend,
-        "efficience": "Taux de victoires + finishes",
-        "tokens": "Somme des points accumulés grâce aux tokens (de 5pts à 10pts)",
-        "buffs": "Somme des points accumulés en remportant une victoire sur une zone sous buff (MS: 2pts , Autres 0.5pts)",
-        "maps": "Somme des points accumulés en remportant une victoire sur une map difficile (de 0.5pts à 2pts)",
+        "victoire": "Probabilité de victoire ou finish sur un token ((victoires + finishes) / 10 tokens)",
+        "tokens": "Moyenne des points accumulés grâce aux tokens (de 5pts à 10pts)",
+        "buffs": "Moyenne des points accumulés en remportant une victoire sur une zone sous buff (MS: 2pts , Autres 0.5pts)",
+        "maps": "Moyenne des points accumulés en remportant une victoire sur une map difficile (de 0.5pts à 2pts)",
     }
 
     metrics = [
         ("moyenne", "Moyenne", averages, lambda v: str(round_pts(v)), False),
-        ("efficience", "Efficience", reussite_rate, lambda v: f"{v * 100:.0f}%", False),
+        ("victoire", "Victoire", win_rate, lambda v: f"{v * 100:.0f}%", False),
         ("tokens", "Tokens", tokens, lambda v: str(round_pts(v)), False),
         ("buffs", "Buffs", buffs, lambda v: str(round_pts(v)), False),
         ("maps", "Maps", maps_, lambda v: str(round_pts(v)), False),
@@ -620,39 +674,250 @@ def render_average_chart(display_names, averages, efficience, tokens, buffs, map
     for i, (key, _label, values, fmt, ascending) in enumerate(metrics):
         style = "" if i == 0 else ' style="display:none"'
         svg = render_metric_svg(key, display_names, values, active_uids, fmt, ascending=ascending)
-        charts.append(f'<div class="chart-scroll" data-metric="{key}"{style}>{svg}</div>')
+        if filterable:
+            # Pre-render an "active players only" variant alongside the full
+            # one so the header's roster toggle (active-toggle.js) can just
+            # show/hide the right static SVG, same static-content philosophy
+            # as the metric chips themselves -- no client-side layout math
+            # to re-flow bars after removing some.
+            active_values = {uid: v for uid, v in values.items() if uid in active_uids}
+            active_svg = render_metric_svg(
+                key, display_names, active_values, active_uids, fmt, ascending=ascending, id_suffix="-active"
+            )
+            charts.append(f'<div class="chart-scroll" data-metric="{key}" data-active-filter="all"{style}>{svg}</div>')
+            charts.append(f'<div class="chart-scroll" data-metric="{key}" data-active-filter="active" style="display:none">{active_svg}</div>')
+        else:
+            charts.append(f'<div class="chart-scroll" data-metric="{key}"{style}>{svg}</div>')
 
+    wrap_attr = ' data-active-filter="all"' if filterable else ""
     return (
-        f'<div id="chart-wrap"><div class="chips">{chips}</div>'
+        f'<div id="chart-wrap" class="chart-wrap"{wrap_attr}><div class="chips">{chips}</div>'
         f'<p class="chart-legend">{html_escape(legends["moyenne"])}</p>'
         f'{"".join(charts)}</div>'
+    )
+
+
+def compute_quartiles(values):
+    """(q1, median, q3) via linear interpolation between the two nearest
+    ranks (same convention as numpy's/statistics's default "linear" method),
+    for a non-empty list of raw values."""
+    xs = sorted(values)
+    n = len(xs)
+
+    def pct(p):
+        if n == 1:
+            return xs[0]
+        idx = p * (n - 1)
+        lo = int(math.floor(idx))
+        hi = min(lo + 1, n - 1)
+        frac = idx - lo
+        return xs[lo] + (xs[hi] - xs[lo]) * frac
+
+    return pct(0.25), pct(0.5), pct(0.75)
+
+
+def compute_score_distributions(wars_list):
+    """uid -> list of individual battle scores (the same "adj" score used to
+    classify win/fail/finish tiers in ranking.py, roughly 0-1600) across every
+    battle OUR_GUILD's team played in wars_list, plus display names. Legacy
+    wars (see legacy_ranking.py) carry no per-battle data at all -- only
+    hand-transcribed aggregate counts -- so they simply contribute nothing
+    here rather than a fabricated value."""
+    display_names = {}
+    scores = defaultdict(list)
+    for w in wars_list:
+        result = w["result"]
+        our_idx = find_team_idx(result["guilds"], OUR_GUILD)
+        for uid, ps in result["player_stats"].items():
+            if ps["team"] != our_idx:
+                continue
+            battle_scores = ps.get("scores")
+            if battle_scores:
+                scores[uid].extend(battle_scores)
+            display_names[uid] = result["players"].get(uid, {}).get("displayName", uid)
+    return display_names, scores
+
+
+def render_boxplot_svg(display_names, distributions, active_uids, id_suffix=""):
+    """One inline SVG "capsule" box-plot chart, sorted by descending median
+    like the other metrics' "higher is better" bars. Unlike render_metric_svg,
+    the y-axis is a FIXED 0-1600 domain (the raw battle score range, not the
+    tier points) rather than auto-scaled to the data -- a fixed domain is what
+    lets a "tight" box genuinely read as low variance at a glance, both
+    against other players and across page navigations, instead of always
+    being stretched to fill the chart. Gridlines/ticks are drawn for the same
+    reason: a fixed domain only reads correctly with a reference scale,
+    whereas the auto-scaled bar charts don't need one.
+
+    Each player is a <g> "capsule": a thin min-max whisker (with small end
+    caps) behind a filled, translucent, rounded Q1-Q3 box, capped with a bold
+    solid median tick -- filled/rounded rather than the plain stroked-outline
+    rect of a classic box-plot so it reads as a first-class chart idiom next
+    to the site's existing pill-shaped chips/badges, not a spreadsheet
+    artifact. The whole group gets a CSS hover glow (see .chart-box-group in
+    style.css) driven by a per-group --accent custom property, so the glow
+    color matches that player's own indigo/green regardless of active-roster
+    state without needing a second CSS rule per color."""
+    # Sorted by descending median first, then descending Q1, then descending
+    # Q3 as tie-breakers (in that order) -- ties on the median alone are
+    # common with a small, discrete set of possible battle scores, and
+    # without a tie-breaker Python's sort would leave those players in
+    # whatever order dict iteration happened to give them, so the chart's
+    # ordering would look arbitrary/unstable across regenerations.
+    def sort_key(u):
+        q1, med, q3 = compute_quartiles(distributions[u])
+        return (-med, -q1, -q3)
+
+    order = sorted((uid for uid, vals in distributions.items() if vals), key=sort_key)
+    if not order:
+        return ""
+
+    bar_width, gap = 22, 6
+    left_pad = 40
+    chart_h, top_pad, bottom_pad = 220, 28, 130
+    y_max = 1600
+    width = left_pad + gap + len(order) * (bar_width + gap)
+    height = top_pad + chart_h + bottom_pad
+
+    def y_of(v):
+        return top_pad + chart_h - (max(0.0, min(v, y_max)) / y_max) * chart_h
+
+    axis = []
+    for tick in (0, 400, 800, 1200, 1600):
+        ty = y_of(tick)
+        axis.append(
+            f'<line x1="{left_pad:.1f}" y1="{ty:.1f}" x2="{width:.1f}" y2="{ty:.1f}" '
+            f'stroke="#2a2d38" stroke-width="1"/>'
+        )
+        axis.append(f'<text x="{left_pad - 6:.1f}" y="{ty + 3:.1f}" class="chart-axis-label">{tick}</text>')
+
+    bars = []
+    for i, uid in enumerate(order):
+        vals = distributions[uid]
+        q1, med, q3 = compute_quartiles(vals)
+        lo, hi = min(vals), max(vals)
+        x = left_pad + gap + i * (bar_width + gap)
+        cx = x + bar_width / 2
+        color = "#22c55e" if uid in active_uids else "#9aa4ff"
+        y_lo, y_hi = y_of(lo), y_of(hi)
+        y_q1, y_q3, y_med = y_of(q1), y_of(q3), y_of(med)
+        cap_half = bar_width * 0.22
+
+        bars.append(f'<g class="chart-box-group" data-uid="{uid}" style="--accent:{color}">')
+        # Whisker first (drawn behind the box): full min-max spread, muted so
+        # the eye lands on the box/median first and treats this as context.
+        bars.append(
+            f'<line class="chart-whisker" x1="{cx:.1f}" y1="{y_lo:.1f}" x2="{cx:.1f}" y2="{y_hi:.1f}" '
+            f'stroke="#4b5160" stroke-width="1.5" stroke-linecap="round"/>'
+        )
+        for cap_y in (y_lo, y_hi):
+            bars.append(
+                f'<line class="chart-whisker-cap" x1="{cx - cap_half:.1f}" y1="{cap_y:.1f}" '
+                f'x2="{cx + cap_half:.1f}" y2="{cap_y:.1f}" stroke="#4b5160" stroke-width="1.5" '
+                f'stroke-linecap="round"/>'
+            )
+        bars.append(
+            f'<rect class="chart-box" data-uid="{uid}" x="{x:.1f}" y="{y_q3:.1f}" '
+            f'width="{bar_width}" height="{max(1.0, y_q1 - y_q3):.1f}" rx="7" fill="{color}" '
+            f'fill-opacity="0.22" stroke="{color}" stroke-width="1.5"/>'
+        )
+        bars.append(
+            f'<line class="chart-median" data-uid="{uid}" x1="{x + 3:.1f}" y1="{y_med:.1f}" '
+            f'x2="{x + bar_width - 3:.1f}" y2="{y_med:.1f}" stroke="{color}" stroke-width="3" '
+            f'stroke-linecap="round"/>'
+        )
+        label_y = top_pad + chart_h + 12
+        bars.append(
+            f'<text data-uid="{uid}" x="{cx:.1f}" y="{label_y}" class="chart-label" '
+            f'transform="rotate(-60 {cx:.1f} {label_y})">{html_escape(display_names[uid])}</text>'
+        )
+        bars.append('</g>')
+
+    return (
+        f'<svg id="score-chart{id_suffix}" viewBox="0 0 {width} {height}" width="{width}" height="{height}" '
+        f'xmlns="http://www.w3.org/2000/svg">' + "".join(axis) + "".join(bars) + "</svg>"
+    )
+
+
+def render_score_chart(display_names, distributions, active_uids=frozenset(), filterable=False):
+    """New section below the points histogram: per-player score *variance*
+    (the raw per-battle score used to classify win/fail/finish tiers, not the
+    tier points themselves) shown as a box (Q1-Q3) + median line on a fixed
+    0-1600 y-axis. Just one "Scores" chip for now (reusing the .chips/.chip
+    idiom so it looks like a sibling of the chart above, room to add more
+    variance-flavored metrics later).
+
+    Always returns a (possibly empty) #chart-wrap-scores div, even when this
+    scope has no per-battle data at all (e.g. a season made up entirely of
+    legacy wars, see legacy_ranking.py) -- same "always present, sometimes
+    empty" shape as #header-extra, so page-transition.js can sync it on
+    client-side nav with a plain innerHTML swap without needing to know in
+    advance whether either side of the navigation has data."""
+    if not any(distributions.values()):
+        return '<div id="chart-wrap-scores" class="chart-wrap"></div>'
+
+    legend = "Médiane et quartiles (25%-75%) des scores individuels par bataille"
+    chip = f'<button type="button" class="chip active" data-metric="scores" data-legend="{html_escape(legend)}">Scores</button>'
+
+    svg = render_boxplot_svg(display_names, distributions, active_uids)
+    if filterable:
+        # Same static-precomputation approach as the chart above: pre-render
+        # the "active players only" variant so the header's roster toggle
+        # can just show/hide the right static SVG.
+        active_distributions = {uid: vals for uid, vals in distributions.items() if uid in active_uids}
+        active_svg = render_boxplot_svg(display_names, active_distributions, active_uids, id_suffix="-active")
+        charts = (
+            f'<div class="chart-scroll" data-metric="scores" data-active-filter="all">{svg}</div>'
+            f'<div class="chart-scroll" data-metric="scores" data-active-filter="active" style="display:none">{active_svg}</div>'
+        )
+    else:
+        charts = f'<div class="chart-scroll" data-metric="scores">{svg}</div>'
+
+    wrap_attr = ' data-active-filter="all"' if filterable else ""
+    return (
+        f'<div id="chart-wrap-scores" class="chart-wrap"{wrap_attr}><div class="chips">{chip}</div>'
+        f'<p class="chart-legend">{html_escape(legend)}</p>'
+        f'{charts}</div>'
     )
 
 
 def render_index(seasons, active_uids=frozenset()):
     season_numbers = sorted(seasons.keys())
     frise_items = [(f"Saison {s}", f"seasons/{s}.html", None, None) for s in season_numbers]
-    season_stats, display_names, totals, war_counts, averages, efficience, tokens, buffs, maps_ = compute_season_averages(seasons)
+    season_stats, display_names, totals, war_counts, averages, win_rate, tokens, buffs, maps_ = compute_season_averages(seasons)
+    all_wars_flat = [w for wars_in_season in seasons.values() for w in wars_in_season]
+    score_display_names, score_distributions = compute_score_distributions(all_wars_flat)
 
     body = render_frise(frise_items, transition=True)
-    body += render_average_chart(display_names, averages, efficience, tokens, buffs, maps_, active_uids, scope="global")
+    body += render_average_chart(display_names, averages, win_rate, tokens, buffs, maps_, active_uids, scope="global", filterable=True)
+    body += render_score_chart(score_display_names, score_distributions, active_uids, filterable=True)
     body += f'<div id="table-wrap">{render_season_average_table(season_numbers, season_stats, display_names, averages, active_uids)}</div>'
     body += f'<div id="bareme-wrap">{BAREME_HTML}</div>'
 
     # Header-level filter (not a .chips row filter like the chart's, since
-    # it acts on the table below rather than the page's own content, and
-    # needs to live at the title's height on the far right -- see
-    # #header-extra in style.css) toggling the roster down to just players
-    # present in the most recently recorded war. Starts off (shows
-    # everyone); active-toggle.js flips the label/state and hides
-    # data-active="false" rows.
+    # it acts on both the table below and the chart above rather than being
+    # itself a chart metric, and needs to live at the title's height on the
+    # far right -- see #header-extra in style.css) toggling the roster down
+    # to just players present in the most recently recorded war. Rendered as
+    # an actual switch (track + sliding thumb), not a plain button, so it
+    # reads as a toggle rather than a filter chip. Starts off (shows
+    # everyone); active-toggle.js flips the label/state, hides
+    # data-active="false" table rows, and swaps in the pre-rendered
+    # "active players only" chart variant (data-active-filter="active").
     active_toggle = (
-        '<button type="button" id="active-toggle" class="chip" '
+        '<button type="button" id="active-toggle" class="toggle" aria-pressed="false" '
         'data-label-off="Tous les joueurs" data-label-on="Joueurs actifs seulement">'
-        "Tous les joueurs</button>"
+        '<span class="toggle-track"><span class="toggle-thumb"></span></span>'
+        '<span class="toggle-label">Tous les joueurs</span>'
+        "</button>"
     )
 
-    html = PAGE_TEMPLATE.format(title="Classement général", asset_prefix="", body=body, back_link="", title_class="hero-title", header_extra=active_toggle, v=ASSETS_VERSION)
+    # Guild name sits where the breadcrumb back-link would on other pages --
+    # same visual format (color/size), just not a link and with no arrow,
+    # since index has nothing to navigate back to.
+    guild_label = f'<span class="breadcrumb-label">{html_escape(OUR_GUILD_LABEL)}</span>'
+
+    html = PAGE_TEMPLATE.format(title="Classement général", asset_prefix="", body=body, back_link=guild_label, title_class="hero-title", header_extra=active_toggle, v=ASSETS_VERSION)
     with open(os.path.join(DOCS_DIR, "index.html"), "w", encoding="utf-8") as f:
         f.write(html)
 
