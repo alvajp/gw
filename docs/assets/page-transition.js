@@ -338,15 +338,6 @@
 
         transitionChart(document.getElementById("chart-wrap"), doc.getElementById("chart-wrap"));
 
-        // #chart-wrap-scores (the score-variance box plot) is always
-        // rendered, even empty (see render_score_chart in generate_site.py),
-        // specifically so this can be a plain innerHTML swap regardless of
-        // whether either side of the navigation actually has per-battle data
-        // -- no FLIP animation like the points chart above, just correctness.
-        const liveScoreWrap = document.getElementById("chart-wrap-scores");
-        const newScoreWrap = doc.getElementById("chart-wrap-scores");
-        if (liveScoreWrap) liveScoreWrap.innerHTML = newScoreWrap ? newScoreWrap.innerHTML : "";
-
         const liveTableWrap = document.getElementById("table-wrap");
         const newTableWrap = doc.getElementById("table-wrap");
         if (liveTableWrap && newTableWrap) {

@@ -470,8 +470,7 @@ def render_season_page(season, wars_in_season, active_uids=frozenset()):
     score_display_names, score_distributions = compute_score_distributions(wars_in_season)
 
     body = render_frise(frise_items, transition=True)
-    body += render_average_chart(display_names, averages, win_rate, tokens, buffs, maps_, active_uids, scope="season")
-    body += render_score_chart(score_display_names, score_distributions, active_uids)
+    body += render_average_chart(display_names, averages, win_rate, tokens, buffs, maps_, score_display_names, score_distributions, active_uids, scope="season")
     body += f'<div id="table-wrap">{render_history_table(wars_in_season)}</div>'
     body += '<div id="bareme-wrap"></div>'
 
@@ -585,11 +584,12 @@ def render_season_average_table(season_numbers, season_stats, display_names, ave
 def render_metric_svg(metric_key, display_names, values, active_uids, fmt, ascending=False, id_suffix=""):
     """One inline SVG bar chart for a single metric, players sorted with the
     "best" value leftmost (highest first by default, or lowest first when
-    `ascending` is set — e.g. for "Efficience" where lower is better). Bars
-    for players present in the most recent war are highlighted green to show
-    who's currently active. id_suffix disambiguates the "active players only"
-    variant rendered alongside the full one on index.html (see
-    render_average_chart) so both can coexist without a duplicate SVG id."""
+    `ascending` is set — e.g. for a lower-is-better metric, none currently
+    used but kept as an option). Bars for players present in the most recent
+    war are highlighted green to show who's currently active. id_suffix
+    disambiguates the "active players only" variant rendered alongside the
+    full one on index.html (see render_average_chart) so both can coexist
+    without a duplicate SVG id."""
     order = sorted(values, key=lambda u: values[u] if ascending else -values[u])
     if not order:
         return ""
@@ -630,17 +630,32 @@ def render_metric_svg(metric_key, display_names, values, active_uids, fmt, ascen
     )
 
 
-def render_average_chart(display_names, averages, win_rate, tokens, buffs, maps_, active_uids=frozenset(), scope="global", filterable=False):
-    """Chip-toggled bar chart: "Moyenne" (avg points, shown by default),
-    "Victoire" ((wins + finishes) / all 10 tokens per war -- a literal
-    chance-of-a-positive-outcome percentage, replacing an earlier
-    "Efficience" ratio that compared fails+misses directly to wins+finishes
-    and could exceed 100%, see compute_season_averages), and the
-    Tokens/Buffs/Maps point averages
-    (column-wise sums of the same breakdown shown in the per-war tables,
-    divided by the number of wars counted -- same denominator as "Moyenne"
-    itself), all rendered up front as static inline SVGs (no JS dependency
-    beyond the show/hide toggle)."""
+def render_average_chart(
+    display_names, averages, win_rate, tokens, buffs, maps_,
+    score_display_names, score_distributions,
+    active_uids=frozenset(), scope="global", filterable=False,
+):
+    """Chip-toggled chart section: "Moyenne" (avg points, shown by default),
+    "Scores" (per-player score variance -- median + Q1/Q3 box-plot on a fixed
+    0-1600 y-axis, sitting right next to "Moyenne" per the user's request even
+    though it's a different chart shape (box-plot vs bar) -- the .chips/
+    .chart-scroll idiom doesn't care what's inside, it just shows/hides
+    whichever div matches the active chip), "Fiabilité" ((wins + finishes) /
+    all 10 tokens per war -- a literal chance-of-a-positive-outcome
+    percentage, replacing an earlier unbounded "Efficience" ratio that could
+    go negative, see compute_season_averages), and the Tokens/Buffs/Maps
+    point averages (column-wise sums of the same breakdown shown in the
+    per-war tables, divided by the number of wars counted -- same denominator
+    as "Moyenne" itself), all rendered up front as static inline SVGs (no JS
+    dependency beyond the show/hide toggle).
+
+    The "scores" chart-scroll is always emitted, even when score_distributions
+    is empty (e.g. a season made up entirely of legacy wars, see
+    legacy_ranking.py) -- same reasoning as the old standalone
+    #chart-wrap-scores section it replaces: keeping every page's chart-wrap
+    with an identical set of (metric, filter) keys is what lets
+    page-transition.js's keyed sync (see transitionChart) always find a
+    match regardless of which two pages are involved in a client-side nav."""
     if not averages:
         return ""
 
@@ -649,30 +664,40 @@ def render_average_chart(display_names, averages, win_rate, tokens, buffs, maps_
         if scope == "season"
         else "Moyenne des scores cumulés au global"
     )
+    scores_legend = "Médiane et quartiles (25%-75%) des scores individuels par bataille"
     legends = {
         "moyenne": moyenne_legend,
-        "victoire": "Probabilité de victoire ou finish sur un token ((victoires + finishes) / 10 tokens)",
+        "scores": scores_legend,
+        "victoire": "Probabilité de victoire ou finish sur un token",
         "tokens": "Moyenne des points accumulés grâce aux tokens (de 5pts à 10pts)",
         "buffs": "Moyenne des points accumulés en remportant une victoire sur une zone sous buff (MS: 2pts , Autres 0.5pts)",
         "maps": "Moyenne des points accumulés en remportant une victoire sur une map difficile (de 0.5pts à 2pts)",
     }
+    # Chip labels, separate from the `legends`/data-metric keys above so the
+    # internal "victoire" identifier (already threaded through
+    # compute_wars_averages/compute_season_averages) doesn't need renaming
+    # just because its user-facing label does.
+    labels = {"moyenne": "Moyenne", "scores": "Scores", "victoire": "Fiabilité", "tokens": "Tokens", "buffs": "Buffs", "maps": "Maps"}
 
     metrics = [
-        ("moyenne", "Moyenne", averages, lambda v: str(round_pts(v)), False),
-        ("victoire", "Victoire", win_rate, lambda v: f"{v * 100:.0f}%", False),
-        ("tokens", "Tokens", tokens, lambda v: str(round_pts(v)), False),
-        ("buffs", "Buffs", buffs, lambda v: str(round_pts(v)), False),
-        ("maps", "Maps", maps_, lambda v: str(round_pts(v)), False),
+        ("moyenne", averages, lambda v: str(round_pts(v)), False),
+        ("victoire", win_rate, lambda v: f"{v * 100:.0f}%", False),
+        ("tokens", tokens, lambda v: str(round_pts(v)), False),
+        ("buffs", buffs, lambda v: str(round_pts(v)), False),
+        ("maps", maps_, lambda v: str(round_pts(v)), False),
     ]
 
+    # "scores" chip sits right after "moyenne" (per the user's request),
+    # everything else keeps its existing order.
+    chip_keys = ["moyenne", "scores", "victoire", "tokens", "buffs", "maps"]
     chips = "".join(
-        f'<button type="button" class="chip{" active" if i == 0 else ""}" data-metric="{key}" data-legend="{html_escape(legends[key])}">{html_escape(label)}</button>'
-        for i, (key, label, _values, _fmt, _ascending) in enumerate(metrics)
+        f'<button type="button" class="chip{" active" if key == "moyenne" else ""}" data-metric="{key}" data-legend="{html_escape(legends[key])}">{html_escape(labels[key])}</button>'
+        for key in chip_keys
     )
 
     charts = []
-    for i, (key, _label, values, fmt, ascending) in enumerate(metrics):
-        style = "" if i == 0 else ' style="display:none"'
+    for key, values, fmt, ascending in metrics:
+        style = "" if key == "moyenne" else ' style="display:none"'
         svg = render_metric_svg(key, display_names, values, active_uids, fmt, ascending=ascending)
         if filterable:
             # Pre-render an "active players only" variant alongside the full
@@ -688,6 +713,17 @@ def render_average_chart(display_names, averages, win_rate, tokens, buffs, maps_
             charts.append(f'<div class="chart-scroll" data-metric="{key}" data-active-filter="active" style="display:none">{active_svg}</div>')
         else:
             charts.append(f'<div class="chart-scroll" data-metric="{key}"{style}>{svg}</div>')
+
+    scores_svg = render_boxplot_svg(score_display_names, score_distributions, active_uids)
+    if filterable:
+        active_score_distributions = {uid: vals for uid, vals in score_distributions.items() if uid in active_uids}
+        active_scores_svg = render_boxplot_svg(
+            score_display_names, active_score_distributions, active_uids, id_suffix="-active"
+        )
+        charts.append(f'<div class="chart-scroll" data-metric="scores" data-active-filter="all" style="display:none">{scores_svg}</div>')
+        charts.append(f'<div class="chart-scroll" data-metric="scores" data-active-filter="active" style="display:none">{active_scores_svg}</div>')
+    else:
+        charts.append(f'<div class="chart-scroll" data-metric="scores" style="display:none">{scores_svg}</div>')
 
     wrap_attr = ' data-active-filter="all"' if filterable else ""
     return (
@@ -774,7 +810,12 @@ def render_boxplot_svg(display_names, distributions, active_uids, id_suffix=""):
 
     bar_width, gap = 22, 6
     left_pad = 40
-    chart_h, top_pad, bottom_pad = 220, 28, 130
+    # Same chart_h/top_pad/bottom_pad as render_metric_svg -- the "scores"
+    # chip lives in the same .chart-wrap as the bar-chart metrics, and
+    # nothing constrains .chart-scroll's height, so a differently-sized SVG
+    # here would resize the wrap (and push the legend/table below it) every
+    # time the user switches chips.
+    chart_h, top_pad, bottom_pad = 220, 20, 130
     y_max = 1600
     width = left_pad + gap + len(order) * (bar_width + gap)
     height = top_pad + chart_h + bottom_pad
@@ -839,48 +880,6 @@ def render_boxplot_svg(display_names, distributions, active_uids, id_suffix=""):
     )
 
 
-def render_score_chart(display_names, distributions, active_uids=frozenset(), filterable=False):
-    """New section below the points histogram: per-player score *variance*
-    (the raw per-battle score used to classify win/fail/finish tiers, not the
-    tier points themselves) shown as a box (Q1-Q3) + median line on a fixed
-    0-1600 y-axis. Just one "Scores" chip for now (reusing the .chips/.chip
-    idiom so it looks like a sibling of the chart above, room to add more
-    variance-flavored metrics later).
-
-    Always returns a (possibly empty) #chart-wrap-scores div, even when this
-    scope has no per-battle data at all (e.g. a season made up entirely of
-    legacy wars, see legacy_ranking.py) -- same "always present, sometimes
-    empty" shape as #header-extra, so page-transition.js can sync it on
-    client-side nav with a plain innerHTML swap without needing to know in
-    advance whether either side of the navigation has data."""
-    if not any(distributions.values()):
-        return '<div id="chart-wrap-scores" class="chart-wrap"></div>'
-
-    legend = "Médiane et quartiles (25%-75%) des scores individuels par bataille"
-    chip = f'<button type="button" class="chip active" data-metric="scores" data-legend="{html_escape(legend)}">Scores</button>'
-
-    svg = render_boxplot_svg(display_names, distributions, active_uids)
-    if filterable:
-        # Same static-precomputation approach as the chart above: pre-render
-        # the "active players only" variant so the header's roster toggle
-        # can just show/hide the right static SVG.
-        active_distributions = {uid: vals for uid, vals in distributions.items() if uid in active_uids}
-        active_svg = render_boxplot_svg(display_names, active_distributions, active_uids, id_suffix="-active")
-        charts = (
-            f'<div class="chart-scroll" data-metric="scores" data-active-filter="all">{svg}</div>'
-            f'<div class="chart-scroll" data-metric="scores" data-active-filter="active" style="display:none">{active_svg}</div>'
-        )
-    else:
-        charts = f'<div class="chart-scroll" data-metric="scores">{svg}</div>'
-
-    wrap_attr = ' data-active-filter="all"' if filterable else ""
-    return (
-        f'<div id="chart-wrap-scores" class="chart-wrap"{wrap_attr}><div class="chips">{chip}</div>'
-        f'<p class="chart-legend">{html_escape(legend)}</p>'
-        f'{charts}</div>'
-    )
-
-
 def render_index(seasons, active_uids=frozenset()):
     season_numbers = sorted(seasons.keys())
     frise_items = [(f"Saison {s}", f"seasons/{s}.html", None, None) for s in season_numbers]
@@ -889,8 +888,7 @@ def render_index(seasons, active_uids=frozenset()):
     score_display_names, score_distributions = compute_score_distributions(all_wars_flat)
 
     body = render_frise(frise_items, transition=True)
-    body += render_average_chart(display_names, averages, win_rate, tokens, buffs, maps_, active_uids, scope="global", filterable=True)
-    body += render_score_chart(score_display_names, score_distributions, active_uids, filterable=True)
+    body += render_average_chart(display_names, averages, win_rate, tokens, buffs, maps_, score_display_names, score_distributions, active_uids, scope="global", filterable=True)
     body += f'<div id="table-wrap">{render_season_average_table(season_numbers, season_stats, display_names, averages, active_uids)}</div>'
     body += f'<div id="bareme-wrap">{BAREME_HTML}</div>'
 

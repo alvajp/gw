@@ -24,7 +24,7 @@
     }
 
     // Every chart-wrap's "all"/"active" SVG variants are pre-rendered
-    // server-side (see render_average_chart/render_score_chart in
+    // server-side (see render_average_chart in
     // generate_site.py) -- just flip which variant is visible for each
     // wrap's currently-selected metric chip, matching chart-toggle.js's own
     // dimension-crossing logic. There can be more than one chart-wrap on the

@@ -5,7 +5,7 @@
 // independent chip/metric state.
 // Every metric is pre-rendered as a static SVG; this just shows/hides them.
 // On index.html each metric also has an "active players only" variant
-// (data-active-filter="active", see render_average_chart/render_score_chart
+// (data-active-filter="active", see render_average_chart
 // in generate_site.py) alongside the full one (data-active-filter="all") for
 // the header's roster toggle (active-toggle.js) to switch between -- so
 // showing the right chart-scroll means matching BOTH the selected metric
