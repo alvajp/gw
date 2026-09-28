@@ -563,13 +563,32 @@ def render_season_average_table(season_numbers, season_stats, display_names, ave
 
     rounded_avg = {uid: round_pts(averages[uid]) for uid in season_stats}
     avg_lo, avg_hi = (min(rounded_avg.values()), max(rounded_avg.values())) if rounded_avg else (0, 0)
+
+    # Each season column gets its own gradient bounds (like Moyenne already
+    # had) rather than sharing one scale across every column -- a player's
+    # single-season average and their all-time average don't live on the
+    # same scale, so a shared bound would wash most seasons out to one end.
+    season_values = {}
+    season_bounds = {}
+    for season in season_numbers:
+        vals = {
+            uid: round_pts(entry[0] / entry[1])
+            for uid, per_season in season_stats.items()
+            if (entry := per_season.get(season))
+        }
+        season_values[season] = vals
+        season_bounds[season] = (min(vals.values()), max(vals.values())) if vals else (0, 0)
+
     body_rows = []
     for uid in sorted(season_stats, key=lambda u: -averages[u]):
-        per_season = season_stats[uid]
         cells = [f"<td>{html_escape(display_names[uid])}</td>"]
         for season in season_numbers:
-            entry = per_season.get(season)
-            cells.append(f"<td>{round_pts(entry[0] / entry[1])}</td>" if entry else "<td>-</td>")
+            val = season_values[season].get(uid)
+            if val is None:
+                cells.append("<td>-</td>")
+            else:
+                lo, hi = season_bounds[season]
+                cells.append(f"<td{value_to_bg(val, lo, hi)}>{val}</td>")
         cells.append(f"<td{value_to_bg(rounded_avg[uid], avg_lo, avg_hi)}>{rounded_avg[uid]}</td>")
         is_active = "true" if uid in active_uids else "false"
         body_rows.append(f'<tr data-uid="{uid}" data-active="{is_active}">' + "".join(cells) + "</tr>")
@@ -648,13 +667,15 @@ def render_average_chart(
     as "Moyenne" itself), all rendered up front as static inline SVGs (no JS
     dependency beyond the show/hide toggle).
 
-    The "scores" chart-scroll is always emitted, even when score_distributions
-    is empty (e.g. a season made up entirely of legacy wars, see
-    legacy_ranking.py) -- same reasoning as the old standalone
-    #chart-wrap-scores section it replaces: keeping every page's chart-wrap
+    The "scores" chart-scroll DIV is always emitted, even when
+    score_distributions is empty (e.g. a season made up entirely of legacy
+    wars, see legacy_ranking.py) -- same reasoning as the old standalone
+    #chart-wrap-scores section it replaced: keeping every page's chart-wrap
     with an identical set of (metric, filter) keys is what lets
     page-transition.js's keyed sync (see transitionChart) always find a
-    match regardless of which two pages are involved in a client-side nav."""
+    match regardless of which two pages are involved in a client-side nav.
+    Only the "Scores" *chip button* is left out on a page with no per-battle
+    data at all -- nothing to toggle to, so no point offering it."""
     if not averages:
         return ""
 
@@ -687,8 +708,13 @@ def render_average_chart(
     ]
 
     # "scores" chip sits right after "moyenne" (per the user's request),
-    # everything else keeps its existing order.
-    chip_keys = ["moyenne", "scores", "victoire", "tokens", "buffs", "maps"]
+    # everything else keeps its existing order -- left out entirely when
+    # this page has no per-battle score data to show (its chart-scroll DIV
+    # still gets rendered below, just with nothing to switch to it).
+    has_scores = any(score_distributions.values())
+    chip_keys = ["moyenne", "scores", "victoire", "tokens", "buffs", "maps"] if has_scores else [
+        "moyenne", "victoire", "tokens", "buffs", "maps"
+    ]
     chips = "".join(
         f'<button type="button" class="chip{" active" if key == "moyenne" else ""}" data-metric="{key}" data-legend="{html_escape(legends[key])}">{html_escape(labels[key])}</button>'
         for key in chip_keys
