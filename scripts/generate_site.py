@@ -5,6 +5,7 @@ compute the ranking for each, and render the static site into docs/.
 Usage: python3 scripts/generate_site.py
 """
 import colorsys
+import datetime
 import math
 import os
 import re
@@ -393,6 +394,7 @@ PAGE_TEMPLATE = """<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<script>try{{if(localStorage.getItem("theme")==="light")document.documentElement.setAttribute("data-theme","light");}}catch(e){{}}</script>
 <title>{title}</title>
 <link rel="stylesheet" href="{asset_prefix}assets/style.css?v={v}">
 </head>
@@ -404,6 +406,8 @@ PAGE_TEMPLATE = """<!doctype html>
 <script src="{asset_prefix}assets/sort-table.js?v={v}"></script>
 <script src="{asset_prefix}assets/chart-toggle.js?v={v}"></script>
 <script src="{asset_prefix}assets/active-toggle.js?v={v}"></script>
+<script src="{asset_prefix}assets/theme-toggle.js?v={v}"></script>
+<script src="{asset_prefix}assets/timeline-filter.js?v={v}"></script>
 <script src="{asset_prefix}assets/page-transition.js?v={v}"></script>
 </body>
 </html>"""
@@ -427,7 +431,322 @@ def guild_rows(result, team_idx):
     return rows
 
 
-def render_war_page(slug, result, season, outcome=None):
+def compute_ms_milestones(result, our_idx):
+    """Timeline markers for the war-page Chronologie chart (see
+    render_timeline_svg): when OUR attacks fully removed the enemy's
+    MedicaeStation healing buff for the first time ("R1:postmed" -- the
+    later of the two enemy MS zones' first zoneDestroyed credited to us),
+    when we finished clearing all 15 of the enemy's zones for the first
+    time ("R2" -- our own `wipeout` event, the literal in-game signal that a
+    full pass just completed), and the same postmed moment for the second
+    pass ("R2:postmed"). Zones respawn individually (confirmed against real
+    war data: a given zone's 2nd fall can land before some other zone has
+    even had its 1st), so there is no single war-wide "round" timestamp in
+    the raw log -- R1/R2 only make sense per-zone here, tracked via each MS
+    zone's own fall order, attack-only (whose zones WE destroyed, not the
+    other way around, per the user's scoping).
+
+    Returns a list of 0-3 {"key", "label", "sublabel", "createdOn"} dicts,
+    one per milestone actually reached before the war ended -- e.g. a war
+    where we re-destroy only one of the two enemy MS zones a second time
+    before the war ends correctly omits "R2:postmed" entirely."""
+    ms_falls = defaultdict(list)
+    for zd in result["zone_destroyed"]:
+        if zd["team"] == our_idx and zd["zone_type"] in ("MedicaeStation1", "MedicaeStation2"):
+            ms_falls[zd["zone_type"]].append(zd)
+    for falls in ms_falls.values():
+        falls.sort(key=lambda z: z["createdOn"])
+
+    def postmed_milestone(key, label, fall_index):
+        entries = []
+        for zt in ("MedicaeStation1", "MedicaeStation2"):
+            falls = ms_falls.get(zt, [])
+            if len(falls) <= fall_index:
+                return None
+            entries.append(falls[fall_index])
+        # `fails` on each zone_destroyed entry is our team's CUMULATIVE fail
+        # count since war start (see ranking.py), the same running total
+        # `wipeout.fails` below reads from -- so the later of the two MS
+        # falls already carries the up-to-date total; no summing across the
+        # two zones (that would double-count everything before the earlier
+        # of the two falls).
+        later = max(entries, key=lambda e: e["createdOn"])
+        return {"key": key, "label": label, "sublabel": f"{later['fails']} fails", "createdOn": later["createdOn"]}
+
+    milestones = []
+
+    r1 = postmed_milestone("r1_postmed", "R1:postmed", 0)
+    if r1:
+        milestones.append(r1)
+
+    our_wipeouts = sorted(
+        (w for w in result["wipeouts"] if w["team"] == our_idx), key=lambda w: w["createdOn"]
+    )
+    r2 = None
+    if our_wipeouts:
+        w = our_wipeouts[0]
+        r2 = {"key": "r2", "label": "R2", "sublabel": f"{w['fails']} fails", "createdOn": w["createdOn"]}
+    else:
+        # Fallback for a war that ends before our own `wipeout` fires: the
+        # 15th zone we've destroyed ourselves (any zone type, not just MS)
+        # already carries the cumulative fail count up to that exact moment,
+        # same running total as above -- no summing needed here either.
+        ours = sorted(
+            (zd for zd in result["zone_destroyed"] if zd["team"] == our_idx), key=lambda z: z["createdOn"]
+        )
+        if len(ours) >= 15:
+            fifteenth = ours[14]
+            r2 = {"key": "r2", "label": "R2", "sublabel": f"{fifteenth['fails']} fails", "createdOn": fifteenth["createdOn"]}
+    if r2:
+        milestones.append(r2)
+
+    r2_postmed = postmed_milestone("r2_postmed", "R2:postmed", 1)
+    if r2_postmed:
+        milestones.append(r2_postmed)
+
+    return milestones
+
+
+TIMELINE_PX_PER_HOUR = 30  # fits a typical laptop screen width without horizontal scrolling
+TIMELINE_LEFT_PAD = 12
+TIMELINE_CHART_H = 220
+TIMELINE_MILESTONE_ZONE_H = 40  # reserved space above the curve for milestone label+time+sublabel, see render_activity_curve_svg
+TIMELINE_BOTTOM_PAD = 40
+MS_PER_HOUR = 3600 * 1000
+
+
+def _timeline_domain(battle_events, milestones):
+    """(sorted events, t_min, t_max) for the Chronologie chart -- the domain
+    is just our own first-to-last battle timestamp (plus any milestone
+    outside that span), NOT the full war_start/war_end log span: that
+    includes the pre-battle prep phase (zone claims, target marks), which on
+    a real war left a many-hour dead zone before the first plotted point."""
+    events = sorted(battle_events, key=lambda e: e["createdOn"])
+    t_min = events[0]["createdOn"]
+    t_max = events[-1]["createdOn"]
+    for m in milestones:
+        t_min = min(t_min, m["createdOn"])
+        t_max = max(t_max, m["createdOn"])
+    if t_max <= t_min:
+        t_max = t_min + 1
+    return events, t_min, t_max
+
+
+def _gaussian_smooth(values, sigma):
+    """Simple discrete gaussian-kernel smoothing, pure Python (no numpy
+    dependency in this project) -- turns a jagged per-hour attack count into
+    a curve with gentle bump-shaped rises/falls instead of a staircase."""
+    radius = max(1, round(sigma * 3))
+    kernel = [math.exp(-0.5 * (i / sigma) ** 2) for i in range(-radius, radius + 1)]
+    ksum = sum(kernel)
+    kernel = [k / ksum for k in kernel]
+    n = len(values)
+    out = []
+    for i in range(n):
+        total = 0.0
+        for j, k in enumerate(kernel):
+            idx = i + j - radius
+            if 0 <= idx < n:
+                total += values[idx] * k
+        out.append(total)
+    return out
+
+
+def aggregate_relative_battle_events(wars):
+    """Merge OUR battle_events across multiple wars (see render_season_page/
+    render_index) onto one shared X axis: hours since THAT war's own first
+    battle, rather than real calendar time -- meaningless once wars from
+    different days/seasons are combined. Only non-legacy wars contribute
+    (legacy has no battle_events at all, see legacy_ranking.py). Returns
+    (events, display_names); events' "createdOn" is relative ms from 0."""
+    events = []
+    display_names = {}
+    for w in wars:
+        result = w["result"]
+        our_idx = find_team_idx(result["guilds"], OUR_GUILD)
+        our_events = [e for e in result["battle_events"] if e["team"] == our_idx]
+        if not our_events:
+            continue
+        t0 = min(e["createdOn"] for e in our_events)
+        for e in our_events:
+            events.append({"uid": e["uid"], "createdOn": e["createdOn"] - t0})
+        for uid, p in result["players"].items():
+            display_names.setdefault(uid, p.get("displayName", uid))
+    return events, display_names
+
+
+def render_activity_curve_svg(battle_events, milestones, relative=False):
+    """The "Chronologie" chart (war/season/index pages, see render_war_page/
+    render_season_page/render_index): a smoothed density curve of attack
+    VOLUME (how many of our battles landed in each 1h slice), gaussian-
+    smoothed so the natural ebb and flow of attack activity (evening
+    spikes, overnight lulls) reads as a handful of gentle bumps instead of a
+    jagged staircase -- an "aperçu", not a precise per-battle count.
+
+    Every battle also gets a thin vertical data-uid line, hidden by default
+    (see .timeline-player-mark in style.css), so the player chip row above
+    the chart (timeline-filter.js) can reveal exactly when one selected
+    player's own tokens were played, overlaid on the aggregate curve.
+
+    relative=False (war pages): X is real clock time; milestones (see
+    compute_ms_milestones) are dashed lines labeled with the milestone name,
+    its clock time, and its fail count, all drawn in a dedicated label band
+    above the curve (TIMELINE_MILESTONE_ZONE_H) so the text never overlaps
+    the curve/marks below it.
+    relative=True (season/index, aggregating multiple wars onto one axis via
+    aggregate_relative_battle_events): X is hours-since-that-war's-own-start;
+    milestones are always empty here (per-war-specific, doesn't aggregate
+    across wars), so the reserved label band shrinks to a small margin."""
+    if not battle_events:
+        return ""
+
+    events, t_min, t_max = _timeline_domain(battle_events, milestones)
+    hours_span = (t_max - t_min) / MS_PER_HOUR
+
+    left_pad = TIMELINE_LEFT_PAD
+    chart_h, bottom_pad = TIMELINE_CHART_H, TIMELINE_BOTTOM_PAD
+    top_pad = TIMELINE_MILESTONE_ZONE_H if milestones else 16
+    chart_w = max(200.0, TIMELINE_PX_PER_HOUR * hours_span)
+    width = left_pad + chart_w
+    baseline_y = top_pad + chart_h
+    height = baseline_y + bottom_pad
+
+    def x_of(ts):
+        return left_pad + (ts - t_min) / (t_max - t_min) * chart_w
+
+    num_buckets = max(1, math.ceil(hours_span))
+    counts = [0] * num_buckets
+    for e in events:
+        idx = min(num_buckets - 1, int((e["createdOn"] - t_min) / MS_PER_HOUR))
+        counts[idx] += 1
+    smoothed = _gaussian_smooth(counts, sigma=1.2)
+    max_val = max(smoothed) if smoothed else 0
+
+    def y_of(v):
+        return baseline_y if max_val <= 0 else baseline_y - (v / max_val) * chart_h
+
+    points = [
+        (x_of(t_min + (i + 0.5) * MS_PER_HOUR), y_of(v))
+        for i, v in enumerate(smoothed)
+    ]
+
+    axis = [
+        f'<line class="timeline-axis-line" x1="{left_pad:.1f}" y1="{baseline_y:.1f}" x2="{width:.1f}" y2="{baseline_y:.1f}"/>'
+    ]
+    if relative:
+        # No clock to align ticks to -- just every 6h from the shared t_min=0.
+        tick_ms = 0
+        while tick_ms <= t_max:
+            tx = x_of(tick_ms)
+            axis.append(
+                f'<line class="timeline-axis-line" x1="{tx:.1f}" y1="{top_pad:.1f}" x2="{tx:.1f}" y2="{baseline_y:.1f}"/>'
+            )
+            axis.append(
+                f'<text x="{tx:.1f}" y="{baseline_y + 16:.1f}" class="chart-axis-label timeline-axis-label">'
+                f'+{round(tick_ms / MS_PER_HOUR)}h</text>'
+            )
+            tick_ms += 6 * MS_PER_HOUR
+    else:
+        # Aligned to round clock hours (00/06/12/18) rather than an arbitrary
+        # offset from t_min, so labels read as real times ("27/09 12h").
+        first_tick_dt = datetime.datetime.fromtimestamp(t_min / 1000).replace(minute=0, second=0, microsecond=0)
+        while first_tick_dt.hour % 6 != 0:
+            first_tick_dt += datetime.timedelta(hours=1)
+        tick_dt = first_tick_dt
+        while tick_dt.timestamp() * 1000 <= t_max:
+            tx = x_of(tick_dt.timestamp() * 1000)
+            if left_pad <= tx <= width:
+                axis.append(
+                    f'<line class="timeline-axis-line" x1="{tx:.1f}" y1="{top_pad:.1f}" x2="{tx:.1f}" y2="{baseline_y:.1f}"/>'
+                )
+                axis.append(
+                    # A CSS class, not the text-anchor="middle" presentation attribute
+                    # -- presentation attributes lose to any stylesheet rule (0
+                    # specificity), and .chart-axis-label already sets text-anchor:end
+                    # for the y-axis labels above, which would silently win over an
+                    # inline attribute here too.
+                    f'<text x="{tx:.1f}" y="{baseline_y + 16:.1f}" class="chart-axis-label timeline-axis-label">'
+                    f'{tick_dt.strftime("%d/%m %Hh")}</text>'
+                )
+            tick_dt += datetime.timedelta(hours=6)
+
+    player_marks = []
+    for e in events:
+        x = x_of(e["createdOn"])
+        player_marks.append(
+            f'<line class="timeline-player-mark" data-uid="{e["uid"]}" x1="{x:.1f}" y1="{top_pad:.1f}" '
+            f'x2="{x:.1f}" y2="{baseline_y:.1f}"/>'
+        )
+
+    milestone_els = []
+    for m in milestones:
+        mx = x_of(m["createdOn"])
+        time_str = datetime.datetime.fromtimestamp(m["createdOn"] / 1000).strftime("%Hh%M")
+        milestone_els.append(
+            f'<line class="timeline-milestone-line" x1="{mx:.1f}" y1="6" x2="{mx:.1f}" y2="{baseline_y:.1f}"/>'
+        )
+        milestone_els.append(
+            f'<text x="{mx:.1f}" y="18" class="timeline-milestone-label">'
+            f'{html_escape(m["label"])} · {time_str}</text>'
+        )
+        milestone_els.append(
+            f'<text x="{mx:.1f}" y="31" class="timeline-milestone-sublabel">{html_escape(m["sublabel"])}</text>'
+        )
+
+    line_pts = " ".join(f"{x:.1f},{y:.1f}" for x, y in points)
+    area_pts = f"{left_pad:.1f},{baseline_y:.1f} {line_pts} {width:.1f},{baseline_y:.1f}"
+
+    return (
+        f'<svg viewBox="0 0 {width:.1f} {height:.1f}" width="{width:.1f}" height="{height:.1f}" '
+        f'xmlns="http://www.w3.org/2000/svg">'
+        + "".join(axis)
+        + f'<polygon class="timeline-activity-area" points="{area_pts}"/>'
+        + f'<polyline class="timeline-activity-line" points="{line_pts}"/>'
+        + "".join(player_marks)
+        + "".join(milestone_els)
+        + "</svg>"
+    )
+
+
+def render_chronologie_section(battle_events, milestones, display_names, relative=False):
+    """Shared "Chronologie" section (heading + player filter chips + the
+    activity curve) used by render_war_page (single war, real clock time,
+    milestones) and render_season_page/render_index (aggregated across
+    every war in scope, relative time, no milestones -- see
+    aggregate_relative_battle_events). Empty string if there's nothing to
+    plot (e.g. a season made entirely of legacy wars)."""
+    if not battle_events:
+        return ""
+    activity_svg = render_activity_curve_svg(battle_events, milestones, relative=relative)
+
+    # Selecting a chip reveals that player's timeline-player-mark lines (see
+    # timeline-filter.js) over the aggregate curve, showing exactly when
+    # their own tokens were played. Multi-select, independent per chip.
+    # Chip label/order: each player's own average "+Xh" (hours from the
+    # chart's own start, same t_min the curve itself plots against -- so
+    # "+Xh" on a chip lines up with where their marks actually fall on the
+    # x-axis), sorted ascending -- players who typically attack early in
+    # the war/relative-window show up first.
+    _, t_min, _ = _timeline_domain(battle_events, milestones)
+    hours_by_uid = defaultdict(list)
+    for e in battle_events:
+        hours_by_uid[e["uid"]].append((e["createdOn"] - t_min) / MS_PER_HOUR)
+    avg_hours = {uid: sum(hs) / len(hs) for uid, hs in hours_by_uid.items()}
+
+    chip_uids = sorted(avg_hours, key=lambda u: avg_hours[u])
+    player_chips = "".join(
+        f'<button type="button" class="chip" data-uid="{uid}">'
+        f'{html_escape(display_names.get(uid, uid))}: +{avg_hours[uid]:.0f}h</button>'
+        for uid in chip_uids
+    )
+    return (
+        '<h2>Chronologie</h2>'
+        f'<div class="chips timeline-player-chips">{player_chips}</div>'
+        f'<div class="timeline-scroll">{activity_svg}</div>'
+    )
+
+
+def render_war_page(slug, result, season, outcome=None, active_uids=frozenset()):
     guilds = result["guilds"]
     hard_cols = result["hard_cols"]
     easy_cols = result["easy_cols"]
@@ -435,14 +754,26 @@ def render_war_page(slug, result, season, outcome=None):
     our_idx = find_team_idx(guilds, OUR_GUILD)
     our_rows = guild_rows(result, our_idx)
     body = render_result_badge(outcome)
-    body += render_table(our_rows, hard_cols, easy_cols)
+
+    # Chronologie: a smoothed attack-volume curve over real time, with the
+    # R1:postmed/R2/R2:postmed milestones marked -- only possible for wars
+    # with raw per-battle data (legacy wars have none, see legacy_ranking.py
+    # and compute_ms_milestones/render_activity_curve_svg), so simply
+    # omitted rather than rendered empty for those.
+    our_battle_events = [e for e in result["battle_events"] if e["team"] == our_idx]
+    if our_battle_events:
+        milestones = compute_ms_milestones(result, our_idx)
+        display_names = {uid: p.get("displayName", uid) for uid, p in result["players"].items()}
+        body += render_chronologie_section(our_battle_events, milestones, display_names)
+
+    body += "<h2>Détails</h2>" + render_table(our_rows, hard_cols, easy_cols)
 
     other_tables = []
-    for team_idx, g in sorted(guilds.items()):
+    for team_idx in sorted(guilds):
         if team_idx == our_idx:
             continue
         rows = guild_rows(result, team_idx)
-        other_tables.append(f"<h3>{html_escape(g['name'])}</h3>" + render_table(rows, hard_cols, easy_cols))
+        other_tables.append(render_table(rows, hard_cols, easy_cols))
 
     if other_tables:
         body += "<h2>Adversaires</h2>" + "".join(other_tables)
@@ -467,9 +798,13 @@ def render_season_page(season, wars_in_season, active_uids=frozenset()):
 
     display_names, averages, win_rate, tokens, buffs, maps_ = compute_wars_averages(wars_in_season)
     score_display_names, score_distributions = compute_score_distributions(wars_in_season)
+    agg_events, agg_display_names = aggregate_relative_battle_events(wars_in_season)
 
     body = render_frise(frise_items, transition=True)
+    body += '<h2>Scores</h2>'
     body += render_average_chart(display_names, averages, win_rate, tokens, buffs, maps_, score_display_names, score_distributions, active_uids, scope="season")
+    body += render_chronologie_section(agg_events, [], agg_display_names, relative=True)
+    body += '<h2>Détails</h2>'
     body += f'<div id="table-wrap">{render_history_table(wars_in_season)}</div>'
     body += '<div id="bareme-wrap"></div>'
 
@@ -911,9 +1246,13 @@ def render_index(seasons, active_uids=frozenset()):
     season_stats, display_names, totals, war_counts, averages, win_rate, tokens, buffs, maps_ = compute_season_averages(seasons)
     all_wars_flat = [w for wars_in_season in seasons.values() for w in wars_in_season]
     score_display_names, score_distributions = compute_score_distributions(all_wars_flat)
+    agg_events, agg_display_names = aggregate_relative_battle_events(all_wars_flat)
 
     body = render_frise(frise_items, transition=True)
+    body += '<h2>Scores</h2>'
     body += render_average_chart(display_names, averages, win_rate, tokens, buffs, maps_, score_display_names, score_distributions, active_uids, scope="global", filterable=True)
+    body += render_chronologie_section(agg_events, [], agg_display_names, relative=True)
+    body += '<h2>Détails</h2>'
     body += f'<div id="table-wrap">{render_season_average_table(season_numbers, season_stats, display_names, averages, active_uids)}</div>'
     body += f'<div id="bareme-wrap">{BAREME_HTML}</div>'
 
@@ -935,12 +1274,30 @@ def render_index(seasons, active_uids=frozenset()):
         "</button>"
     )
 
+    # Light/dark theme switch, same track+thumb idiom as the roster toggle
+    # above (index only -- see theme-toggle.js). Its initial "off"/"Sombre"
+    # markup here is just the pre-JS default; theme-toggle.js resyncs it to
+    # whatever theme is actually active (set even earlier, before first
+    # paint, by PAGE_TEMPLATE's inline head script) the moment it runs, so
+    # this never shows the wrong state to a returning visitor with a saved
+    # "light" preference.
+    theme_toggle = (
+        '<button type="button" id="theme-toggle" class="toggle" aria-pressed="false" '
+        'data-label-off="Sombre" data-label-on="Clair">'
+        '<span class="toggle-track"><span class="toggle-thumb"></span></span>'
+        '<span class="toggle-label">Sombre</span>'
+        "</button>"
+    )
+
     # Guild name sits where the breadcrumb back-link would on other pages --
     # same visual format (color/size), just not a link and with no arrow,
     # since index has nothing to navigate back to.
     guild_label = f'<span class="breadcrumb-label">{html_escape(OUR_GUILD_LABEL)}</span>'
 
-    html = PAGE_TEMPLATE.format(title="Classement général", asset_prefix="", body=body, back_link=guild_label, title_class="hero-title", header_extra=active_toggle, v=ASSETS_VERSION)
+    html = PAGE_TEMPLATE.format(
+        title="Classement général", asset_prefix="", body=body, back_link=guild_label,
+        title_class="hero-title", header_extra=theme_toggle + active_toggle, v=ASSETS_VERSION,
+    )
     with open(os.path.join(DOCS_DIR, "index.html"), "w", encoding="utf-8") as f:
         f.write(html)
 
@@ -969,9 +1326,6 @@ def main():
 
     all_wars.sort(key=lambda w: (w["season"], w["result"]["war_start"]))
 
-    for w in all_wars:
-        render_war_page(w["slug"], w["result"], w["season"], w.get("outcome"))
-
     active_uids = frozenset()
     if all_wars:
         last_war = all_wars[-1]
@@ -979,6 +1333,9 @@ def main():
         active_uids = frozenset(
             uid for uid, ps in last_war["result"]["player_stats"].items() if ps["team"] == our_idx
         )
+
+    for w in all_wars:
+        render_war_page(w["slug"], w["result"], w["season"], w.get("outcome"), active_uids)
 
     seasons = defaultdict(list)
     for w in all_wars:

@@ -124,10 +124,56 @@ def compute_ranking(json_path, maps):
             finisher_ids.add(last_battle_per_zone[zid])
 
     player_stats = defaultdict(blank_stats)
+    # Per-battle (uid, team, timestamp, adjusted score) for the war-page
+    # timeline chart (see render_timeline_svg in generate_site.py) -- kept
+    # separate from ps["scores"] since that's a flat per-player list with no
+    # timestamp, useless for plotting a battle against its real time-of-day.
+    battle_events = []
+    # Zone falls and full-guild wipeouts, for the war-page timeline's
+    # milestone markers (see compute_ms_milestones in generate_site.py) --
+    # `team` on both is the ATTACKING side that delivered the blow, same
+    # convention as the win/fail/finish classification above, NOT the side
+    # that got destroyed/wiped (see reference_tacticus_data_structure.md).
+    zone_destroyed = []
+    wipeouts = []
+    # Running per-team fail tally, snapshotted onto every zone_destroyed and
+    # wipeout the instant it fires below -- `totalAttempts` on those raw
+    # events counts EVERY attempt (wins/finishes included, confirmed against
+    # real data: a zone's totalAttempts can be >10x its actual fail count,
+    # since a single zone often needs several separate win/finish hits to
+    # fully clear its defenders, not just fails-then-one-final-blow), which
+    # reads as a wildly inflated figure to the user -- they want a single
+    # cumulative fail count they can read consistently across all three
+    # milestones (R1:postmed / R2 / R2:postmed), each one further along the
+    # same running total, not a per-zone count that resets. Never resets,
+    # for any zone -- matches how wipeout.totalAttempts itself already
+    # behaves (confirmed equal to the team's full battleFinished count up to
+    # that moment, i.e. cumulative since war start, not since the previous
+    # wipeout).
+    team_fails = defaultdict(int)
 
     for e in logs:
+        if e["type"] == "zoneDestroyed":
+            zone_destroyed.append({
+                "zone_type": e["zone"]["type"],
+                "zone_id": e["zone"]["id"],
+                "team": e["teamIndex"],
+                "createdOn": e["createdOn"],
+                "totalAttempts": e.get("totalAttempts"),
+                "fails": team_fails[e["teamIndex"]],
+            })
+            continue
+        if e["type"] == "wipeout":
+            wipeouts.append({
+                "team": e["teamIndex"],
+                "createdOn": e["createdOn"],
+                "totalAttempts": e.get("totalAttempts"),
+                "fails": team_fails[e["teamIndex"]],
+            })
+            continue
         if e["type"] != "battleFinished" or e.get("abandoned"):
             continue
+
         uid = e["userId"]
         team = e["teamIndex"]
         zt = e["zone"]["type"]
@@ -140,6 +186,10 @@ def compute_ranking(json_path, maps):
         ps["team"] = team
         ps["played"] += 1
         ps["scores"].append(adj)
+        battle_events.append({"uid": uid, "team": team, "createdOn": e["createdOn"], "adj": adj})
+
+        if tier == "fail":
+            team_fails[team] += 1
 
         if tier == "win":
             k = 5
@@ -193,6 +243,7 @@ def compute_ranking(json_path, maps):
         ps["miss"] = max(0, TOKENS_PER_WAR - ps["played"])
 
     war_start = logs[0]["createdOn"] if logs else 0
+    war_end = logs[-1]["createdOn"] if logs else 0
 
     return {
         "players": players,
@@ -201,4 +252,8 @@ def compute_ranking(json_path, maps):
         "hard_cols": hard_cols,
         "easy_cols": easy_cols,
         "war_start": war_start,
+        "war_end": war_end,
+        "battle_events": battle_events,
+        "zone_destroyed": zone_destroyed,
+        "wipeouts": wipeouts,
     }

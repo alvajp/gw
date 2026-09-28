@@ -380,9 +380,14 @@
         // absolutely positioned so it never factors into the header height
         // lock/animate below -- just swap it in wholesale like bareme-wrap,
         // always landing back in its default "off" markup on a fresh page.
+        // The theme toggle lives in this same swapped-in markup but, unlike
+        // the roster filter, must NOT reset to "off" on nav -- it's a
+        // persisted global preference, not a per-page filter -- so resync it
+        // to the actual <html data-theme> right after the swap.
         const liveExtra = document.getElementById("header-extra");
         const newExtra = doc.getElementById("header-extra");
         if (liveExtra) liveExtra.innerHTML = newExtra ? newExtra.innerHTML : "";
+        if (window.syncThemeToggle) window.syncThemeToggle();
 
         if (header && headerFromH != null) {
           // Measure the natural height with the new content, then relock to

@@ -77,4 +77,13 @@ def compute_legacy_ranking(json_path):
         "hard_cols": [],
         "easy_cols": [],
         "war_start": 0,
+        "war_end": 0,
+        # Legacy wars are hand-transcribed aggregate counts, no raw
+        # activityLogs at all -- there's no battle-level timestamp data to
+        # reconstruct a timeline from, so the war-page Chronologie section
+        # (see render_war_page in generate_site.py) is simply omitted for
+        # these rather than rendered empty.
+        "battle_events": [],
+        "zone_destroyed": [],
+        "wipeouts": [],
     }
