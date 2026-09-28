@@ -599,16 +599,19 @@ def aggregate_relative_battle_events(wars):
 
 
 def aggregate_ms_milestones(wars):
-    """Average R1:postmed/R2/R2:postmed across every war in scope (season or
-    global, see render_season_page/render_index) for the aggregated
-    relative-time Chronologie chart. Each war's own milestone (see
-    compute_ms_milestones) is converted to hours-since-that-war's-own-
-    first-battle -- the same basis aggregate_relative_battle_events uses --
-    before averaging, so wars starting on different days combine correctly.
-    Only wars that actually reached a given milestone contribute to its
-    average; a milestone is left out entirely if no war in scope ever
-    reached it (e.g. R2:postmed when nobody fully re-cleared the enemy a
-    2nd time before their war ended)."""
+    """Average R1:postmed/R2/R2:postmed/Fin across every war in scope
+    (season or global, see render_season_page/render_index) for the
+    aggregated relative-time Chronologie chart. Each war's own milestone
+    (see compute_ms_milestones, and the "Fin" one built the same way
+    render_war_page does from that war's own last battle_events entry) is
+    converted to hours-since-that-war's-own-first-battle -- the same basis
+    aggregate_relative_battle_events uses -- before averaging, so wars
+    starting on different days combine correctly. Only wars that actually
+    reached a given milestone contribute to its average; a milestone is
+    left out entirely if no war in scope ever reached it (e.g. R2:postmed
+    when nobody fully re-cleared the enemy a 2nd time before their war
+    ended) -- "Fin" itself is always reached by every war with battles, so
+    it's only ever missing if no war in scope has any battle_events at all."""
     by_key = defaultdict(list)  # key -> list of (relative_hours, fails)
     labels = {}
     for w in wars:
@@ -625,8 +628,13 @@ def aggregate_ms_milestones(wars):
             by_key[m["key"]].append((hours, m["fails"]))
             labels[m["key"]] = m["label"]
 
+        last_event = max(our_events, key=lambda e: e["createdOn"])
+        fin_hours = (last_event["createdOn"] - t0) / MS_PER_HOUR
+        by_key["fin"].append((fin_hours, last_event["fails_so_far"]))
+        labels["fin"] = "Fin"
+
     milestones = []
-    for key in ("r1_postmed", "r2", "r2_postmed"):
+    for key in ("r1_postmed", "r2", "r2_postmed", "fin"):
         entries = by_key.get(key)
         if not entries:
             continue
