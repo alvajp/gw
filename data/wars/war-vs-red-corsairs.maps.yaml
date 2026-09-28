@@ -2,10 +2,10 @@ season: 27
 war_number: 4
 result: loss
 hard:
-  ArtilleryPosition1: "AP1"
-  Bunker2: "FP2"
-  Trenches2: "MidFL"
+  ArtilleryPosition1: "Divisée"
+  Bunker2: "3 ponts"
+  Trenches2: "Pont"
 easy:
-  Trenches3: "FL droit"
-  MedicaeStation1: "MS1"
-  Armoury: "AR"
+  Trenches3: "Lacs"
+  MedicaeStation1: "Abricot"
+  Armoury: "5 pilliers"
