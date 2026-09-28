@@ -186,10 +186,18 @@ def compute_ranking(json_path, maps):
         ps["team"] = team
         ps["played"] += 1
         ps["scores"].append(adj)
-        battle_events.append({"uid": uid, "team": team, "createdOn": e["createdOn"], "adj": adj})
 
         if tier == "fail":
             team_fails[team] += 1
+        # Snapshotted after the increment above so a battle that was itself
+        # a fail already counts toward its own fails_so_far -- lets the
+        # war-page "Fin" milestone (see render_war_page) read the team's
+        # total fail count straight off the very last battle_events entry,
+        # no separate pass needed.
+        battle_events.append({
+            "uid": uid, "team": team, "createdOn": e["createdOn"], "adj": adj,
+            "fails_so_far": team_fails[team],
+        })
 
         if tier == "win":
             k = 5

@@ -283,18 +283,22 @@ def render_frise(items, transition=False):
     )
 
 
-def render_result_badge(outcome):
+def render_result_badge(outcome, date_str=None):
     if outcome not in ("win", "loss"):
         return ""
     cls = "result-badge is-win" if outcome == "win" else "result-badge is-loss"
     label = "Victoire" if outcome == "win" else "D&eacute;faite"
-    return f'<p class="{cls}">{label}</p>'
+    date_html = f'<span class="result-badge-date">{html_escape(date_str)}</span>' if date_str else ""
+    return f'<p class="{cls}">{label}{date_html}</p>'
 
 
 def render_history_table(wars_subset):
     """wars_subset: list of war dicts (with 'slug' and 'result'), already in
-    chronological order. Renders a Joueur x war-columns table with a Total
-    column, restricted to players who were on OUR_GUILD's team in that war."""
+    chronological order. Renders a Joueur x war-columns table plus a
+    Moyenne column, restricted to players who were on OUR_GUILD's team in
+    that war. Rows stay sorted by total points even though that column
+    itself isn't shown (a fairer ranking than sorting by Moyenne alone,
+    which would let a single lucky war outrank a long, consistent record)."""
     history = defaultdict(dict)  # uid -> {slug: pts}
     display_names = {}
     header_labels = {}
@@ -311,7 +315,6 @@ def render_history_table(wars_subset):
     thead_cells = ["<th>Joueur</th>"]
     for w in wars_subset:
         thead_cells.append(f'<th>{html_escape(header_labels[w["slug"]])}</th>')
-    thead_cells.append("<th>Total</th>")
     thead_cells.append("<th>Moyenne</th>")
     thead = "".join(thead_cells)
 
@@ -319,14 +322,28 @@ def render_history_table(wars_subset):
     averages = {uid: totals[uid] / len(history[uid]) for uid in history}
     rounded_avg = {uid: round_pts(v) for uid, v in averages.items()}
     avg_lo, avg_hi = (min(rounded_avg.values()), max(rounded_avg.values())) if rounded_avg else (0, 0)
+
+    # Each war column gets its own gradient bounds, same idea as the index
+    # season-average table's per-column gradient (see render_season_average_table)
+    # rather than one shared scale -- a player's score in one war doesn't
+    # live on the same range as another war entirely.
+    war_values = {}
+    war_bounds = {}
+    for w in wars_subset:
+        vals = {uid: round_pts(per_war[w["slug"]]) for uid, per_war in history.items() if w["slug"] in per_war}
+        war_values[w["slug"]] = vals
+        war_bounds[w["slug"]] = (min(vals.values()), max(vals.values())) if vals else (0, 0)
+
     body_rows = []
     for uid in sorted(history, key=lambda u: -totals[u]):
-        per_war = history[uid]
         cells = [f"<td>{html_escape(display_names[uid])}</td>"]
         for w in wars_subset:
-            v = per_war.get(w["slug"])
-            cells.append(f"<td>{round_pts(v)}</td>" if v is not None else "<td>-</td>")
-        cells.append(f"<td>{round_pts(totals[uid])}</td>")
+            val = war_values[w["slug"]].get(uid)
+            if val is None:
+                cells.append("<td>-</td>")
+            else:
+                lo, hi = war_bounds[w["slug"]]
+                cells.append(f"<td{value_to_bg(val, lo, hi)}>{val}</td>")
         cells.append(f"<td{value_to_bg(rounded_avg[uid], avg_lo, avg_hi)}>{rounded_avg[uid]}</td>")
         body_rows.append("<tr>" + "".join(cells) + "</tr>")
 
@@ -471,7 +488,10 @@ def compute_ms_milestones(result, our_idx):
         # two zones (that would double-count everything before the earlier
         # of the two falls).
         later = max(entries, key=lambda e: e["createdOn"])
-        return {"key": key, "label": label, "sublabel": f"{later['fails']} fails", "createdOn": later["createdOn"]}
+        return {
+            "key": key, "label": label, "sublabel": f"{later['fails']} fails",
+            "createdOn": later["createdOn"], "fails": later["fails"],
+        }
 
     milestones = []
 
@@ -485,7 +505,7 @@ def compute_ms_milestones(result, our_idx):
     r2 = None
     if our_wipeouts:
         w = our_wipeouts[0]
-        r2 = {"key": "r2", "label": "R2", "sublabel": f"{w['fails']} fails", "createdOn": w["createdOn"]}
+        r2 = {"key": "r2", "label": "R2", "sublabel": f"{w['fails']} fails", "createdOn": w["createdOn"], "fails": w["fails"]}
     else:
         # Fallback for a war that ends before our own `wipeout` fires: the
         # 15th zone we've destroyed ourselves (any zone type, not just MS)
@@ -496,7 +516,10 @@ def compute_ms_milestones(result, our_idx):
         )
         if len(ours) >= 15:
             fifteenth = ours[14]
-            r2 = {"key": "r2", "label": "R2", "sublabel": f"{fifteenth['fails']} fails", "createdOn": fifteenth["createdOn"]}
+            r2 = {
+                "key": "r2", "label": "R2", "sublabel": f"{fifteenth['fails']} fails",
+                "createdOn": fifteenth["createdOn"], "fails": fifteenth["fails"],
+            }
     if r2:
         milestones.append(r2)
 
@@ -575,6 +598,47 @@ def aggregate_relative_battle_events(wars):
     return events, display_names
 
 
+def aggregate_ms_milestones(wars):
+    """Average R1:postmed/R2/R2:postmed across every war in scope (season or
+    global, see render_season_page/render_index) for the aggregated
+    relative-time Chronologie chart. Each war's own milestone (see
+    compute_ms_milestones) is converted to hours-since-that-war's-own-
+    first-battle -- the same basis aggregate_relative_battle_events uses --
+    before averaging, so wars starting on different days combine correctly.
+    Only wars that actually reached a given milestone contribute to its
+    average; a milestone is left out entirely if no war in scope ever
+    reached it (e.g. R2:postmed when nobody fully re-cleared the enemy a
+    2nd time before their war ended)."""
+    by_key = defaultdict(list)  # key -> list of (relative_hours, fails)
+    labels = {}
+    for w in wars:
+        result = w["result"]
+        if not result["battle_events"]:
+            continue
+        our_idx = find_team_idx(result["guilds"], OUR_GUILD)
+        our_events = [e for e in result["battle_events"] if e["team"] == our_idx]
+        if not our_events:
+            continue
+        t0 = min(e["createdOn"] for e in our_events)
+        for m in compute_ms_milestones(result, our_idx):
+            hours = (m["createdOn"] - t0) / MS_PER_HOUR
+            by_key[m["key"]].append((hours, m["fails"]))
+            labels[m["key"]] = m["label"]
+
+    milestones = []
+    for key in ("r1_postmed", "r2", "r2_postmed"):
+        entries = by_key.get(key)
+        if not entries:
+            continue
+        avg_hours = sum(h for h, _ in entries) / len(entries)
+        avg_fails = round(sum(f for _, f in entries) / len(entries))
+        milestones.append({
+            "key": key, "label": labels[key], "sublabel": f"{avg_fails} fails (moy.)",
+            "createdOn": avg_hours * MS_PER_HOUR,
+        })
+    return milestones
+
+
 def render_activity_curve_svg(battle_events, milestones, relative=False):
     """The "Chronologie" chart (war/season/index pages, see render_war_page/
     render_season_page/render_index): a smoothed density curve of attack
@@ -607,7 +671,12 @@ def render_activity_curve_svg(battle_events, milestones, relative=False):
     chart_h, bottom_pad = TIMELINE_CHART_H, TIMELINE_BOTTOM_PAD
     top_pad = TIMELINE_MILESTONE_ZONE_H if milestones else 16
     chart_w = max(200.0, TIMELINE_PX_PER_HOUR * hours_span)
-    width = left_pad + chart_w
+    plot_right = left_pad + chart_w
+    # Extra blank margin past the last plotted point -- the "Fin" milestone
+    # (see render_war_page) always lands exactly at t_max, and its
+    # text-anchor:middle label would otherwise clip past the SVG's own
+    # right edge since there's nothing beyond that last point to center on.
+    width = plot_right + 50
     baseline_y = top_pad + chart_h
     height = baseline_y + bottom_pad
 
@@ -631,7 +700,7 @@ def render_activity_curve_svg(battle_events, milestones, relative=False):
     ]
 
     axis = [
-        f'<line class="timeline-axis-line" x1="{left_pad:.1f}" y1="{baseline_y:.1f}" x2="{width:.1f}" y2="{baseline_y:.1f}"/>'
+        f'<line class="timeline-axis-line" x1="{left_pad:.1f}" y1="{baseline_y:.1f}" x2="{plot_right:.1f}" y2="{baseline_y:.1f}"/>'
     ]
     if relative:
         # No clock to align ticks to -- just every 6h from the shared t_min=0.
@@ -681,9 +750,19 @@ def render_activity_curve_svg(battle_events, milestones, relative=False):
     milestone_els = []
     for m in milestones:
         mx = x_of(m["createdOn"])
-        time_str = datetime.datetime.fromtimestamp(m["createdOn"] / 1000).strftime("%Hh%M")
+        # In relative mode createdOn is ms-since-start, not a real epoch
+        # timestamp (see aggregate_ms_milestones) -- fromtimestamp() on that
+        # would print a bogus 1970 date, so show "+Xh" instead, matching the
+        # x-axis's own tick format in that mode.
+        time_str = (
+            f"+{m['createdOn'] / MS_PER_HOUR:.0f}h" if relative
+            else datetime.datetime.fromtimestamp(m["createdOn"] / 1000).strftime("%Hh%M")
+        )
+        # Starts below the label+sublabel text (not at the very top of the
+        # reserved label zone) so the dashed line never runs behind/through
+        # the text itself.
         milestone_els.append(
-            f'<line class="timeline-milestone-line" x1="{mx:.1f}" y1="6" x2="{mx:.1f}" y2="{baseline_y:.1f}"/>'
+            f'<line class="timeline-milestone-line" x1="{mx:.1f}" y1="36" x2="{mx:.1f}" y2="{baseline_y:.1f}"/>'
         )
         milestone_els.append(
             f'<text x="{mx:.1f}" y="18" class="timeline-milestone-label">'
@@ -694,7 +773,7 @@ def render_activity_curve_svg(battle_events, milestones, relative=False):
         )
 
     line_pts = " ".join(f"{x:.1f},{y:.1f}" for x, y in points)
-    area_pts = f"{left_pad:.1f},{baseline_y:.1f} {line_pts} {width:.1f},{baseline_y:.1f}"
+    area_pts = f"{left_pad:.1f},{baseline_y:.1f} {line_pts} {plot_right:.1f},{baseline_y:.1f}"
 
     return (
         f'<svg viewBox="0 0 {width:.1f} {height:.1f}" width="{width:.1f}" height="{height:.1f}" '
@@ -753,7 +832,13 @@ def render_war_page(slug, result, season, outcome=None, active_uids=frozenset())
 
     our_idx = find_team_idx(guilds, OUR_GUILD)
     our_rows = guild_rows(result, our_idx)
-    body = render_result_badge(outcome)
+    # War end date next to the result badge -- only for wars with real log
+    # timestamps (legacy wars have none, see legacy_ranking.py, where
+    # war_end is just a placeholder 0, not an actual date).
+    date_str = None
+    if result["battle_events"]:
+        date_str = datetime.datetime.fromtimestamp(result["war_end"] / 1000).strftime("%d/%m/%Y")
+    body = render_result_badge(outcome, date_str)
 
     # Chronologie: a smoothed attack-volume curve over real time, with the
     # R1:postmed/R2/R2:postmed milestones marked -- only possible for wars
@@ -763,6 +848,15 @@ def render_war_page(slug, result, season, outcome=None, active_uids=frozenset())
     our_battle_events = [e for e in result["battle_events"] if e["team"] == our_idx]
     if our_battle_events:
         milestones = compute_ms_milestones(result, our_idx)
+        # "Fin" -- our last battle of the war, with the team's total fail
+        # count for the whole war (fails_so_far on the very last entry is
+        # already the cumulative total, see ranking.py).
+        last_event = max(our_battle_events, key=lambda e: e["createdOn"])
+        milestones.append({
+            "key": "fin", "label": "Fin",
+            "sublabel": f"{last_event['fails_so_far']} fails",
+            "createdOn": last_event["createdOn"],
+        })
         display_names = {uid: p.get("displayName", uid) for uid, p in result["players"].items()}
         body += render_chronologie_section(our_battle_events, milestones, display_names)
 
@@ -799,11 +893,12 @@ def render_season_page(season, wars_in_season, active_uids=frozenset()):
     display_names, averages, win_rate, tokens, buffs, maps_ = compute_wars_averages(wars_in_season)
     score_display_names, score_distributions = compute_score_distributions(wars_in_season)
     agg_events, agg_display_names = aggregate_relative_battle_events(wars_in_season)
+    agg_milestones = aggregate_ms_milestones(wars_in_season)
 
     body = render_frise(frise_items, transition=True)
     body += '<h2>Scores</h2>'
     body += render_average_chart(display_names, averages, win_rate, tokens, buffs, maps_, score_display_names, score_distributions, active_uids, scope="season")
-    body += render_chronologie_section(agg_events, [], agg_display_names, relative=True)
+    body += render_chronologie_section(agg_events, agg_milestones, agg_display_names, relative=True)
     body += '<h2>Détails</h2>'
     body += f'<div id="table-wrap">{render_history_table(wars_in_season)}</div>'
     body += '<div id="bareme-wrap"></div>'
@@ -1247,11 +1342,12 @@ def render_index(seasons, active_uids=frozenset()):
     all_wars_flat = [w for wars_in_season in seasons.values() for w in wars_in_season]
     score_display_names, score_distributions = compute_score_distributions(all_wars_flat)
     agg_events, agg_display_names = aggregate_relative_battle_events(all_wars_flat)
+    agg_milestones = aggregate_ms_milestones(all_wars_flat)
 
     body = render_frise(frise_items, transition=True)
     body += '<h2>Scores</h2>'
     body += render_average_chart(display_names, averages, win_rate, tokens, buffs, maps_, score_display_names, score_distributions, active_uids, scope="global", filterable=True)
-    body += render_chronologie_section(agg_events, [], agg_display_names, relative=True)
+    body += render_chronologie_section(agg_events, agg_milestones, agg_display_names, relative=True)
     body += '<h2>Détails</h2>'
     body += f'<div id="table-wrap">{render_season_average_table(season_numbers, season_stats, display_names, averages, active_uids)}</div>'
     body += f'<div id="bareme-wrap">{BAREME_HTML}</div>'

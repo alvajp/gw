@@ -336,6 +336,12 @@ ul { line-height: 1.8; }
 }
 .result-badge.is-win { border-color: var(--win); color: var(--win); }
 .result-badge.is-loss { border-color: var(--loss); color: var(--loss); }
+.result-badge-date {
+  /* Muted/neutral rather than inheriting the badge's win/loss color --
+     it's metadata, not part of the win/loss statement itself. */
+  margin-left: 0.5rem;
+  color: var(--text-muted);
+}
 .frise-label {
   /* Navigation idiom: a link, not a toggle -- deliberately kept visually
      distinct from .chip (filter idiom, see below) so hovering a frise item
