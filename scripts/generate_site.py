@@ -800,15 +800,22 @@ def render_chronologie_section(battle_events, milestones, display_names, relativ
     activity curve) used by render_war_page (single war, real clock time,
     milestones) and render_season_page/render_index (aggregated across
     every war in scope, relative time, no milestones -- see
-    aggregate_relative_battle_events). Empty string if there's nothing to
-    plot (e.g. a season made entirely of legacy wars)."""
+    aggregate_relative_battle_events). Always wrapped in #chronologie-wrap,
+    even when there's nothing to plot (e.g. a season made entirely of
+    legacy wars) and the div ends up empty -- index<->season navigate via
+    page-transition.js's "rich" client-side transition (both have
+    #chart-wrap), which only syncs a fixed list of known ids; without this
+    wrapper present on every page a season with no Chronologie kept
+    showing whichever page's section was live before the nav, not correct
+    per-page content (page-transition.js was fixed to sync this id too, but
+    that only works because the id is unconditionally here to find)."""
     if not battle_events:
-        return ""
+        return '<div id="chronologie-wrap"></div>'
     activity_svg = render_activity_curve_svg(battle_events, milestones, relative=relative)
 
     # Selecting a chip reveals that player's timeline-player-mark lines (see
     # timeline-filter.js) over the aggregate curve, showing exactly when
-    # their own tokens were played. Multi-select, independent per chip.
+    # their own tokens were played. Single-select (see timeline-filter.js).
     # Chip label/order: each player's own average "+Xh" (hours from the
     # chart's own start, same t_min the curve itself plots against -- so
     # "+Xh" on a chip lines up with where their marks actually fall on the
@@ -827,9 +834,9 @@ def render_chronologie_section(battle_events, milestones, display_names, relativ
         for uid in chip_uids
     )
     return (
-        '<h2>Chronologie</h2>'
+        '<div id="chronologie-wrap"><h2>Chronologie</h2>'
         f'<div class="chips timeline-player-chips">{player_chips}</div>'
-        f'<div class="timeline-scroll">{activity_svg}</div>'
+        f'<div class="timeline-scroll">{activity_svg}</div></div>'
     )
 
 

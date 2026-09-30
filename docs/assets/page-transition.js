@@ -348,6 +348,16 @@
         const liveBareme = document.getElementById("bareme-wrap");
         const newBareme = doc.getElementById("bareme-wrap");
         if (liveBareme) liveBareme.innerHTML = newBareme ? newBareme.innerHTML : "";
+
+        // Same plain-swap treatment as #bareme-wrap -- #chronologie-wrap is
+        // "always present, sometimes empty" (see render_chronologie_section
+        // in generate_site.py: an empty div on a season made entirely of
+        // legacy wars), and wasn't in this synced-ids list at all before,
+        // which is exactly why a season with no Chronologie kept showing
+        // the previous page's one after a client-side nav.
+        const liveChrono = document.getElementById("chronologie-wrap");
+        const newChrono = doc.getElementById("chronologie-wrap");
+        if (liveChrono) liveChrono.innerHTML = newChrono ? newChrono.innerHTML : "";
       } else {
         const liveMain = document.querySelector("main");
         const newMain = doc.querySelector("main");
