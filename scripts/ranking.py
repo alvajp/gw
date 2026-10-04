@@ -308,6 +308,15 @@ def compute_ranking(json_path, maps, extra=None):
     for ps in player_stats.values():
         ps["miss"] = max(0, TOKENS_PER_WAR - ps["played"])
 
+    if extra:
+        # A war reconstituted from a hand-reported supplement has a capture
+        # that stopped before the war did, so any timing built from it (the
+        # Chronologie chart, its milestones, the end date shown next to the
+        # result badge, and its share of the season/index aggregates) would
+        # be misleadingly truncated -- drop it entirely, same as a legacy
+        # war, which has no timing data either.
+        battle_events, zone_destroyed, wipeouts = [], [], []
+
     return {
         "players": players,
         "guilds": guilds,

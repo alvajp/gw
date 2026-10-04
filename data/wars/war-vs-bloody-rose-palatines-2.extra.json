@@ -7,8 +7,10 @@
   },
   "zones": [
     {
-      "zone_type": "Bunker2",
+      "zone_type": "Bunker1",
       "buffs": {
+        "MS": 1,
+        "LP": 1,
         "FP": 1
       },
       "players": {
