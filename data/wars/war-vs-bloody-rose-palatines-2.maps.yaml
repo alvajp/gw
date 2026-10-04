@@ -1,0 +1,11 @@
+season: 27
+war_number: 5
+result: win
+hard:
+  Bunker2: "Divisée"
+  LandingPad2: "3 ponts"
+  Armoury: "Pont"
+easy:
+  AntiAirBattery: "Lacs"
+  Trenches1: "Abricot"
+  MedicaeStation1: "5 pilliers"

@@ -101,10 +101,64 @@ def blank_stats():
     }
 
 
-def compute_ranking(json_path, maps):
+EXTRA_TIER_SCORE = {"win": 1200, "perfect": 1600, "finish": 850, "fail": None}
+EXTRA_BUFF_IDS = {
+    "MS": "EnvDefenderHealthBuff2", "AP": "EnvArtillerySupport", "AA": "EnvFlakFire",
+    "AR": "EnvArmourSupplies", "FP": "EnvFortified", "LP": "EnvAngelsOfDeath",
+}
+
+
+def synthetic_battle_events(extra, players, start_ts):
+    """Turn a hand-reported supplement (see <slug>.extra.json) into fake
+    battleFinished events appended after the real capture, for a war whose
+    capture stopped before the war did (the live data is overwritten by the
+    next war, so the missing battles can only be reconstructed from what
+    the user reports). Each fake event is shaped like a real one so the
+    normal per-battle scoring below treats it identically -- win=1200 and
+    perfect=1600 (both win tier; "win" counts include the perfects, see below), finish=850, fail=no score key -- and
+    flagged "synthetic" so the timeline/milestone data (which would
+    otherwise plot made-up timestamps) skips it."""
+    by_name = {p["displayName"].lower(): uid for uid, p in players.items()}
+    for alias, real in extra.get("aliases", {}).items():
+        by_name[alias.lower()] = by_name[real.lower()]
+    team = extra["team"]
+    events = []
+    n = 0
+    for zone in extra["zones"]:
+        buffs = [{"abilityId": EXTRA_BUFF_IDS[acr]} for acr, cnt in zone.get("buffs", {}).items() for _ in range(cnt)]
+        # In the reported lists "win" is EVERY win a player got on the zone and
+        # "perfect" is the subset of those that scored 1600 -- so only
+        # win-minus-perfect of them are 1200s (counting them as two
+        # separate tiers over-counted tokens, e.g. 18 for a player who has 10).
+        tiers = dict(zone["players"])
+        perfects = tiers.get("perfect", {})
+        tiers["win"] = {name: cnt - perfects.get(name, 0) for name, cnt in tiers.get("win", {}).items()}
+        for tier, entries in tiers.items():
+            for name, count in entries.items():
+                uid = by_name[name.lower()]
+                for _ in range(count):
+                    n += 1
+                    e = {
+                        "type": "battleFinished", "id": f"synthetic-{n}", "userId": uid, "teamIndex": team,
+                        "createdOn": start_ts + n * 1000, "synthetic": True, "buffs": buffs,
+                        "zone": {"id": f"synthetic-{zone['zone_type']}", "type": zone["zone_type"]},
+                    }
+                    if EXTRA_TIER_SCORE[tier] is not None:
+                        e["score"] = EXTRA_TIER_SCORE[tier]
+                    events.append(e)
+    return events
+
+
+def compute_ranking(json_path, maps, extra=None):
     """maps = {"hard": {zone_type: map_name, ...}, "easy": {zone_type: map_name, ...}}
-    (each dict has up to 3 entries, per the game's 6-tracked-zones convention)"""
+    (each dict has up to 3 entries, per the game's 6-tracked-zones convention).
+    extra = optional hand-reported supplement for a war whose capture stopped
+    early, see synthetic_battle_events."""
     logs, players, guilds = load_war(json_path)
+    war_start = logs[0]["createdOn"] if logs else 0
+    war_end = logs[-1]["createdOn"] if logs else 0
+    if extra:
+        logs = logs + synthetic_battle_events(extra, players, war_end)
 
     hard_zones = maps.get("hard", {}) if maps else {}
     easy_zones = maps.get("easy", {}) if maps else {}
@@ -187,17 +241,21 @@ def compute_ranking(json_path, maps):
         ps["played"] += 1
         ps["scores"].append(adj)
 
-        if tier == "fail":
-            team_fails[team] += 1
-        # Snapshotted after the increment above so a battle that was itself
-        # a fail already counts toward its own fails_so_far -- lets the
-        # war-page "Fin" milestone (see render_war_page) read the team's
-        # total fail count straight off the very last battle_events entry,
-        # no separate pass needed.
-        battle_events.append({
-            "uid": uid, "team": team, "createdOn": e["createdOn"], "adj": adj,
-            "fails_so_far": team_fails[team],
-        })
+        # Synthetic (hand-reported, see synthetic_battle_events) battles have
+        # no real timestamp, so they count toward player stats but stay out
+        # of the timeline data and the cumulative-fails milestones below.
+        if not e.get("synthetic"):
+            if tier == "fail":
+                team_fails[team] += 1
+            # Snapshotted after the increment above so a battle that was
+            # itself a fail already counts toward its own fails_so_far --
+            # lets the war-page "Fin" milestone (see render_war_page) read
+            # the team's total fail count straight off the very last
+            # battle_events entry, no separate pass needed.
+            battle_events.append({
+                "uid": uid, "team": team, "createdOn": e["createdOn"], "adj": adj,
+                "fails_so_far": team_fails[team],
+            })
 
         if tier == "win":
             k = 5
@@ -249,9 +307,6 @@ def compute_ranking(json_path, maps):
 
     for ps in player_stats.values():
         ps["miss"] = max(0, TOKENS_PER_WAR - ps["played"])
-
-    war_start = logs[0]["createdOn"] if logs else 0
-    war_end = logs[-1]["createdOn"] if logs else 0
 
     return {
         "players": players,

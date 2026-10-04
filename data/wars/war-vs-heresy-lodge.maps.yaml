@@ -1,0 +1,11 @@
+season: 27
+war_number: 6
+result: win
+hard:
+  MedicaeStation2: "3 ponts"
+  Trenches1: "Divisée"
+  ArtilleryPosition2: "Pont"
+easy:
+  LandingPad2: "Lacs"
+  Bunker1: "Abricot"
+  HQ: "5 pilliers"

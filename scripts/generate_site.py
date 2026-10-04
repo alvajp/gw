@@ -6,6 +6,7 @@ Usage: python3 scripts/generate_site.py
 """
 import colorsys
 import datetime
+import json
 import math
 import os
 import re
@@ -180,13 +181,15 @@ def opponent_names(result, our_idx):
 def discover_wars():
     wars = []
     for fname in sorted(os.listdir(WARS_DIR)):
-        if not fname.endswith(".json") or fname.endswith(".legacy.json"):
+        if not fname.endswith(".json") or fname.endswith((".legacy.json", ".extra.json")):
             continue
         slug = fname[:-len(".json")]
         json_path = os.path.join(WARS_DIR, fname)
         maps_path = os.path.join(WARS_DIR, slug + ".maps.yaml")
         maps = load_maps(maps_path) if os.path.exists(maps_path) else {"hard": {}, "easy": {}}
-        wars.append((slug, json_path, maps))
+        extra_path = os.path.join(WARS_DIR, slug + ".extra.json")
+        extra = json.load(open(extra_path, encoding="utf-8")) if os.path.exists(extra_path) else None
+        wars.append((slug, json_path, maps, extra))
     return wars
 
 
@@ -1419,8 +1422,8 @@ def main():
     os.makedirs(os.path.join(DOCS_DIR, "assets"), exist_ok=True)
 
     all_wars = []
-    for slug, json_path, maps in discover_wars():
-        result = compute_ranking(json_path, maps)
+    for slug, json_path, maps, extra in discover_wars():
+        result = compute_ranking(json_path, maps, extra)
         season = int(maps.get("season") or 0)
         war_number = int(maps.get("war_number") or 0)
         outcome = maps.get("result")
