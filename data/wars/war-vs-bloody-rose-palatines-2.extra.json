@@ -1,30 +1,180 @@
 {
   "team": 2,
-  "aliases": {"nizz": "PsychoNizz", "ellimi": "ElliMILF", "shadow": "ΞΣΞShadowΞΣΞ"},
+  "aliases": {
+    "nizz": "PsychoNizz",
+    "ellimi": "ElliMILF",
+    "shadow": "ΞΣΞShadowΞΣΞ"
+  },
   "zones": [
-    {"zone_type": "MedicaeStation2", "buffs": {"MS": 1, "LP": 1}, "players": {
-      "win": {"eks": 1, "kodiaak": 1, "psychward": 1, "regalbaston": 1, "shadow": 1, "silmar": 3},
-      "perfect": {"eks": 1, "kodiaak": 1, "psychward": 1, "regalbaston": 1, "silmar": 2, "shadow": 1},
-      "fail": {"psychward": 1, "silmar": 1},
-      "finish": {"psychward": 1, "silmar": 1}}},
-    {"zone_type": "AntiAirBattery", "buffs": {"AA": 1}, "players": {
-      "win": {"eks": 2, "psychward": 1, "regalbaston": 1, "silmar": 3, "vindicator": 1, "vahal": 1},
-      "perfect": {"eks": 2, "regalbaston": 1, "silmar": 1, "vindicator": 1},
-      "fail": {"sephiroth": 1, "vindicator": 1},
-      "finish": {"sephiroth": 1}}},
-    {"zone_type": "SupplyDepot", "buffs": {"AP": 1}, "players": {
-      "win": {"sephiroth": 1, "psychward": 1, "ellimi": 3, "eks": 1, "bqsylou": 3},
-      "perfect": {"ellimi": 2, "eks": 1, "bqsylou": 2},
-      "fail": {"ellimi": 1},
-      "finish": {"ellimi": 1}}},
-    {"zone_type": "ArtilleryPosition2", "buffs": {"AP": 1}, "players": {
-      "win": {"bqsylou": 2, "kodiaak": 1, "highmanny": 2, "psychward": 2, "regalbaston": 1, "vindicator": 2},
-      "perfect": {"bqsylou": 2, "highmanny": 1, "regalbaston": 1}}},
-    {"zone_type": "LandingPad1", "buffs": {"LP": 1}, "players": {
-      "win": {"vindicator": 2, "nizz": 1, "kodiaak": 2, "ellimi": 1, "bqsylou": 2, "eks": 1},
-      "perfect": {"vindicator": 1, "nizz": 1, "kodiaak": 2, "ellimi": 1, "bqsylou": 2}}},
-    {"zone_type": "Trenches3", "buffs": {}, "players": {
-      "win": {"bqsylou": 1, "eks": 5, "highmanny": 2},
-      "perfect": {"eks": 4, "highmanny": 1}}}
+    {
+      "zone_type": "Bunker2",
+      "buffs": {
+        "FP": 1
+      },
+      "players": {
+        "win": {
+          "psychward": 1
+        },
+        "perfect": {
+          "psychward": 1
+        },
+        "fail": {
+          "psychward": 1
+        },
+        "finish": {
+          "kodiaak": 1,
+          "psychward": 1
+        }
+      }
+    },
+    {
+      "zone_type": "MedicaeStation2",
+      "buffs": {
+        "MS": 1,
+        "LP": 1
+      },
+      "players": {
+        "win": {
+          "eks": 1,
+          "kodiaak": 1,
+          "psychward": 1,
+          "regalbaston": 1,
+          "shadow": 1,
+          "silmar": 3
+        },
+        "perfect": {
+          "eks": 1,
+          "kodiaak": 1,
+          "psychward": 1,
+          "regalbaston": 1,
+          "silmar": 2,
+          "shadow": 1
+        },
+        "fail": {
+          "psychward": 1,
+          "silmar": 1
+        },
+        "finish": {
+          "psychward": 1,
+          "silmar": 1
+        }
+      }
+    },
+    {
+      "zone_type": "AntiAirBattery",
+      "buffs": {
+        "AA": 1
+      },
+      "players": {
+        "win": {
+          "eks": 2,
+          "psychward": 1,
+          "regalbaston": 1,
+          "silmar": 3,
+          "vindicator": 1,
+          "vahal": 1
+        },
+        "perfect": {
+          "eks": 2,
+          "regalbaston": 1,
+          "silmar": 1,
+          "vindicator": 1
+        },
+        "fail": {
+          "sephiroth": 1,
+          "vindicator": 1
+        },
+        "finish": {
+          "sephiroth": 1
+        }
+      }
+    },
+    {
+      "zone_type": "SupplyDepot",
+      "buffs": {
+        "AP": 1
+      },
+      "players": {
+        "win": {
+          "sephiroth": 1,
+          "psychward": 1,
+          "ellimi": 3,
+          "eks": 1,
+          "bqsylou": 3
+        },
+        "perfect": {
+          "ellimi": 2,
+          "eks": 1,
+          "bqsylou": 2
+        },
+        "fail": {
+          "ellimi": 1
+        },
+        "finish": {
+          "ellimi": 1
+        }
+      }
+    },
+    {
+      "zone_type": "ArtilleryPosition2",
+      "buffs": {
+        "AP": 1
+      },
+      "players": {
+        "win": {
+          "bqsylou": 2,
+          "kodiaak": 1,
+          "highmanny": 2,
+          "psychward": 2,
+          "regalbaston": 1,
+          "vindicator": 2
+        },
+        "perfect": {
+          "bqsylou": 2,
+          "highmanny": 1,
+          "regalbaston": 1
+        }
+      }
+    },
+    {
+      "zone_type": "LandingPad1",
+      "buffs": {
+        "LP": 1
+      },
+      "players": {
+        "win": {
+          "vindicator": 3,
+          "nizz": 1,
+          "kodiaak": 2,
+          "ellimi": 1,
+          "bqsylou": 2,
+          "eks": 1
+        },
+        "perfect": {
+          "vindicator": 1,
+          "nizz": 1,
+          "kodiaak": 2,
+          "ellimi": 1,
+          "bqsylou": 2
+        }
+      }
+    },
+    {
+      "zone_type": "Trenches3",
+      "buffs": {},
+      "players": {
+        "win": {
+          "bqsylou": 1,
+          "eks": 5,
+          "highmanny": 1,
+          "nizz": 2
+        },
+        "perfect": {
+          "eks": 4,
+          "highmanny": 1,
+          "nizz": 1
+        }
+      }
+    }
   ]
 }
