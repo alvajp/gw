@@ -1,0 +1,11 @@
+season: 28
+war_number: 1
+result: loss
+hard:
+  ArtilleryPosition1: "Divisée"
+  MedicaeStation2: "Pont"
+  LandingPad1: "3 ponts"
+easy:
+  Trenches2: "5 pilliers"
+  MedicaeStation1: "Abricot"
+  Bunker1: "Lacs"
