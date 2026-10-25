@@ -288,11 +288,12 @@ def compute_ranking(json_path, maps, extra=None):
             acr = BUFF_ACRONYM.get(b.get("abilityId"))
             if acr:
                 buff_counts[acr] += 1
-        for acr, cnt in buff_counts.items():
-            ps[acr] += cnt
-        # A fail earns 0 points of any kind (tier, buff or map bonus); the
-        # buff counters above still record what the zone had, for display.
+        # A fail earns 0 points of any kind (tier, buff or map bonus), so
+        # buffs on a fail are neither counted in the MS/AP/... columns nor
+        # scored.
         if tier in ("win", "finish"):
+            for acr, cnt in buff_counts.items():
+                ps[acr] += cnt
             if buff_counts.get("MS"):
                 ps["pts"] += buff_counts["MS"] * 2
             for acr in ("AR", "FP", "AP", "AA", "LP"):

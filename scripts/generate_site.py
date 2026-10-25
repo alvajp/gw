@@ -85,7 +85,7 @@ BAREME_HTML = """<h2 id="bareme">Barème de points</h2>
       <li>Fail / Miss &rarr; 0 pt</li>
     </ul>
   </li>
-  <li><strong>Buffs de zone</strong> :
+  <li><strong>Buffs de zone</strong> (win / finish uniquement) :
     <ul>
       <li>Medicae Station (MS) = +2 pts</li>
       <li>Autre buffs (AP/AA/AR/FP/LP) = +0.5 pt</li>
