@@ -290,10 +290,13 @@ def compute_ranking(json_path, maps, extra=None):
                 buff_counts[acr] += 1
         for acr, cnt in buff_counts.items():
             ps[acr] += cnt
-        if buff_counts.get("MS"):
-            ps["pts"] += buff_counts["MS"] * 2
-        for acr in ("AR", "FP", "AP", "AA", "LP"):
-            ps["pts"] += buff_counts.get(acr, 0) * 0.5
+        # A fail earns 0 points of any kind (tier, buff or map bonus); the
+        # buff counters above still record what the zone had, for display.
+        if tier in ("win", "finish"):
+            if buff_counts.get("MS"):
+                ps["pts"] += buff_counts["MS"] * 2
+            for acr in ("AR", "FP", "AP", "AA", "LP"):
+                ps["pts"] += buff_counts.get(acr, 0) * 0.5
 
         if tier in ("win", "finish"):
             for i, (zone_type, _name) in enumerate(hard_cols, start=1):
