@@ -1194,10 +1194,11 @@ def render_war_recap(result, our_idx, outcome, season, war_number):
     total = us["score"] + them["score"]
     share_us = us["score"] / total if total else 0.5
 
-    def row(label, a, b, fmt, bars=True):
-        top = max(a, b)
-        wa = (a / top * 100) if (bars and top) else 0
-        wb = (b / top * 100) if (bars and top) else 0
+    def row(label, a, b, fmt, scale):
+        # Fixed per-row scale (value == scale fills the bar); anything above
+        # it is capped at a full bar.
+        wa = min(a / scale, 1) * 100
+        wb = min(b / scale, 1) * 100
         return (
             '<div class="rc-row">'
             f'<div class="rc-bar-wrap rc-left"><span class="rc-bar war-us" style="width:{wa:.1f}%"></span></div>'
@@ -1209,12 +1210,12 @@ def render_war_recap(result, our_idx, outcome, season, war_number):
         )
 
     rows = "".join([
-        row("Taux de réussite", us["rate"], them["rate"], _fmt_pct),
-        row("Points par jeton", us["ppt"], them["ppt"], _fmt_int),
-        row("Attaques réussies", us["cleared"], them["cleared"], _fmt_int),
-        row("Jetons restants", us["remaining"], them["remaining"], _fmt_int, bars=False),
-        row("Jetons perdus", us["dropped"], them["dropped"], _fmt_int),
-        row("Abandons", us["abandoned"], them["abandoned"], _fmt_int),
+        row("Taux de réussite", us["rate"], them["rate"], _fmt_pct, 1.0),
+        row("Points par jeton", us["ppt"], them["ppt"], _fmt_int, 1600),
+        row("Attaques réussies", us["cleared"], them["cleared"], _fmt_int, 300),
+        row("Jetons restants", us["remaining"], them["remaining"], _fmt_int, 10),
+        row("Jetons perdus", us["dropped"], them["dropped"], _fmt_int, 60),
+        row("Abandons", us["abandoned"], them["abandoned"], _fmt_int, 3),
     ])
 
     banner = ""
