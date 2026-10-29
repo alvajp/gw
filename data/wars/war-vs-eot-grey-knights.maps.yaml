@@ -1,0 +1,11 @@
+season: 28
+war_number: 2
+result: win
+hard:
+  Trenches2: "Divisée"
+  ArtilleryPosition2: "Pont"
+  Trenches1: "3 ponts"
+easy:
+  MedicaeStation2: "5 pilliers"
+  ArtilleryPosition1: "Abricot"
+  Bunker1: "Lacs"
