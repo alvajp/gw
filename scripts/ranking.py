@@ -255,6 +255,10 @@ def compute_ranking(json_path, maps, extra=None):
             battle_events.append({
                 "uid": uid, "team": team, "createdOn": e["createdOn"], "adj": adj,
                 "fails_so_far": team_fails[team],
+                # Raw in-game score (zone-clear bonus included, unlike `adj`)
+                # and the fail flag, for the war-page cumulative-score curve
+                # and the "Jetons théoriquement réussis" chart.
+                "score": raw, "fail": tier == "fail",
             })
 
         if tier == "win":

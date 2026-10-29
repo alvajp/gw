@@ -547,3 +547,27 @@ ul { line-height: 1.8; }
     overflow-x: auto;
   }
 }
+
+/* War-page Chronologie / "Jetons théoriquement réussis" (see
+   render_war_chronologie_section in generate_site.py): us vs. the opponent. */
+:root { --team-us: #f59e0b; --team-them: #e11d48; }
+:root[data-theme="light"] { --team-us: #b45309; --team-them: #be123c; }
+.war-line { fill: none; stroke-width: 2; stroke-linejoin: round; }
+.war-line.war-us, .war-fail-tick.war-us, .war-wipeout.war-us { stroke: var(--team-us); }
+.war-line.war-them, .war-fail-tick.war-them, .war-wipeout.war-them { stroke: var(--team-them); }
+.war-dot { stroke: var(--bg); stroke-width: 1.5; }
+.war-dot.war-us { fill: var(--team-us); }
+.war-dot.war-them { fill: var(--team-them); }
+.war-wipeout { stroke-width: 1.5; stroke-dasharray: 4 3; }
+.war-fail-tick { stroke-width: 1.5; }
+.war-wipeout-label { font-size: 10px; }
+.war-wipeout-label.war-us { fill: var(--team-us); }
+.war-wipeout-label.war-them { fill: var(--team-them); }
+.war-legend { display: flex; flex-wrap: wrap; gap: 0.4rem 1.2rem; margin: 0 0 0.6rem; font-size: 0.9rem; }
+.war-legend-item { display: inline-flex; align-items: center; gap: 0.4rem; }
+.war-legend-swatch { width: 14px; height: 4px; border-radius: 2px; display: inline-block; }
+.war-legend-swatch.war-us { background: var(--team-us); }
+.war-legend-swatch.war-them { background: var(--team-them); }
+.war-chart-note { color: var(--text-muted); font-size: 0.85rem; margin: -1rem 0 2rem; }
+.war-tokens-wrap { margin-bottom: 1rem; }
+.war-tokens-svg { display: block; width: 100%; max-width: 1100px; height: auto; }

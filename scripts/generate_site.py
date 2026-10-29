@@ -843,6 +843,294 @@ def render_chronologie_section(battle_events, milestones, display_names, relativ
     )
 
 
+WAR_CHART_LEFT_PAD = 46
+WAR_CHART_RIGHT_PAD = 24
+WAR_CHART_TOP_PAD = 36  # room for the wipeout labels above the plot
+WAR_CHART_H = 200
+WAR_CHART_PX_PER_HOUR = 30
+TOKENS_PER_PLAYER = 10  # same as ranking.TOKENS_PER_WAR
+
+
+def _team_classes(our_idx, team_idx):
+    return "us" if team_idx == our_idx else "them"
+
+
+def _nice_step(max_val, max_ticks=6):
+    """Smallest 'round' tick step (1/2/5 x 10^n) keeping <= max_ticks ticks."""
+    if max_val <= 0:
+        return 1
+    raw = max_val / max_ticks
+    mag = 10 ** math.floor(math.log10(raw))
+    for m in (1, 2, 5, 10):
+        if raw <= m * mag:
+            return m * mag
+    return 10 * mag
+
+
+def _fmt_hm(ms):
+    total_min = int(round(ms / 60000))
+    return f"+{total_min // 60}h{total_min % 60:02d}"
+
+
+def render_score_timeline_svg(result, our_idx):
+    """War-page "Chronologie": cumulative in-game score of each guild over
+    real elapsed time (a point per battle), a dot on each curve where that
+    guild destroyed a zone, a dashed vertical line where a guild wiped the
+    other's whole battlefield (labelled with its elapsed time), and under
+    the plot one row of ticks per guild marking every failed token. X is
+    elapsed time from the first battle of either guild.
+
+    Returns (svg, t_min) -- t_min so the player chips can label their own
+    average "+Xh" against the very same origin."""
+    events = sorted(result["battle_events"], key=lambda e: e["createdOn"])
+    teams = sorted(result["guilds"], key=lambda t: (t != our_idx, t))
+    t_min = events[0]["createdOn"]
+    t_max = events[-1]["createdOn"]
+    for z in result["zone_destroyed"]:
+        t_max = max(t_max, z["createdOn"])
+    for w in result["wipeouts"]:
+        t_max = max(t_max, w["createdOn"])
+    hours_span = max(1e-6, (t_max - t_min) / MS_PER_HOUR)
+
+    left, right = WAR_CHART_LEFT_PAD, WAR_CHART_RIGHT_PAD
+    top, chart_h = WAR_CHART_TOP_PAD, WAR_CHART_H
+    chart_w = max(400.0, WAR_CHART_PX_PER_HOUR * hours_span)
+    plot_right = left + chart_w
+    width = plot_right + right
+    baseline = top + chart_h
+    height = baseline + 62
+
+    def x_of(ts):
+        return left + (ts - t_min) / (t_max - t_min) * chart_w
+
+    # Per-team cumulative score series: [(t, running total)].
+    series = {}
+    fail_ts = {}
+    for t in teams:
+        total = 0
+        pts = [(t_min, 0)]
+        fails = []
+        for e in events:
+            if e["team"] != t:
+                continue
+            total += e.get("score", 0)
+            pts.append((e["createdOn"], total))
+            if e.get("fail"):
+                fails.append(e["createdOn"])
+        series[t] = pts
+        fail_ts[t] = fails
+
+    y_max_raw = max((pts[-1][1] for pts in series.values()), default=0)
+    step = _nice_step(y_max_raw)
+    y_max = max(step, math.ceil(y_max_raw / step) * step)
+
+    def y_of(v):
+        return baseline - (v / y_max) * chart_h
+
+    def cum_at(t, ts):
+        total = 0
+        for pt_ts, pt_total in series[t]:
+            if pt_ts > ts:
+                break
+            total = pt_total
+        return total
+
+    els = []
+    v = 0
+    while v <= y_max:
+        y = y_of(v)
+        els.append(f'<line class="timeline-axis-line" x1="{left:.1f}" y1="{y:.1f}" x2="{plot_right:.1f}" y2="{y:.1f}"/>')
+        els.append(
+            f'<text x="{left - 6:.1f}" y="{y + 3:.1f}" class="chart-axis-label">{int(v // 1000)}k</text>'
+        )
+        v += step
+    h = 0
+    while h * MS_PER_HOUR <= t_max - t_min:
+        x = x_of(t_min + h * MS_PER_HOUR)
+        els.append(f'<line class="timeline-axis-line" x1="{x:.1f}" y1="{top:.1f}" x2="{x:.1f}" y2="{baseline:.1f}"/>')
+        els.append(
+            f'<text x="{x:.1f}" y="{baseline + 16:.1f}" class="chart-axis-label timeline-axis-label">+{h}h</text>'
+        )
+        h += 6
+
+    # Selecting a player chip reveals that player's own attack times (see
+    # timeline-filter.js) -- ours only, same as before.
+    for e in events:
+        if e["team"] != our_idx:
+            continue
+        x = x_of(e["createdOn"])
+        els.append(
+            f'<line class="timeline-player-mark" data-uid="{e["uid"]}" x1="{x:.1f}" y1="{top:.1f}" '
+            f'x2="{x:.1f}" y2="{baseline:.1f}"/>'
+        )
+
+    for t in teams:
+        cls = _team_classes(our_idx, t)
+        pts = " ".join(f"{x_of(ts):.1f},{y_of(v):.1f}" for ts, v in series[t])
+        els.append(f'<polyline class="war-line war-{cls}" points="{pts}"/>')
+
+    for z in sorted(result["zone_destroyed"], key=lambda z: z["createdOn"]):
+        t = z["team"]
+        if t not in series:
+            continue
+        cls = _team_classes(our_idx, t)
+        cx, cy = x_of(z["createdOn"]), y_of(cum_at(t, z["createdOn"]))
+        els.append(
+            f'<circle class="war-dot war-{cls}" cx="{cx:.1f}" cy="{cy:.1f}" r="4">'
+            f'<title>{html_escape(z["zone_type"])} détruite {_fmt_hm(z["createdOn"] - t_min)}</title></circle>'
+        )
+
+    for i, w in enumerate(sorted(result["wipeouts"], key=lambda w: w["createdOn"])):
+        t = w["team"]
+        if t not in series:
+            continue
+        cls = _team_classes(our_idx, t)
+        x = x_of(w["createdOn"])
+        label_y = 12 + 13 * (0 if t == our_idx else 1)
+        els.append(f'<line class="war-wipeout war-{cls}" x1="{x:.1f}" y1="{label_y + 4:.1f}" x2="{x:.1f}" y2="{baseline:.1f}"/>')
+        anchor = "end" if x - left > 170 else "start"
+        dx = -5 if anchor == "end" else 5
+        els.append(
+            f'<text x="{x + dx:.1f}" y="{label_y:.1f}" class="war-wipeout-label war-{cls}" '
+            f'text-anchor="{anchor}">champ de bataille exterminé {_fmt_hm(w["createdOn"] - t_min)}</text>'
+        )
+
+    # One tick row per guild under the axis labels: a lost token each.
+    for row, t in enumerate(teams):
+        cls = _team_classes(our_idx, t)
+        y1 = baseline + 24 + row * 16
+        for ts in fail_ts[t]:
+            x = x_of(ts)
+            els.append(f'<line class="war-fail-tick war-{cls}" x1="{x:.1f}" y1="{y1:.1f}" x2="{x:.1f}" y2="{y1 + 10:.1f}"/>')
+
+    svg = (
+        f'<svg viewBox="0 0 {width:.1f} {height:.1f}" width="{width:.1f}" height="{height:.1f}" '
+        f'xmlns="http://www.w3.org/2000/svg">' + "".join(els) + "</svg>"
+    )
+    return svg, t_min
+
+
+def render_tokens_chart_svg(result, our_idx):
+    """"Jetons théoriquement réussis": for each guild, x = tokens used so far
+    (in battle order), y = share of the guild's starting token pool
+    (TOKENS_PER_PLAYER x its players) that could still have been a success --
+    100% at the start, each failed token takes 1/pool off, and tokens never
+    spent don't count against it."""
+    events = sorted(result["battle_events"], key=lambda e: e["createdOn"])
+    teams = sorted(result["guilds"], key=lambda t: (t != our_idx, t))
+    pools = {
+        t: TOKENS_PER_PLAYER * sum(1 for ps in result["player_stats"].values() if ps["team"] == t)
+        for t in teams
+    }
+    curves = {}
+    for t in teams:
+        pool = pools[t]
+        if not pool:
+            continue
+        fails = 0
+        pts = [(0, 1.0)]
+        n = 0
+        for e in events:
+            if e["team"] != t:
+                continue
+            n += 1
+            if e.get("fail"):
+                fails += 1
+            pts.append((n, 1 - fails / pool))
+        curves[t] = pts
+    if not curves:
+        return "", pools
+
+    w, h = 900, 300
+    left, right, top, bottom = 46, 20, 14, 40
+    plot_w, plot_h = w - left - right, h - top - bottom
+    x_max = max(pts[-1][0] for pts in curves.values())
+    x_step = _nice_step(x_max, 6)
+    x_axis_max = max(x_step, math.ceil(x_max / x_step) * x_step)
+    y_min_raw = min(pt[1] for pts in curves.values() for pt in pts)
+    y_min = max(0.0, math.floor(y_min_raw * 20) / 20 - 0.05)  # 5% steps, with some headroom
+
+    def x_of(n):
+        return left + n / x_axis_max * plot_w
+
+    def y_of(v):
+        return top + (1 - v) / (1 - y_min) * plot_h
+
+    els = []
+    pct = 1.0
+    while pct >= y_min - 1e-9:
+        y = y_of(pct)
+        els.append(f'<line class="timeline-axis-line" x1="{left}" y1="{y:.1f}" x2="{left + plot_w}" y2="{y:.1f}"/>')
+        els.append(f'<text x="{left - 6}" y="{y + 3:.1f}" class="chart-axis-label">{round(pct * 100)}%</text>')
+        pct -= 0.05 if (1 - y_min) <= 0.35 else 0.1
+    n = 0
+    while n <= x_axis_max:
+        x = x_of(n)
+        els.append(f'<line class="timeline-axis-line" x1="{x:.1f}" y1="{top}" x2="{x:.1f}" y2="{top + plot_h}"/>')
+        els.append(f'<text x="{x:.1f}" y="{top + plot_h + 16}" class="chart-axis-label timeline-axis-label">{int(n)}</text>')
+        n += x_step
+    els.append(
+        f'<text x="{left + plot_w / 2:.1f}" y="{h - 6}" class="chart-axis-label timeline-axis-label">'
+        f'Jetons utilisés (départ : '
+        + " / ".join(f'{pools[t]} {"nous" if t == our_idx else "adversaire"}' for t in teams if t in curves)
+        + ")</text>"
+    )
+    for t in teams:
+        if t not in curves:
+            continue
+        cls = _team_classes(our_idx, t)
+        pts = " ".join(f"{x_of(nn):.1f},{y_of(v):.1f}" for nn, v in curves[t])
+        els.append(f'<polyline class="war-line war-{cls}" points="{pts}"/>')
+    return (
+        f'<svg viewBox="0 0 {w} {h}" xmlns="http://www.w3.org/2000/svg" class="war-tokens-svg">'
+        + "".join(els) + "</svg>"
+    ), pools
+
+
+def render_war_chronologie_section(result, our_idx, display_names):
+    """"Chronologie" + "Jetons théoriquement réussis" for a war page (see
+    render_score_timeline_svg / render_tokens_chart_svg). Wrapped in
+    #chronologie-wrap like render_chronologie_section, which the season/index
+    pages still use for their aggregate curve."""
+    if not any(e["team"] == our_idx for e in result["battle_events"]):
+        return '<div id="chronologie-wrap"></div>'
+    svg, t_min = render_score_timeline_svg(result, our_idx)
+
+    hours_by_uid = defaultdict(list)
+    for e in result["battle_events"]:
+        if e["team"] == our_idx:
+            hours_by_uid[e["uid"]].append((e["createdOn"] - t_min) / MS_PER_HOUR)
+    avg_hours = {uid: sum(hs) / len(hs) for uid, hs in hours_by_uid.items()}
+    player_chips = "".join(
+        f'<button type="button" class="chip" data-uid="{uid}">'
+        f'{html_escape(display_names.get(uid, uid))}: +{avg_hours[uid]:.0f}h</button>'
+        for uid in sorted(avg_hours, key=lambda u: avg_hours[u])
+    )
+    teams = sorted(result["guilds"], key=lambda t: (t != our_idx, t))
+    legend = "".join(
+        f'<span class="war-legend-item"><span class="war-legend-swatch war-{_team_classes(our_idx, t)}"></span>'
+        f'{html_escape(OUR_GUILD_LABEL if t == our_idx else result["guilds"][t]["name"])}</span>'
+        for t in teams
+    )
+    tokens_svg, _ = render_tokens_chart_svg(result, our_idx)
+    html = (
+        '<div id="chronologie-wrap"><h2>Chronologie</h2>'
+        f'<div class="war-legend">{legend}</div>'
+        f'<div class="chips timeline-player-chips">{player_chips}</div>'
+        f'<div class="timeline-scroll">{svg}</div>'
+        '<p class="war-chart-note">Score cumulé par équipe · points = zones détruites · '
+        'pointillés = champ de bataille exterminé · traits = jetons perdus.</p>'
+    )
+    if tokens_svg:
+        html += (
+            '<h2>Jetons théoriquement réussis</h2>'
+            f'<div class="war-tokens-wrap">{tokens_svg}</div>'
+            '<p class="war-chart-note">Part des jetons théoriquement réussis : le départ est 100 % ; '
+            'chaque échec fait descendre la courbe.</p>'
+        )
+    return html + "</div>"
+
+
 def render_war_page(slug, result, season, outcome=None, active_uids=frozenset()):
     guilds = result["guilds"]
     hard_cols = result["hard_cols"]
@@ -858,25 +1146,12 @@ def render_war_page(slug, result, season, outcome=None, active_uids=frozenset())
         date_str = datetime.datetime.fromtimestamp(result["war_end"] / 1000).strftime("%d/%m/%Y")
     body = render_result_badge(outcome, date_str)
 
-    # Chronologie: a smoothed attack-volume curve over real time, with the
-    # R1:postmed/R2/R2:postmed milestones marked -- only possible for wars
-    # with raw per-battle data (legacy wars have none, see legacy_ranking.py
-    # and compute_ms_milestones/render_activity_curve_svg), so simply
-    # omitted rather than rendered empty for those.
-    our_battle_events = [e for e in result["battle_events"] if e["team"] == our_idx]
-    if our_battle_events:
-        milestones = compute_ms_milestones(result, our_idx)
-        # "Fin" -- our last battle of the war, with the team's total fail
-        # count for the whole war (fails_so_far on the very last entry is
-        # already the cumulative total, see ranking.py).
-        last_event = max(our_battle_events, key=lambda e: e["createdOn"])
-        milestones.append({
-            "key": "fin", "label": "Fin",
-            "sublabel": f"{last_event['fails_so_far']} fails",
-            "createdOn": last_event["createdOn"],
-        })
-        display_names = {uid: p.get("displayName", uid) for uid, p in result["players"].items()}
-        body += render_chronologie_section(our_battle_events, milestones, display_names)
+    # Chronologie + Jetons théoriquement réussis -- only possible for wars
+    # with raw per-battle data (legacy wars have none, see legacy_ranking.py,
+    # and a hand-supplemented war drops its battle_events, see ranking.py),
+    # so the section is simply left empty for those.
+    display_names = {uid: p.get("displayName", uid) for uid, p in result["players"].items()}
+    body += render_war_chronologie_section(result, our_idx, display_names)
 
     body += "<h2>Détails</h2>" + render_table(our_rows, hard_cols, easy_cols)
 
