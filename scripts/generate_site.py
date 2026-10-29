@@ -995,7 +995,13 @@ def render_score_timeline_svg(result, our_idx):
             f'text-anchor="{anchor}">R2 {_fmt_hm(w["createdOn"] - t_min)}</text>'
         )
 
-    # One tick row per guild under the axis labels: a lost token each.
+    # One tick row per guild under the axis labels: a lost token each, with a
+    # vertical "Fails" label at the far left, centered on the two rows.
+    rows_mid_y = baseline + 24 + (len(teams) * 16 - 6) / 2
+    els.append(
+        f'<text x="{left - 10:.1f}" y="{rows_mid_y:.1f}" class="chart-axis-label timeline-axis-label" '
+        f'transform="rotate(-90 {left - 10:.1f} {rows_mid_y:.1f})" dominant-baseline="middle">Fails</text>'
+    )
     for row, t in enumerate(teams):
         cls = _team_classes(our_idx, t)
         y1 = baseline + 24 + row * 16
@@ -1152,13 +1158,16 @@ def compute_war_recap(result, our_idx):
         pool = TOKENS_PER_PLAYER * len(stats)
         evs = [e for e in result["battle_events"] if e["team"] == t]
         score = sum(e.get("score", 0) for e in evs)
+        # Points per token excludes the zone-clear bonus (`adj`, see
+        # ranking.py): only what the played tokens themselves earned.
+        token_score = sum(e.get("adj", 0) for e in evs)
         out[t] = {
             "name": OUR_GUILD_LABEL if t == our_idx else result["guilds"][t]["name"],
             "score": score, "played": played, "cleared": cleared, "dropped": dropped,
             "remaining": max(0, pool - played),
             "abandoned": result.get("abandoned", {}).get(t, 0),
             "rate": cleared / played if played else 0.0,
-            "ppt": score / played if played else 0.0,
+            "ppt": token_score / played if played else 0.0,
         }
     return out
 
