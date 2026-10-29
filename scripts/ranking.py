@@ -205,6 +205,9 @@ def compute_ranking(json_path, maps, extra=None):
     # that moment, i.e. cumulative since war start, not since the previous
     # wipeout).
     team_fails = defaultdict(int)
+    # Abandoned battles are refunded (see reference_tacticus_data_structure.md)
+    # so they stay out of every stat above; just tallied for the war recap card.
+    abandoned_per_team = defaultdict(int)
 
     for e in logs:
         if e["type"] == "zoneDestroyed":
@@ -225,7 +228,10 @@ def compute_ranking(json_path, maps, extra=None):
                 "fails": team_fails[e["teamIndex"]],
             })
             continue
-        if e["type"] != "battleFinished" or e.get("abandoned"):
+        if e["type"] != "battleFinished":
+            continue
+        if e.get("abandoned"):
+            abandoned_per_team[e["teamIndex"]] += 1
             continue
 
         uid = e["userId"]
@@ -334,6 +340,7 @@ def compute_ranking(json_path, maps, extra=None):
         "war_start": war_start,
         "war_end": war_end,
         "battle_events": battle_events,
+        "abandoned": dict(abandoned_per_team),
         "zone_destroyed": zone_destroyed,
         "wipeouts": wipeouts,
     }

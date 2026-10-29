@@ -1131,7 +1131,138 @@ def render_war_chronologie_section(result, our_idx, display_names):
     return html + "</div>"
 
 
-def render_war_page(slug, result, season, outcome=None, active_uids=frozenset()):
+FR_MONTHS = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."]
+
+
+def _fmt_int(n):
+    return f"{int(round(n)):,}".replace(",", " ")
+
+
+def _fmt_pct(x):
+    return f"{x * 100:.1f}".replace(".", ",") + " %"
+
+
+def _fmt_day(ts_ms):
+    d = datetime.datetime.fromtimestamp(ts_ms / 1000)
+    return f"{d.day} {FR_MONTHS[d.month - 1]}"
+
+
+def compute_war_recap(result, our_idx):
+    """Per-guild totals for the war-page recap card: score (sum of raw battle
+    scores, the same series the Chronologie curve plots), attacks used,
+    successful attacks (win/finish), dropped tokens (fails), unused tokens
+    (pool minus attacks used -- abandoned battles are refunded so they don't
+    count as used), abandoned battles, and whether the guild kept attacking
+    after its own wipeout of the opponent's battlefield ("post-wipe")."""
+    out = {}
+    for t in result["guilds"]:
+        stats = [ps for ps in result["player_stats"].values() if ps["team"] == t]
+        played = sum(ps["played"] for ps in stats)
+        cleared = sum(ps["win"] + ps["finish"] for ps in stats)
+        dropped = sum(ps["fail"] for ps in stats)
+        pool = TOKENS_PER_PLAYER * len(stats)
+        evs = [e for e in result["battle_events"] if e["team"] == t]
+        score = sum(e.get("score", 0) for e in evs)
+        wipes = [w["createdOn"] for w in result["wipeouts"] if w["team"] == t]
+        post_wipe = bool(wipes) and any(e["createdOn"] > min(wipes) for e in evs)
+        out[t] = {
+            "name": OUR_GUILD_LABEL if t == our_idx else result["guilds"][t]["name"],
+            "score": score, "played": played, "cleared": cleared, "dropped": dropped,
+            "remaining": max(0, pool - played),
+            "abandoned": result.get("abandoned", {}).get(t, 0),
+            "rate": cleared / played if played else 0.0,
+            "ppt": score / played if played else 0.0,
+            "post_wipe": post_wipe,
+        }
+    return out
+
+
+def render_war_recap(result, our_idx, outcome, season, war_number):
+    """Recap card shown at the top of a war page (replaces the old
+    Victoire/Défaite pill for wars with a full capture): header with war
+    number and dates, both guilds' total score with a share bar, then a
+    head-to-head table of rates/counts (green = better side, red = worse),
+    and the result banner."""
+    recap = compute_war_recap(result, our_idx)
+    them_idx = next(t for t in result["guilds"] if t != our_idx)
+    us, them = recap[our_idx], recap[them_idx]
+
+    evs = result["battle_events"]
+    first, last = min(e["createdOn"] for e in evs), max(e["createdOn"] for e in evs)
+    d1, d2 = _fmt_day(first), _fmt_day(last)
+    dates = d1 if d1 == d2 else f"{d1} – {d2}"
+    title = f"Guerre {war_number}" if war_number else "Guerre"
+    if season:
+        title = f"Saison {season} · {title}"
+
+    total = us["score"] + them["score"]
+    share_us = us["score"] / total if total else 0.5
+
+    def row(label, a, b, fmt, higher_better=None, bars=True):
+        va, vb = a, b
+        cls_a = cls_b = ""
+        if higher_better is not None and va != vb:
+            a_better = (va > vb) == higher_better
+            cls_a, cls_b = ("is-good", "is-bad") if a_better else ("is-bad", "is-good")
+        top = max(va, vb)
+        wa = (va / top * 100) if (bars and top) else 0
+        wb = (vb / top * 100) if (bars and top) else 0
+        return (
+            '<div class="rc-row">'
+            f'<div class="rc-bar-wrap rc-left"><span class="rc-bar {cls_a}" style="width:{wa:.1f}%"></span></div>'
+            f'<span class="rc-val {cls_a}">{fmt(va)}</span>'
+            f'<span class="rc-label">{label}</span>'
+            f'<span class="rc-val {cls_b}">{fmt(vb)}</span>'
+            f'<div class="rc-bar-wrap rc-right"><span class="rc-bar {cls_b}" style="width:{wb:.1f}%"></span></div>'
+            '</div>'
+        )
+
+    def yes_no(label, a, b):
+        pill = lambda v: f'<span class="rc-pill {"is-yes" if v else "is-no"}">{"OUI" if v else "NON"}</span>'
+        return (
+            '<div class="rc-row"><div class="rc-bar-wrap rc-left"></div>'
+            f'<span class="rc-val">{pill(a)}</span><span class="rc-label">{label}</span>'
+            f'<span class="rc-val">{pill(b)}</span><div class="rc-bar-wrap rc-right"></div></div>'
+        )
+
+    rows = "".join([
+        row("Taux de réussite", us["rate"], them["rate"], _fmt_pct, True),
+        row("Points par jeton", us["ppt"], them["ppt"], _fmt_int, True),
+        row("Attaques réussies", us["cleared"], them["cleared"], _fmt_int, True),
+        row("Jetons restants", us["remaining"], them["remaining"], _fmt_int, None, bars=False),
+        row("Jetons perdus", us["dropped"], them["dropped"], _fmt_int, False),
+        row("Abandons", us["abandoned"], them["abandoned"], _fmt_int, False),
+        yes_no("Post-wipe ?", us["post_wipe"], them["post_wipe"]),
+    ])
+
+    banner = ""
+    if outcome in ("win", "loss"):
+        text = "Victoire · nous avons gagné cette guerre." if outcome == "win" else "Défaite · nous avons perdu cette guerre."
+        banner = f'<div class="rc-banner {"is-win" if outcome == "win" else "is-loss"}">{text}</div>'
+
+    return (
+        '<section class="war-recap">'
+        f'<header class="rc-head"><span class="rc-title">{html_escape(title)}</span>'
+        f'<span class="rc-dates">{html_escape(dates)}</span></header>'
+        '<div class="rc-body">'
+        '<div class="rc-teams">'
+        f'<div class="rc-team"><span class="rc-name"><i class="rc-dot war-us"></i>{html_escape(us["name"])}</span>'
+        f'<span class="rc-score">{_fmt_int(us["score"])}</span></div>'
+        '<span class="rc-vs">VS</span>'
+        f'<div class="rc-team rc-team-right"><span class="rc-name">{html_escape(them["name"])}<i class="rc-dot war-them"></i></span>'
+        f'<span class="rc-score">{_fmt_int(them["score"])}</span></div>'
+        '</div>'
+        f'<div class="rc-share"><span class="war-us" style="width:{share_us * 100:.1f}%"></span>'
+        f'<span class="war-them" style="width:{(1 - share_us) * 100:.1f}%"></span></div>'
+        f'<div class="rc-share-labels"><span>{round(share_us * 100)} % des points</span>'
+        f'<span>{round((1 - share_us) * 100)} %</span></div>'
+        f'<div class="rc-rows">{rows}</div>'
+        f'{banner}'
+        '</div></section>'
+    )
+
+
+def render_war_page(slug, result, season, outcome=None, active_uids=frozenset(), war_number=None):
     guilds = result["guilds"]
     hard_cols = result["hard_cols"]
     easy_cols = result["easy_cols"]
@@ -1144,7 +1275,10 @@ def render_war_page(slug, result, season, outcome=None, active_uids=frozenset())
     date_str = None
     if result["battle_events"]:
         date_str = datetime.datetime.fromtimestamp(result["war_end"] / 1000).strftime("%d/%m/%Y")
-    body = render_result_badge(outcome, date_str)
+    if any(e["team"] == our_idx for e in result["battle_events"]):
+        body = render_war_recap(result, our_idx, outcome, season, war_number)
+    else:
+        body = render_result_badge(outcome, date_str)
 
     # Chronologie + Jetons théoriquement réussis -- only possible for wars
     # with raw per-battle data (legacy wars have none, see legacy_ranking.py,
@@ -1724,7 +1858,7 @@ def main():
         )
 
     for w in all_wars:
-        render_war_page(w["slug"], w["result"], w["season"], w.get("outcome"), active_uids)
+        render_war_page(w["slug"], w["result"], w["season"], w.get("outcome"), active_uids, w.get("war_number"))
 
     seasons = defaultdict(list)
     for w in all_wars:
