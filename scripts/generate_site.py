@@ -992,7 +992,7 @@ def render_score_timeline_svg(result, our_idx):
         dx = -5 if anchor == "end" else 5
         els.append(
             f'<text x="{x + dx:.1f}" y="{label_y:.1f}" class="war-wipeout-label war-{cls}" '
-            f'text-anchor="{anchor}">champ de bataille exterminé {_fmt_hm(w["createdOn"] - t_min)}</text>'
+            f'text-anchor="{anchor}">R2 {_fmt_hm(w["createdOn"] - t_min)}</text>'
         )
 
     # One tick row per guild under the axis labels: a lost token each.
@@ -1041,8 +1041,8 @@ def render_tokens_chart_svg(result, our_idx):
     if not curves:
         return "", pools
 
-    w, h = 900, 300
-    left, right, top, bottom = 46, 20, 14, 40
+    w, h = 900, 290
+    left, right, top, bottom = 46, 20, 14, 30
     plot_w, plot_h = w - left - right, h - top - bottom
     x_max = max(pts[-1][0] for pts in curves.values())
     x_step = _nice_step(x_max, 6)
@@ -1069,12 +1069,6 @@ def render_tokens_chart_svg(result, our_idx):
         els.append(f'<line class="timeline-axis-line" x1="{x:.1f}" y1="{top}" x2="{x:.1f}" y2="{top + plot_h}"/>')
         els.append(f'<text x="{x:.1f}" y="{top + plot_h + 16}" class="chart-axis-label timeline-axis-label">{int(n)}</text>')
         n += x_step
-    els.append(
-        f'<text x="{left + plot_w / 2:.1f}" y="{h - 6}" class="chart-axis-label timeline-axis-label">'
-        f'Jetons utilisés (départ : '
-        + " / ".join(f'{pools[t]} {"nous" if t == our_idx else "adversaire"}' for t in teams if t in curves)
-        + ")</text>"
-    )
     for t in teams:
         if t not in curves:
             continue
@@ -1118,15 +1112,11 @@ def render_war_chronologie_section(result, our_idx, display_names):
         f'<div class="war-legend">{legend}</div>'
         f'<div class="chips timeline-player-chips">{player_chips}</div>'
         f'<div class="timeline-scroll">{svg}</div>'
-        '<p class="war-chart-note">Score cumulé par équipe · points = zones détruites · '
-        'pointillés = champ de bataille exterminé · traits = jetons perdus.</p>'
     )
     if tokens_svg:
         html += (
-            '<h2>Jetons théoriquement réussis</h2>'
+            '<h2>Jetons réussis</h2>'
             f'<div class="war-tokens-wrap">{tokens_svg}</div>'
-            '<p class="war-chart-note">Part des jetons théoriquement réussis : le départ est 100 % ; '
-            'chaque échec fait descendre la courbe.</p>'
         )
     return html + "</div>"
 
@@ -1177,7 +1167,7 @@ def render_war_recap(result, our_idx, outcome, season, war_number):
     """Recap card shown at the top of a war page (replaces the old
     Victoire/Défaite pill for wars with a full capture): header with war
     number and dates, both guilds' total score with a share bar, then a
-    head-to-head table of rates/counts (green = better side, red = worse),
+    head-to-head table of rates/counts (our side amber, theirs red),
     and the result pill."""
     recap = compute_war_recap(result, our_idx)
     them_idx = next(t for t in result["guilds"] if t != our_idx)
@@ -1194,32 +1184,27 @@ def render_war_recap(result, our_idx, outcome, season, war_number):
     total = us["score"] + them["score"]
     share_us = us["score"] / total if total else 0.5
 
-    def row(label, a, b, fmt, higher_better=None, bars=True):
-        va, vb = a, b
-        cls_a = cls_b = ""
-        if higher_better is not None and va != vb:
-            a_better = (va > vb) == higher_better
-            cls_a, cls_b = ("is-good", "is-bad") if a_better else ("is-bad", "is-good")
-        top = max(va, vb)
-        wa = (va / top * 100) if (bars and top) else 0
-        wb = (vb / top * 100) if (bars and top) else 0
+    def row(label, a, b, fmt, bars=True):
+        top = max(a, b)
+        wa = (a / top * 100) if (bars and top) else 0
+        wb = (b / top * 100) if (bars and top) else 0
         return (
             '<div class="rc-row">'
-            f'<div class="rc-bar-wrap rc-left"><span class="rc-bar {cls_a}" style="width:{wa:.1f}%"></span></div>'
-            f'<span class="rc-val {cls_a}">{fmt(va)}</span>'
+            f'<div class="rc-bar-wrap rc-left"><span class="rc-bar war-us" style="width:{wa:.1f}%"></span></div>'
+            f'<span class="rc-val war-us">{fmt(a)}</span>'
             f'<span class="rc-label">{label}</span>'
-            f'<span class="rc-val {cls_b}">{fmt(vb)}</span>'
-            f'<div class="rc-bar-wrap rc-right"><span class="rc-bar {cls_b}" style="width:{wb:.1f}%"></span></div>'
+            f'<span class="rc-val war-them">{fmt(b)}</span>'
+            f'<div class="rc-bar-wrap rc-right"><span class="rc-bar war-them" style="width:{wb:.1f}%"></span></div>'
             '</div>'
         )
 
     rows = "".join([
-        row("Taux de réussite", us["rate"], them["rate"], _fmt_pct, True),
-        row("Points par jeton", us["ppt"], them["ppt"], _fmt_int, True),
-        row("Attaques réussies", us["cleared"], them["cleared"], _fmt_int, True),
-        row("Jetons restants", us["remaining"], them["remaining"], _fmt_int, None, bars=False),
-        row("Jetons perdus", us["dropped"], them["dropped"], _fmt_int, False),
-        row("Abandons", us["abandoned"], them["abandoned"], _fmt_int, False),
+        row("Taux de réussite", us["rate"], them["rate"], _fmt_pct),
+        row("Points par jeton", us["ppt"], them["ppt"], _fmt_int),
+        row("Attaques réussies", us["cleared"], them["cleared"], _fmt_int),
+        row("Jetons restants", us["remaining"], them["remaining"], _fmt_int, bars=False),
+        row("Jetons perdus", us["dropped"], them["dropped"], _fmt_int),
+        row("Abandons", us["abandoned"], them["abandoned"], _fmt_int),
     ])
 
     banner = ""

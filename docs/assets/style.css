@@ -620,13 +620,13 @@ ul { line-height: 1.8; }
 .rc-bar-wrap { display: flex; height: 6px; }
 .rc-bar-wrap.rc-left { justify-content: flex-end; }
 .rc-bar-wrap.rc-right { justify-content: flex-start; }
-.rc-bar { display: block; height: 100%; border-radius: 999px; background: var(--toggle-thumb); opacity: 0.55; }
-.rc-bar.is-good { background: var(--win); opacity: 1; }
-.rc-bar.is-bad { background: var(--loss); opacity: 1; }
+.rc-bar { display: block; height: 100%; border-radius: 999px; }
+.rc-bar.war-us { background: var(--team-us); }
+.rc-bar.war-them { background: var(--team-them); }
 .rc-val { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .rc-val:nth-of-type(1) { text-align: right; }
-.rc-val.is-good { color: var(--win); }
-.rc-val.is-bad { color: var(--loss); }
+.rc-val.war-us { color: var(--team-us); }
+.rc-val.war-them { color: var(--team-them); }
 .rc-label { text-align: center; color: var(--text-muted); }
 .rc-banner {
   /* Same pill as the old .result-badge, centered under the table. */
@@ -636,8 +636,6 @@ ul { line-height: 1.8; }
   border-radius: 999px;
   padding: 0.35rem 0.9rem;
 }
-.rc-banner.is-win { border-color: var(--win); color: var(--win); }
-.rc-banner.is-loss { border-color: var(--loss); color: var(--loss); }
 @media (max-width: 480px) {
   .rc-row { grid-template-columns: minmax(0, 0.5fr) 4.5em minmax(5.5rem, 1.4fr) 4.5em minmax(0, 0.5fr); gap: 0.35rem; }
   .rc-label { font-size: 0.75rem; }
