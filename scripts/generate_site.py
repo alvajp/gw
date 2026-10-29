@@ -1122,6 +1122,7 @@ def render_war_chronologie_section(result, our_idx, display_names):
     if tokens_svg:
         html += (
             '<h2>Jetons réussis</h2>'
+            f'<div class="war-legend">{legend}</div>'
             f'<div class="war-tokens-wrap">{tokens_svg}</div>'
         )
     return html + "</div>"
