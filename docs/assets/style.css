@@ -572,73 +572,73 @@ ul { line-height: 1.8; }
 .war-tokens-wrap { margin-bottom: 1rem; }
 .war-tokens-svg { display: block; width: 100%; max-width: 1100px; height: auto; }
 
-/* War-page recap card (see render_war_recap in generate_site.py). */
+/* War-page recap card (see render_war_recap in generate_site.py) -- same
+   vocabulary as the tables: small type, 1px gridlines, table colors. */
 .war-recap {
-  max-width: 640px;
+  max-width: 860px;
   margin: 0 0 2rem;
-  background: var(--surface);
+  background: var(--table-bg);
   border: 1px solid var(--border);
-  border-radius: 14px;
-  overflow: hidden;
+  font-size: 0.85rem;
 }
 .rc-head {
   display: flex;
   align-items: baseline;
   gap: 0.8rem;
-  padding: 0.9rem 1.2rem;
+  padding: 0.4rem 0.7rem;
+  background: var(--table-header-bg);
   border-bottom: 1px solid var(--border);
 }
-.rc-title { font-size: 1.05rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; }
-.rc-dates { color: var(--text-muted); font-size: 0.9rem; }
-.rc-body { padding: 1.1rem 1.2rem 1.2rem; }
-.rc-teams { display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; }
-.rc-team { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; flex: 1; }
+.rc-title { font-weight: 600; }
+.rc-dates { color: var(--text-muted); }
+.rc-body { padding: 0.9rem 0.7rem 0.8rem; }
+.rc-teams { display: flex; align-items: flex-end; justify-content: space-between; gap: 0.8rem; }
+.rc-team { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; flex: 1; }
 .rc-team-right { align-items: flex-end; text-align: right; }
 .rc-name {
-  display: flex; align-items: center; gap: 0.45rem;
-  color: var(--text-muted); font-size: 0.85rem; font-weight: 600; text-transform: uppercase;
+  display: flex; align-items: center; gap: 0.4rem;
+  color: var(--text-muted);
   max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.rc-dot { width: 12px; height: 12px; border-radius: 4px; flex: none; display: inline-block; }
+.rc-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; display: inline-block; }
 .rc-dot.war-us, .rc-share .war-us { background: var(--team-us); }
 .rc-dot.war-them, .rc-share .war-them { background: var(--team-them); }
-.rc-score { font-size: clamp(1.5rem, 5vw, 2.2rem); font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
-.rc-vs {
-  flex: none; width: 2.4rem; height: 2.4rem; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  border: 1px solid var(--border); background: var(--bg);
-  font-size: 0.75rem; font-weight: 700; color: var(--text-muted);
-}
-.rc-share { display: flex; height: 12px; border-radius: 999px; overflow: hidden; margin: 0.9rem 0 0.35rem; gap: 2px; }
+.rc-score { font-size: clamp(1.3rem, 4vw, 1.8rem); font-weight: 600; line-height: 1.15; font-variant-numeric: tabular-nums; }
+.rc-vs { flex: none; color: var(--text-muted); padding-bottom: 0.25rem; }
+.rc-share { display: flex; height: 6px; border-radius: 999px; overflow: hidden; margin: 0.7rem 0 0.3rem; gap: 2px; }
 .rc-share span { display: block; height: 100%; }
-.rc-share-labels { display: flex; justify-content: space-between; color: var(--text-muted); font-size: 0.8rem; margin-bottom: 1.1rem; }
-.rc-rows { display: flex; flex-direction: column; gap: 0.55rem; }
+.rc-share-labels { display: flex; justify-content: space-between; color: var(--text-muted); font-size: 0.8rem; margin-bottom: 0.8rem; }
+.rc-rows { border-top: 1px solid var(--border); }
 .rc-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(7.5rem, 1.3fr) auto minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) 5.5em minmax(7.5rem, 1.2fr) 5.5em minmax(0, 1fr);
   align-items: center; gap: 0.5rem;
+  padding: 0.3rem 0;
+  border-bottom: 1px solid var(--border);
 }
-.rc-bar-wrap { display: flex; height: 10px; }
+.rc-row:nth-child(even) { background: var(--table-row-alt); }
+.rc-bar-wrap { display: flex; height: 6px; }
 .rc-bar-wrap.rc-left { justify-content: flex-end; }
 .rc-bar-wrap.rc-right { justify-content: flex-start; }
 .rc-bar { display: block; height: 100%; border-radius: 999px; background: var(--toggle-thumb); opacity: 0.55; }
 .rc-bar.is-good { background: var(--win); opacity: 1; }
 .rc-bar.is-bad { background: var(--loss); opacity: 1; }
-.rc-val { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rc-val { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rc-val:nth-of-type(1) { text-align: right; }
 .rc-val.is-good { color: var(--win); }
 .rc-val.is-bad { color: var(--loss); }
-.rc-val:nth-of-type(1) { text-align: right; }
-.rc-label { text-align: center; color: var(--text-muted); font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.02em; }
-.rc-pill { display: inline-block; padding: 0.15rem 0.6rem; border-radius: 6px; font-size: 0.8rem; font-weight: 700; }
-.rc-pill.is-yes { background: color-mix(in srgb, var(--win) 20%, transparent); color: var(--win); }
-.rc-pill.is-no { background: var(--table-row-alt); color: var(--text-muted); }
+.rc-label { text-align: center; color: var(--text-muted); }
 .rc-banner {
-  margin-top: 1.2rem; padding: 0.8rem 1rem; border-radius: 10px; text-align: center;
-  font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; font-size: 0.9rem;
+  /* Same pill as the old .result-badge, centered under the table. */
+  display: table;
+  margin: 0.9rem auto 0;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.35rem 0.9rem;
 }
-.rc-banner.is-win { background: color-mix(in srgb, var(--win) 18%, transparent); color: var(--win); }
-.rc-banner.is-loss { background: color-mix(in srgb, var(--loss) 18%, transparent); color: var(--loss); }
+.rc-banner.is-win { border-color: var(--win); color: var(--win); }
+.rc-banner.is-loss { border-color: var(--loss); color: var(--loss); }
 @media (max-width: 480px) {
-  .rc-row { grid-template-columns: minmax(0, 0.6fr) auto minmax(5.5rem, 1.4fr) auto minmax(0, 0.6fr); gap: 0.35rem; }
-  .rc-label { font-size: 0.68rem; }
+  .rc-row { grid-template-columns: minmax(0, 0.5fr) 4.5em minmax(5.5rem, 1.4fr) 4.5em minmax(0, 0.5fr); gap: 0.35rem; }
+  .rc-label { font-size: 0.75rem; }
 }

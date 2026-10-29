@@ -1152,8 +1152,7 @@ def compute_war_recap(result, our_idx):
     scores, the same series the Chronologie curve plots), attacks used,
     successful attacks (win/finish), dropped tokens (fails), unused tokens
     (pool minus attacks used -- abandoned battles are refunded so they don't
-    count as used), abandoned battles, and whether the guild kept attacking
-    after its own wipeout of the opponent's battlefield ("post-wipe")."""
+    count as used) and abandoned battles."""
     out = {}
     for t in result["guilds"]:
         stats = [ps for ps in result["player_stats"].values() if ps["team"] == t]
@@ -1163,8 +1162,6 @@ def compute_war_recap(result, our_idx):
         pool = TOKENS_PER_PLAYER * len(stats)
         evs = [e for e in result["battle_events"] if e["team"] == t]
         score = sum(e.get("score", 0) for e in evs)
-        wipes = [w["createdOn"] for w in result["wipeouts"] if w["team"] == t]
-        post_wipe = bool(wipes) and any(e["createdOn"] > min(wipes) for e in evs)
         out[t] = {
             "name": OUR_GUILD_LABEL if t == our_idx else result["guilds"][t]["name"],
             "score": score, "played": played, "cleared": cleared, "dropped": dropped,
@@ -1172,7 +1169,6 @@ def compute_war_recap(result, our_idx):
             "abandoned": result.get("abandoned", {}).get(t, 0),
             "rate": cleared / played if played else 0.0,
             "ppt": score / played if played else 0.0,
-            "post_wipe": post_wipe,
         }
     return out
 
@@ -1182,7 +1178,7 @@ def render_war_recap(result, our_idx, outcome, season, war_number):
     Victoire/Défaite pill for wars with a full capture): header with war
     number and dates, both guilds' total score with a share bar, then a
     head-to-head table of rates/counts (green = better side, red = worse),
-    and the result banner."""
+    and the result pill."""
     recap = compute_war_recap(result, our_idx)
     them_idx = next(t for t in result["guilds"] if t != our_idx)
     us, them = recap[our_idx], recap[them_idx]
@@ -1217,14 +1213,6 @@ def render_war_recap(result, our_idx, outcome, season, war_number):
             '</div>'
         )
 
-    def yes_no(label, a, b):
-        pill = lambda v: f'<span class="rc-pill {"is-yes" if v else "is-no"}">{"OUI" if v else "NON"}</span>'
-        return (
-            '<div class="rc-row"><div class="rc-bar-wrap rc-left"></div>'
-            f'<span class="rc-val">{pill(a)}</span><span class="rc-label">{label}</span>'
-            f'<span class="rc-val">{pill(b)}</span><div class="rc-bar-wrap rc-right"></div></div>'
-        )
-
     rows = "".join([
         row("Taux de réussite", us["rate"], them["rate"], _fmt_pct, True),
         row("Points par jeton", us["ppt"], them["ppt"], _fmt_int, True),
@@ -1232,13 +1220,12 @@ def render_war_recap(result, our_idx, outcome, season, war_number):
         row("Jetons restants", us["remaining"], them["remaining"], _fmt_int, None, bars=False),
         row("Jetons perdus", us["dropped"], them["dropped"], _fmt_int, False),
         row("Abandons", us["abandoned"], them["abandoned"], _fmt_int, False),
-        yes_no("Post-wipe ?", us["post_wipe"], them["post_wipe"]),
     ])
 
     banner = ""
     if outcome in ("win", "loss"):
-        text = "Victoire · nous avons gagné cette guerre." if outcome == "win" else "Défaite · nous avons perdu cette guerre."
-        banner = f'<div class="rc-banner {"is-win" if outcome == "win" else "is-loss"}">{text}</div>'
+        text = "Victoire" if outcome == "win" else "Défaite"
+        banner = f'<p class="rc-banner {"is-win" if outcome == "win" else "is-loss"}">{text}</p>'
 
     return (
         '<section class="war-recap">'
@@ -1248,7 +1235,7 @@ def render_war_recap(result, our_idx, outcome, season, war_number):
         '<div class="rc-teams">'
         f'<div class="rc-team"><span class="rc-name"><i class="rc-dot war-us"></i>{html_escape(us["name"])}</span>'
         f'<span class="rc-score">{_fmt_int(us["score"])}</span></div>'
-        '<span class="rc-vs">VS</span>'
+        '<span class="rc-vs">vs</span>'
         f'<div class="rc-team rc-team-right"><span class="rc-name">{html_escape(them["name"])}<i class="rc-dot war-them"></i></span>'
         f'<span class="rc-score">{_fmt_int(them["score"])}</span></div>'
         '</div>'
