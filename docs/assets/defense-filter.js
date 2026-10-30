@@ -42,9 +42,13 @@
   let data = null;
 
   function getData() {
-    if (!data) {
-      const el = document.getElementById("defense-data");
-      data = el ? JSON.parse(el.textContent) : { units: {}, players: {} };
+    // Not cached when the blob is absent: index<->season client-side nav swaps
+    // it in and out of the page.
+    const el = document.getElementById("defense-data");
+    if (!el) return { units: {}, players: {} };
+    if (!data || data.src !== el.textContent) {
+      data = JSON.parse(el.textContent);
+      data.src = el.textContent;
     }
     return data;
   }

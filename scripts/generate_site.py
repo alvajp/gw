@@ -1226,6 +1226,41 @@ def _unit_img(uid, prefix, mow=False):
 TIER_CODE = {"win": "w", "finish": "f", "fail": "x"}
 
 
+def _attacks_attr(events, t0):
+    """data-attacks value for a clickable defense row: every attack thrown at
+    that defense, as [attacker uid, outcome code, score, lineup, MoW, minutes
+    since the war's first battle] (read by defense-filter.js)."""
+    raw = json.dumps(
+        [[e["uid"], TIER_CODE.get(e["tier"], "u"), round(e["adj"]), e["att_units"], e["att_mow"],
+          round((e["createdOn"] - t0) / 60000)] for e in events],
+        separators=(",", ":"), ensure_ascii=False,
+    )
+    return html_escape(raw).replace(chr(34), "&quot;")
+
+
+def _defense_modal_html(rows_events, players, prefix):
+    """The shared <script id=defense-data> (names + portraits the modal needs,
+    once per page) and the empty <dialog> the clicked rows fill in."""
+    used_units, used_players = set(), set()
+    for events in rows_events:
+        for e in events:
+            used_units.update(e["att_units"])
+            if e["att_mow"]:
+                used_units.add(e["att_mow"])
+            used_players.add(e["uid"])
+    data = {
+        "units": {u: [UNITS_DB[u]["name"], prefix + UNITS_DB[u]["image"]] for u in sorted(used_units) if u in UNITS_DB},
+        "players": {uid: players.get(uid, {}).get("displayName", uid) for uid in sorted(used_players)},
+    }
+    return (
+        '<script type="application/json" id="defense-data">'
+        + json.dumps(data, separators=(",", ":"), ensure_ascii=False).replace("</", "<\\/")
+        + "</script>"
+        '<dialog id="defense-modal" class="defense-modal"><div class="dm-head"><div class="dm-title"></div>'
+        '<button type="button" class="dm-close" aria-label="Fermer">×</button></div><div class="dm-body"></div></dialog>'
+    )
+
+
 def render_defense_table(rows, players, boards, prefix, t0=0):
     if not rows:
         return ""
@@ -1250,15 +1285,8 @@ def render_defense_table(rows, players, boards, prefix, t0=0):
             comp += _unit_img(r["mow"], prefix, mow=True)
         bg = value_to_bg(hi - (r["avg"] - lo), lo, hi)  # low conceded score = good = green
         hidden = "" if i < DEFENSE_VISIBLE_ROWS else " hidden"
-        # Every attack thrown at this defense, for the click-to-open modal
-        # (defense-filter.js): [attacker uid, outcome code, score, lineup, MoW, minutes since the war's first battle].
-        attacks = json.dumps(
-            [[e["uid"], TIER_CODE.get(e["tier"], "u"), round(e["adj"]), e["att_units"], e["att_mow"],
-              round((e["createdOn"] - t0) / 60000)] for e in r["attacks"]],
-            separators=(",", ":"), ensure_ascii=False,
-        )
         body.append(
-            f'<tr{hidden} tabindex="0" data-attacks="{html_escape(attacks).replace(chr(34), "&quot;")}">'
+            f'<tr{hidden} tabindex="0" data-attacks="{_attacks_attr(r["attacks"], t0)}">'
             f'<td>{html_escape(players.get(r["uid"], {}).get("displayName", r["uid"]))}</td>'
             f'<td class="zone">{zone_html}</td><td class="comp">{comp}</td>'
             f'<td>{r["n"]}</td><td{bg}>{r["avg"]:.0f}</td>'
@@ -1296,25 +1324,7 @@ def render_defense_section(result, our_idx, boards, prefix="../"):
         table = render_defense_table([r for r in rows if r["team"] == team], result["players"], boards, prefix, t0)
         if table:
             parts.append(f'<div class="defense-block"><h3>{html_escape(name)}</h3>{table}</div>')
-    # Names + portraits the modal needs, once per page (rows only carry ids).
-    used_units, used_players = set(), set()
-    for r in rows:
-        for e in r["attacks"]:
-            used_units.update(e["att_units"])
-            if e["att_mow"]:
-                used_units.add(e["att_mow"])
-            used_players.add(e["uid"])
-    data = {
-        "units": {u: [UNITS_DB[u]["name"], prefix + UNITS_DB[u]["image"]] for u in sorted(used_units) if u in UNITS_DB},
-        "players": {uid: result["players"].get(uid, {}).get("displayName", uid) for uid in sorted(used_players)},
-    }
-    parts.append(
-        '<script type="application/json" id="defense-data">'
-        + json.dumps(data, separators=(",", ":"), ensure_ascii=False).replace("</", "<\\/")
-        + "</script>"
-        '<dialog id="defense-modal" class="defense-modal"><div class="dm-head"><div class="dm-title"></div>'
-        '<button type="button" class="dm-close" aria-label="Fermer">×</button></div><div class="dm-body"></div></dialog>'
-    )
+    parts.append(_defense_modal_html([r["attacks"] for r in rows], result["players"], prefix))
     parts.append("</div>")
     return "".join(parts)
 
@@ -1344,7 +1354,8 @@ def compute_defense_by_map(all_wars):
                 continue
             def_team = next(t for t in result["guilds"] if t != e["team"])
             key = (board, def_team, e["defender"], tuple(e["units"]), e["mow"], e["zone"])
-            a = acc.setdefault(key, {"n": 0, "score": 0, "fail": 0, "buffs": defaultdict(int)})
+            a = acc.setdefault(key, {"n": 0, "score": 0, "fail": 0, "buffs": defaultdict(int), "attacks": []})
+            a["attacks"].append(e)
             a["n"] += 1
             a["score"] += e["adj"]
             a["fail"] += 1 if e["fail"] else 0
@@ -1359,6 +1370,9 @@ def compute_defense_by_map(all_wars):
                 "buffs": {acr: c / a["n"] for acr, c in a["buffs"].items()},
                 "guild": OUR_GUILD_LABEL if team == our_idx else result["guilds"][team]["name"],
                 "player": result["players"].get(uid, {}).get("displayName", uid),
+                "attacks": sorted(a["attacks"], key=lambda e: e["createdOn"]),
+                "t0": min(ev["createdOn"] for ev in result["battle_events"]),
+                "players": result["players"],
             })
     return by_board
 
@@ -1384,11 +1398,15 @@ def render_defense_by_map(all_wars, prefix=""):
         return '<div id="defense-map-wrap"></div>'
     order = sorted(by_board, key=lambda b: -len(by_board[b]))
     blocks = []
+    shown_attacks, all_players = [], {}
     for i, board in enumerate(order):
         m = MAPS_DB.get(board)
         if not m:
             continue
         rows = sorted(by_board[board], key=lambda r: (r["avg"], -r["n"]))[:BEST_PER_MAP]
+        for r in rows:
+            shown_attacks.append(r["attacks"])
+            all_players.update(r["players"])
         diff = {"hard": "+2", "easy": "+0,5"}.get(m.get("difficulty"), "")
         badge = f'<span class="map-bonus">{diff}&nbsp;pts</span>' if diff else ""
         trs = []
@@ -1399,7 +1417,7 @@ def render_defense_by_map(all_wars, prefix=""):
             wr = r["war"]
             label = f'S{wr["season"]}&nbsp;G{wr["war_number"]}' if wr.get("war_number") else f'S{wr["season"]}'
             trs.append(
-                f'<tr><td>{html_escape(r["player"])}</td>'
+                f'<tr tabindex="0" data-attacks="{_attacks_attr(r["attacks"], r["t0"])}"><td>{html_escape(r["player"])}</td>'
                 f'<td class="guild">{html_escape(r["guild"])}<small>{label} · {ZONE_LABELS.get(r["zone"], r["zone"])}</small></td>'
                 f'<td class="comp">{comp}</td><td>{r["n"]}</td><td>{r["avg"]:.0f}</td>'
                 f'<td>{r["fail_rate"] * 100:.0f}&nbsp;%</td><td class="buffs">{_buff_list(r["buffs"])}</td></tr>'
@@ -1419,6 +1437,7 @@ def render_defense_by_map(all_wars, prefix=""):
     return (
         '<div id="defense-map-wrap"><h2>Meilleures défenses par map</h2>'
         + "".join(blocks)
+        + _defense_modal_html(shown_attacks, all_players, prefix)
         + '</div>'
     )
 
