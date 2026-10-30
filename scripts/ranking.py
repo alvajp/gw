@@ -264,7 +264,11 @@ def compute_ranking(json_path, maps, extra=None):
                 # Raw in-game score (zone-clear bonus included, unlike `adj`)
                 # and the fail flag, for the war-page cumulative-score curve
                 # and the "Jetons théoriquement réussis" chart.
-                "score": raw, "fail": tier == "fail",
+                "score": raw, "fail": tier == "fail", "tier": tier,
+                # The attacker's own lineup, for the war-page defense modal
+                # (every attack that was thrown at a given defense).
+                "att_units": [u["unitId"] for u in (e.get("attacker") or {}).get("units", [])],
+                "att_mow": ((e.get("attacker") or {}).get("machineOfWar") or {}).get("unitId"),
                 # Who defended against this attack and with what, for the
                 # war-page "Défense" section: defender, zone, lineup (unit
                 # ids in slot order + machine of war) and the zone's buff

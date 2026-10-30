@@ -681,3 +681,35 @@ details.map-defense .table-scroll { margin-bottom: 0; }
 .defense-more:hover { color: var(--accent); }
 .defense-more svg { transition: transform 150ms ease; }
 .defense-more[aria-expanded="true"] svg { transform: rotate(180deg); }
+
+/* Click a defense row -> modal with every attack thrown at it (defense-filter.js). */
+.defense-table tbody tr[data-attacks] { cursor: pointer; }
+.defense-table tbody tr[data-attacks]:hover td { filter: brightness(1.12); }
+dialog.defense-modal {
+  width: min(640px, calc(100vw - 2rem)); max-height: calc(100vh - 3rem); padding: 0;
+  border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text);
+}
+dialog.defense-modal::backdrop { background: rgba(0, 0, 0, 0.55); }
+.dm-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; padding: 0.8rem 1rem; border-bottom: 1px solid var(--border); background: var(--table-header-bg); }
+.dm-close { background: none; border: none; color: var(--text-muted); font-size: 1.6rem; line-height: 1; cursor: pointer; padding: 0 0.3rem; }
+.dm-close:hover { color: var(--text); }
+.dm-def { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.9rem; }
+.dm-def-player { font-weight: 600; }
+.dm-def-zone, .dm-def-comp { display: inline-flex; align-items: center; }
+.dm-def .map-thumb { height: 36px; width: auto; border-radius: 4px; margin-right: 0.4rem; }
+.dm-def .zone-text { display: inline-flex; flex-direction: column; line-height: 1.2; font-size: 0.85rem; }
+.dm-def .zone-text small { color: var(--text-muted); font-size: 0.75rem; }
+.dm-summary { color: var(--text-muted); font-size: 0.8rem; margin-top: 0.4rem; }
+.dm-body { overflow-y: auto; max-height: calc(100vh - 12rem); padding: 0.4rem 1rem 0.8rem; }
+.dm-row { display: grid; grid-template-columns: 4.2em minmax(0, 1fr) auto 4.6em 3.2em; align-items: center; gap: 0.6rem; padding: 0.4rem 0; border-bottom: 1px solid var(--border); font-size: 0.85rem; }
+.dm-row:last-child { border-bottom: none; }
+.dm-time { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.dm-player { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dm-comp { display: inline-flex; align-items: center; }
+.dm-comp .unit, .dm-def-comp .unit { width: 26px; height: 26px; border-radius: 50%; margin-right: 2px; background: var(--surface); }
+.dm-comp .unit.mow, .dm-def-comp .unit.mow { border-radius: 6px; margin-left: 5px; }
+.dm-result { text-align: center; font-size: 0.75rem; border: 1px solid var(--border); border-radius: 999px; padding: 0.1rem 0.4rem; }
+.dm-result.is-win { color: var(--win); border-color: var(--win); }
+.dm-result.is-fail { color: var(--loss); border-color: var(--loss); }
+.dm-result.is-finish { color: var(--text-muted); }
+.dm-score { text-align: right; font-variant-numeric: tabular-nums; }

@@ -1195,7 +1195,8 @@ def compute_defense_teams(result, our_idx):
             continue
         def_team = next(t for t in result["guilds"] if t != e["team"])
         key = (def_team, e["defender"], tuple(e["units"]), e["mow"])
-        a = acc.setdefault(key, {"n": 0, "score": 0, "fail": 0, "buffs": defaultdict(int), "zones": defaultdict(int)})
+        a = acc.setdefault(key, {"n": 0, "score": 0, "fail": 0, "buffs": defaultdict(int), "zones": defaultdict(int), "attacks": []})
+        a["attacks"].append(e)
         a["n"] += 1
         a["score"] += e["adj"]
         a["fail"] += 1 if e["fail"] else 0
@@ -1209,6 +1210,7 @@ def compute_defense_teams(result, our_idx):
             "avg": a["score"] / a["n"], "fail_rate": a["fail"] / a["n"],
             "buffs": {acr: c / a["n"] for acr, c in a["buffs"].items()},
             "zone": max(a["zones"], key=a["zones"].get),
+            "attacks": sorted(a["attacks"], key=lambda e: e["createdOn"]),
         })
     return rows
 
@@ -1221,7 +1223,10 @@ def _unit_img(uid, prefix, mow=False):
     return f'<img class="{cls}" src="{prefix}{u["image"]}" alt="{html_escape(u["name"])}" title="{html_escape(u["name"])}" loading="lazy">'
 
 
-def render_defense_table(rows, players, boards, prefix):
+TIER_CODE = {"win": "w", "finish": "f", "fail": "x"}
+
+
+def render_defense_table(rows, players, boards, prefix, t0=0):
     if not rows:
         return ""
     avgs = [r["avg"] for r in rows]
@@ -1245,8 +1250,15 @@ def render_defense_table(rows, players, boards, prefix):
             comp += _unit_img(r["mow"], prefix, mow=True)
         bg = value_to_bg(hi - (r["avg"] - lo), lo, hi)  # low conceded score = good = green
         hidden = "" if i < DEFENSE_VISIBLE_ROWS else " hidden"
+        # Every attack thrown at this defense, for the click-to-open modal
+        # (defense-filter.js): [attacker uid, outcome code, score, lineup, MoW, minutes since the war's first battle].
+        attacks = json.dumps(
+            [[e["uid"], TIER_CODE.get(e["tier"], "u"), round(e["adj"]), e["att_units"], e["att_mow"],
+              round((e["createdOn"] - t0) / 60000)] for e in r["attacks"]],
+            separators=(",", ":"), ensure_ascii=False,
+        )
         body.append(
-            f'<tr{hidden}>'
+            f'<tr{hidden} tabindex="0" data-attacks="{html_escape(attacks).replace(chr(34), "&quot;")}">'
             f'<td>{html_escape(players.get(r["uid"], {}).get("displayName", r["uid"]))}</td>'
             f'<td class="zone">{zone_html}</td><td class="comp">{comp}</td>'
             f'<td>{r["n"]}</td><td{bg}>{r["avg"]:.0f}</td>'
@@ -1277,12 +1289,32 @@ def render_defense_section(result, our_idx, boards, prefix="../"):
     rows = [r for r in compute_defense_teams(result, our_idx) if r["fails"] >= 1]
     if not rows:
         return ""
+    t0 = min(e["createdOn"] for e in result["battle_events"])
     parts = ['<div id="defense-wrap"><h2>Défense</h2>']
     for team in sorted(result["guilds"], key=lambda t: (t != our_idx, t)):
         name = OUR_GUILD_LABEL if team == our_idx else result["guilds"][team]["name"]
-        table = render_defense_table([r for r in rows if r["team"] == team], result["players"], boards, prefix)
+        table = render_defense_table([r for r in rows if r["team"] == team], result["players"], boards, prefix, t0)
         if table:
             parts.append(f'<div class="defense-block"><h3>{html_escape(name)}</h3>{table}</div>')
+    # Names + portraits the modal needs, once per page (rows only carry ids).
+    used_units, used_players = set(), set()
+    for r in rows:
+        for e in r["attacks"]:
+            used_units.update(e["att_units"])
+            if e["att_mow"]:
+                used_units.add(e["att_mow"])
+            used_players.add(e["uid"])
+    data = {
+        "units": {u: [UNITS_DB[u]["name"], prefix + UNITS_DB[u]["image"]] for u in sorted(used_units) if u in UNITS_DB},
+        "players": {uid: result["players"].get(uid, {}).get("displayName", uid) for uid in sorted(used_players)},
+    }
+    parts.append(
+        '<script type="application/json" id="defense-data">'
+        + json.dumps(data, separators=(",", ":"), ensure_ascii=False).replace("</", "<\\/")
+        + "</script>"
+        '<dialog id="defense-modal" class="defense-modal"><div class="dm-head"><div class="dm-title"></div>'
+        '<button type="button" class="dm-close" aria-label="Fermer">×</button></div><div class="dm-body"></div></dialog>'
+    )
     parts.append("</div>")
     return "".join(parts)
 

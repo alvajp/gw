@@ -1,0 +1,4 @@
+# Local-only data: never commit
+data/rosters/
+keys.json
+*.keys.json
