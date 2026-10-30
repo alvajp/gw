@@ -45,8 +45,7 @@
           return "<tr>" +
             '<td class="a-comp">' + comp(r[3], r[4]) + "</td>" +
             '<td class="a-def">' + comp(r[5], r[6]) + "</td>" +
-            '<td class="a-res"><span class="dm-result ' + o[1] + '">' + o[0] + "</span></td>" +
-            '<td class="a-score">' + r[2] + "</td>" +
+            '<td class="a-score ' + o[1] + '" title="' + o[0] + '">' + r[2] + "</td>" +
             '<td class="a-map">' + mapHtml + "</td></tr>";
         }).join("");
       }

@@ -1664,7 +1664,7 @@ def build_attacks(result, our_idx, boards, prefix="../"):
             f'<div class="attacks-block" data-team="{ti}"><div class="chips attacks-chips timeline-player-chips">{pills}</div>'
             '<div class="attacks-scroll"><table class="attacks-table"><thead><tr>'
             '<th class="a-comp">Attaque</th><th class="a-def">Contre</th>'
-            '<th class="a-res">Résultat</th><th class="a-score">Score</th><th class="a-map">Map</th>'
+            '<th class="a-score">Score</th><th class="a-map">Map</th>'
             '</tr></thead><tbody></tbody></table></div></div>'
         )
     data = {

@@ -745,23 +745,27 @@ dialog.defense-modal::backdrop { background: rgba(0, 0, 0, 0.55); }
 /* War-page "Attaques": every attack, one table per guild + player pills (attacks-table.js). */
 .attacks-block { margin-top: 1rem; }
 .attacks-chips { margin: 0 0 0.6rem; }
-.attacks-scroll { max-height: 70vh; overflow: auto; border: 1px solid var(--border); }
-.attacks-table { width: 100%; min-width: 620px; table-layout: fixed; font-size: 0.85rem; }
+.attacks-scroll { max-height: 70vh; overflow-y: auto; overflow-x: hidden; border: 1px solid var(--border); }
+.attacks-table { width: 100%; table-layout: fixed; font-size: 0.85rem; }
 .attacks-table th, .attacks-table td { width: auto; border-left: none; border-right: none; text-align: left; overflow: visible; }
 .attacks-table th { position: sticky; top: 0; z-index: 1; cursor: default; }
 .attacks-table th:hover { background: var(--table-header-bg); }
 .attacks-table th:first-child, .attacks-table td:first-child { position: static; background: none; }
-.attacks-table th.a-comp { width: 15em; }
-.attacks-table th.a-def { width: 15em; }
-.attacks-table th.a-res { width: 6.5em; }
-.attacks-table th.a-score { width: 4.5em; text-align: right; }
-.attacks-table td.a-score { text-align: right; font-variant-numeric: tabular-nums; }
-.attacks-table th.a-map { width: 11em; }
+/* Percent widths so the table always fits its column; portraits wrap onto a second line when it is narrow. */
+.attacks-table th.a-comp { width: 33%; }
+.attacks-table th.a-def { width: 31%; }
+.attacks-table th.a-score { width: 11%; text-align: right; }
+.attacks-table th.a-map { width: 25%; }
+/* Score is the result: green when the attack won, red when it failed (finish stays neutral). */
+.attacks-table td.a-score { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+.attacks-table td.a-score.is-win { color: var(--win); }
+.attacks-table td.a-score.is-fail { color: var(--loss); }
+.attacks-table td.a-score.is-finish { color: var(--text-muted); }
 .attacks-table td { vertical-align: middle; white-space: normal; }
 .attacks-table tbody tr[hidden] { display: none; }
 .attacks-table .unit { width: 26px; height: 26px; border-radius: 50%; margin-right: 2px; vertical-align: middle; background: var(--surface); }
 .attacks-table .unit.mow { border-radius: 6px; margin-left: 4px; }
 .attacks-table .unit-missing { display: inline-flex; align-items: center; justify-content: center; font-size: 0.7rem; color: var(--text-muted); }
-.attacks-table td.a-map .map-thumb { height: 34px; width: auto; border-radius: 4px; vertical-align: middle; margin-right: 0.4rem; }
+.attacks-table td.a-map .map-thumb { height: 30px; width: auto; border-radius: 4px; vertical-align: middle; margin-right: 0.4rem; }
 .attacks-table .zone-text { display: inline-flex; flex-direction: column; vertical-align: middle; line-height: 1.2; }
 .attacks-table .zone-text small { color: var(--text-muted); font-size: 0.75rem; }
