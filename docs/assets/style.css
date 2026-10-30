@@ -743,6 +743,3 @@ dialog.defense-modal::backdrop { background: rgba(0, 0, 0, 0.55); }
 
 /* Index "Défenses de ..." combined single map + our attacks (see render_opponent_map). */
 .battlefield-single { grid-template-columns: minmax(0, 820px); }
-.attack-table th.comp, .attack-table td.comp { width: 18em; }
-.dm-row.use { grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) 4.6em 3.2em; }
-.dm-against { color: var(--text-muted); font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

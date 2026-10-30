@@ -1529,7 +1529,6 @@ def render_battlefield_section(result, our_idx, boards, prefix="../"):
 
 
 COMBINED_OPPONENTS = {"Bloody Rose", "Ti'lath's Changers", "Red Corsairs"}  # + any guild with "Alpha Legion" in its name
-OPP_ATTACK_MIN_USES = 2
 
 
 def _is_combined_opponent(name):
@@ -1539,11 +1538,10 @@ def _is_combined_opponent(name):
 def render_opponent_map(all_wars, prefix=""):
     """Bottom of the index: ONE map (the 15 boards) combining every defense of
     the combined opponents (see COMBINED_OPPONENTS) across the wars against
-    them -- grouped by board, since a map moves between zones from war to war --
-    with, underneath, all our attacks against those defenses grouped by attack
-    team. Returns (html, events for the modal, players for the modal)."""
+    them -- grouped by board, since a map moves between zones from war to war.
+    Clicking a defender opens the modal (its lineups + every attack of ours
+    against it). Returns (html, events for the modal, players for the modal)."""
     tiles_by_board = defaultdict(list)
-    uses = {}  # (sorted attacker units, mow) -> list of our attacks
     events_all, players_all, guild_names = [], {}, []
     for w in all_wars:
         result = w["result"]
@@ -1567,9 +1565,6 @@ def render_opponent_map(all_wars, prefix=""):
             for d in entries:
                 events_all.append(d["events"])
                 tiles_by_board[board].append((opp_name, war_tag, zone, d, t0, result["players"]))
-                for e in d["events"]:
-                    key = (tuple(sorted(e["att_units"])), e["att_mow"])
-                    uses.setdefault(key, []).append((e, MAPS_DB.get(board, {}).get("name", ""), opp_name))
     if not tiles_by_board:
         return '<div id="opp-map-wrap"></div>', [], {}
 
@@ -1598,49 +1593,12 @@ def render_opponent_map(all_wars, prefix=""):
             f'<div class="map-tile-defs">{"".join(chips)}</div></div>'
         )
 
-    # Our attacks, grouped by attack team (used at least OPP_ATTACK_MIN_USES times).
-    rows = []
-    for (units, mow), lst in uses.items():
-        if len(lst) < OPP_ATTACK_MIN_USES:
-            continue
-        wins = sum(1 for e, _, _ in lst if e["tier"] == "win")
-        avg = sum(e["adj"] for e, _, _ in lst) / len(lst)
-        rows.append((len(lst), wins, avg, units, mow, lst))
-    rows.sort(key=lambda r: (-r[0], -r[1] / r[0], -r[2]))
-    body = []
-    for i, (n, wins, avg, units, mow, lst) in enumerate(rows):
-        comp = "".join(_unit_img(u, prefix) for u in units) + (_unit_img(mow, prefix, mow=True) if mow else "")
-        payload = [[e["uid"], TIER_CODE.get(e["tier"], "u"), round(e["adj"]), f"{mname} · {gname}"] for e, mname, gname in lst]
-        attr = html_escape(json.dumps(payload, separators=(",", ":"), ensure_ascii=False)).replace(chr(34), "&quot;")
-        hidden = "" if i < DEFENSE_VISIBLE_ROWS else " hidden"
-        body.append(
-            f'<tr{hidden} tabindex="0" data-uses="{attr}"><td class="comp">{comp}</td><td>{n}</td><td>{wins}</td>'
-            f'<td>{wins / n * 100:.0f}&nbsp;%</td><td>{avg:.0f}</td></tr>'
-        )
-        events_all.append([e for e, _, _ in lst])
-    table = ""
-    if rows:
-        head = '<tr><th class="comp">Composition</th><th>Tokens</th><th>Victoires</th><th>Taux</th><th>Score moy.</th></tr>'
-        table = (
-            f'<div class="defense-block"><h3>Nos attaques</h3><div class="table-scroll"><table class="sortable defense-table attack-table">'
-            f'<thead>{head}</thead><tbody>{"".join(body)}</tbody></table></div>'
-        )
-        extra = len(rows) - DEFENSE_VISIBLE_ROWS
-        if extra > 0:
-            table += (
-                f'<button type="button" class="defense-more" aria-expanded="false" aria-label="Afficher les {extra} autres" '
-                f'data-extra="{extra}"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">'
-                '<polyline points="6 9 12 15 18 9" fill="none" stroke="currentColor" stroke-width="2" '
-                'stroke-linecap="round" stroke-linejoin="round"/></svg></button>'
-            )
-        table += "</div>"
-
     uniq = list(dict.fromkeys(guild_names))
     title = "Défenses de " + (", ".join(uniq[:-1]) + " et " + uniq[-1] if len(uniq) > 1 else uniq[0])
     html = (
         f'<div id="opp-map-wrap"><h2>{html_escape(title)}</h2>'
         f'<div class="battlefield battlefield-single"><div class="battlefield-side"><div class="battlefield-grid">{"".join(tiles)}</div></div></div>'
-        f'{table}</div>'
+        '</div>'
     )
     return html, events_all, players_all
 
