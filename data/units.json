@@ -1,4 +1,9 @@
 {
+ "adeptCanoness": {
+  "name": "Roswitha",
+  "image": "assets/units/adeptCanoness.webp",
+  "mow": false
+ },
  "adeptCelestine": {
   "name": "Celestine",
   "image": "assets/units/adeptCelestine.webp",
@@ -49,6 +54,11 @@
   "image": "assets/units/admecRuststalker.webp",
   "mow": false
  },
+ "astarCyrus": {
+  "name": "Cyrus",
+  "image": "assets/units/astarCyrus.webp",
+  "mow": false
+ },
  "astarEradicator": {
   "name": "Nubari",
   "image": "assets/units/astarEradicator.webp",
@@ -57,6 +67,11 @@
  "astarLysander": {
   "name": "Lysander",
   "image": "assets/units/astarLysander.webp",
+  "mow": false
+ },
+ "astraBullgryn": {
+  "name": "Kut",
+  "image": "assets/units/astraBullgryn.webp",
   "mow": false
  },
  "astraCreed": {
@@ -274,6 +289,11 @@
   "image": "assets/units/emperExultant.webp",
   "mow": false
  },
+ "emperFlawlessBlade": {
+  "name": "Hascule",
+  "image": "assets/units/emperFlawlessBlade.webp",
+  "mow": false
+ },
  "emperKakophonist": {
   "name": "Adamatar",
   "image": "assets/units/emperKakophonist.webp",
@@ -377,6 +397,11 @@
  "orksWarboss": {
   "name": "Gulgortz",
   "image": "assets/units/orksWarboss.webp",
+  "mow": false
+ },
+ "orksWeirdboy": {
+  "name": "Zapspitta",
+  "image": "assets/units/orksWeirdboy.webp",
   "mow": false
  },
  "spaceBlackmane": {
@@ -489,6 +514,11 @@
   "image": "assets/units/thousSekhetar.webp",
   "mow": false
  },
+ "thousSorcerer": {
+  "name": "Thaumachus",
+  "image": "assets/units/thousSorcerer.webp",
+  "mow": false
+ },
  "thousTerminator": {
   "name": "Toth",
   "image": "assets/units/thousTerminator.webp",
@@ -544,6 +574,11 @@
   "image": "assets/units/ultraDreadnought.webp",
   "mow": true
  },
+ "ultraEliminatorSgt": {
+  "name": "Certus",
+  "image": "assets/units/ultraEliminatorSgt.webp",
+  "mow": false
+ },
  "ultraInceptorSgt": {
   "name": "Bellator",
   "image": "assets/units/ultraInceptorSgt.webp",
@@ -569,6 +604,11 @@
   "image": "assets/units/votanChampion.webp",
   "mow": false
  },
+ "votanIronmaster": {
+  "name": "Vynn",
+  "image": "assets/units/votanIronmaster.webp",
+  "mow": false
+ },
  "votanMemnyr": {
   "name": "Ammuk",
   "image": "assets/units/votanMemnyr.webp",
@@ -587,6 +627,11 @@
  "worldExecutions": {
   "name": "Tarvakh",
   "image": "assets/units/worldExecutions.webp",
+  "mow": false
+ },
+ "worldJakhal": {
+  "name": "Macer",
+  "image": "assets/units/worldJakhal.webp",
   "mow": false
  },
  "worldKharn": {

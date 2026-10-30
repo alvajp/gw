@@ -1536,12 +1536,14 @@ def _is_combined_opponent(name):
 
 
 def render_opponent_map(all_wars, prefix=""):
-    """Bottom of the index: ONE map (the 15 boards) combining every defense of
-    the combined opponents (see COMBINED_OPPONENTS) across the wars against
-    them -- grouped by board, since a map moves between zones from war to war.
-    Clicking a defender opens the modal (its lineups + every attack of ours
-    against it). Returns (html, events for the modal, players for the modal)."""
-    tiles_by_board = defaultdict(list)
+    """Top of the index, "Contre les meilleurs": like the bottom of a war page
+    but combined over every war against the COMBINED_OPPONENTS -- our
+    defenses (and their attacks on them) on the left, their defenses (and our
+    attacks on them) on the right, one 15-tile grid per side. Tiles are
+    grouped by board, since a map moves between zones from war to war.
+    Clicking a defender opens the modal (its lineups + every attack against
+    it). Returns (html, events for the modal, players for the modal)."""
+    tiles_by_board = {"us": defaultdict(list), "them": defaultdict(list)}
     events_all, players_all, guild_names = [], {}, []
     for w in all_wars:
         result = w["result"]
@@ -1557,49 +1559,54 @@ def render_opponent_map(all_wars, prefix=""):
         players_all.update(result["players"])
         t0 = min(e["createdOn"] for e in result["battle_events"])
         war_tag = f'S{w["season"]} G{w["war_number"]}' if w.get("war_number") else f'S{w["season"]}'
-        field = compute_battlefield(result).get(opp_idx, {})
-        for zone, entries in field.items():
-            board = boards.get(zone)
-            if not board:
-                continue
-            for d in entries:
-                events_all.append(d["events"])
-                tiles_by_board[board].append((opp_name, war_tag, zone, d, t0, result["players"]))
-    if not tiles_by_board:
+        field = compute_battlefield(result)
+        for side, team in (("us", our_idx), ("them", opp_idx)):
+            for zone, entries in field.get(team, {}).items():
+                board = boards.get(zone)
+                if not board:
+                    continue
+                for d in entries:
+                    events_all.append(d["events"])
+                    tiles_by_board[side][board].append((opp_name, war_tag, zone, d, t0, result["players"]))
+
+    if not guild_names:
         return '<div id="opp-map-wrap"></div>', [], {}
 
-    tiles = []
-    for board, m in MAPS_DB.items():
-        chips = []
-        for opp_name, war_tag, zone, d, t0, players in sorted(tiles_by_board.get(board, []), key=lambda x: -len(x[3]["events"])):
-            name = players.get(d["uid"], {}).get("displayName", d["uid"])
-            payload = {
-                "p": d["uid"], "z": f'{ZONE_LABELS.get(zone, zone)} · {opp_name} {war_tag}', "m": m["name"], "i": prefix + m["image"],
-                "l": [[ln["units"], ln["mow"], ln["n"], ln["fails"], round(ln["score"] / ln["n"])] for ln in d["lines"]],
-                "a": [[e["uid"], TIER_CODE.get(e["tier"], "u"), round(e["adj"]), e["att_units"], e["att_mow"],
-                       round((e["createdOn"] - t0) / 60000), e["_line"]] for e in d["events"]],
-            }
-            attr = html_escape(json.dumps(payload, separators=(",", ":"), ensure_ascii=False)).replace(chr(34), "&quot;")
-            fails = sum(1 for e in d["events"] if e["fail"])
-            chips.append(
-                f'<button type="button" class="map-def" data-def="{attr}">'
-                f'<span class="map-def-name">{html_escape(name)}</span>'
-                f'<small>{html_escape(opp_name)} · {ZONE_LABELS.get(zone, zone)}</small>'
-                f'<small>{len(d["events"])} att. · {fails} échec{"s" if fails > 1 else ""}</small></button>'
-            )
-        tiles.append(
-            f'<div class="map-tile"><div class="map-tile-head"><b>{html_escape(m["name"])}</b></div>'
-            f'<img src="{prefix}{m["image"]}" alt="{html_escape(m["name"])}" loading="lazy">'
-            f'<div class="map-tile-defs">{"".join(chips)}</div></div>'
+    def chip(side, opp_name, war_tag, zone, d, t0, players, m):
+        name = players.get(d["uid"], {}).get("displayName", d["uid"])
+        zlabel = ZONE_LABELS.get(zone, zone)
+        context = f"vs {opp_name}" if side == "us" else opp_name
+        payload = {
+            "p": d["uid"], "z": f"{zlabel} · {context} {war_tag}", "m": m["name"], "i": prefix + m["image"],
+            "l": [[ln["units"], ln["mow"], ln["n"], ln["fails"], round(ln["score"] / ln["n"])] for ln in d["lines"]],
+            "a": [[e["uid"], TIER_CODE.get(e["tier"], "u"), round(e["adj"]), e["att_units"], e["att_mow"],
+                   round((e["createdOn"] - t0) / 60000), e["_line"]] for e in d["events"]],
+        }
+        attr = html_escape(json.dumps(payload, separators=(",", ":"), ensure_ascii=False)).replace(chr(34), "&quot;")
+        fails = sum(1 for e in d["events"] if e["fail"])
+        return (
+            f'<button type="button" class="map-def" data-def="{attr}">'
+            f'<span class="map-def-name">{html_escape(name)}</span>'
+            f'<small>{html_escape(context)} · {zlabel}</small>'
+            f'<small>{len(d["events"])} att. · {fails} échec{"s" if fails > 1 else ""}</small></button>'
         )
 
     uniq = list(dict.fromkeys(guild_names))
-    title = "Défenses de " + (", ".join(uniq[:-1]) + " et " + uniq[-1] if len(uniq) > 1 else uniq[0])
-    html = (
-        f'<div id="opp-map-wrap"><h2>{html_escape(title)}</h2>'
-        f'<div class="battlefield battlefield-single"><div class="battlefield-side"><div class="battlefield-grid">{"".join(tiles)}</div></div></div>'
-        '</div>'
-    )
+    sides = []
+    for side, heading in (("us", OUR_GUILD_LABEL), ("them", ", ".join(uniq))):
+        tiles = []
+        for board, m in MAPS_DB.items():
+            entries = sorted(tiles_by_board[side].get(board, []), key=lambda x: -len(x[3]["events"]))
+            chips = "".join(chip(side, *x, m) for x in entries)
+            tiles.append(
+                f'<div class="map-tile"><div class="map-tile-head"><b>{html_escape(m["name"])}</b></div>'
+                f'<img src="{prefix}{m["image"]}" alt="{html_escape(m["name"])}" loading="lazy">'
+                f'<div class="map-tile-defs">{chips}</div></div>'
+            )
+        sides.append(
+            f'<div class="battlefield-side"><h3>{html_escape(heading)}</h3><div class="battlefield-grid">{"".join(tiles)}</div></div>'
+        )
+    html = f'<div id="opp-map-wrap"><h2>Contre les meilleurs</h2><div class="battlefield">{"".join(sides)}</div></div>'
     return html, events_all, players_all
 
 
@@ -1790,11 +1797,12 @@ def render_season_page(season, wars_in_season, active_uids=frozenset()):
     body += '<h2>Scores</h2>'
     body += render_average_chart(display_names, averages, win_rate, tokens, buffs, maps_, score_display_names, score_distributions, active_uids, scope="season")
     body += render_chronologie_section(agg_events, agg_milestones, agg_display_names, relative=True)
-    body += '<div id="defense-map-wrap"></div>'  # filled on the index only, kept here so client-side nav can swap it
+    body += '<div id="opp-map-wrap"></div>'  # index-only sections, kept here (same spot as on the index) so client-side nav can swap them
+    body += '<div id="defense-map-wrap"></div>'
     body += '<h2>Détails</h2>'
     body += f'<div id="table-wrap">{render_history_table(wars_in_season)}</div>'
     body += '<div id="bareme-wrap"></div>'
-    body += '<div id="opp-map-wrap"></div><div id="defense-modal-wrap"></div>'  # index-only, kept so client-side nav can swap them
+    body += '<div id="defense-modal-wrap"></div>'
 
     back_link = back_link_html("../index.html", "Classement général", transition=True)
     html = PAGE_TEMPLATE.format(title=f"Saison {season}", asset_prefix="../", body=body, back_link=back_link, title_class="", header_extra="", v=ASSETS_VERSION)
@@ -2241,13 +2249,13 @@ def render_index(seasons, active_uids=frozenset()):
     body += '<h2>Scores</h2>'
     body += render_average_chart(display_names, averages, win_rate, tokens, buffs, maps_, score_display_names, score_distributions, active_uids, scope="global", filterable=True)
     body += render_chronologie_section(agg_events, agg_milestones, agg_display_names, relative=True)
+    opp_html, opp_events, opp_players = render_opponent_map(all_wars_flat)
     by_map_html, by_map_events, by_map_players = render_defense_by_map(all_wars_flat)
+    body += opp_html
     body += by_map_html
     body += '<h2>Détails</h2>'
     body += f'<div id="table-wrap">{render_season_average_table(season_numbers, season_stats, display_names, averages, active_uids)}</div>'
     body += f'<div id="bareme-wrap">{BAREME_HTML}</div>'
-    opp_html, opp_events, opp_players = render_opponent_map(all_wars_flat)
-    body += opp_html
     # One shared modal (+ its names/portraits blob) for both index sections that open it.
     body += '<div id="defense-modal-wrap">' + _defense_modal_html(by_map_events + opp_events, {**by_map_players, **opp_players}, "") + "</div>"
 

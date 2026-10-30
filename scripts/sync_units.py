@@ -4,9 +4,9 @@ portrait of every character / machine of war seen in a captured defense.
 
 Source: the community Tacticus Planner (https://tacticusplanner.app), whose
 JS bundle embeds the unit list (id, name, round-icon path) and serves the
-portrait images. Only units that actually appear as defenders in
+portrait images. Only units that actually appear (as defenders or attackers) in
 data/wars/*.json are fetched, one small image each. Re-run after adding a war
-whose defenses include a new unit; already-downloaded portraits are kept.
+whose lineups include a new unit; already-downloaded portraits are kept.
 Game art belongs to Snowprint Studios / Games Workshop.
 
 Usage: python3 scripts/sync_units.py
@@ -44,12 +44,16 @@ def used_unit_ids():
             data = json.load(fh)
         for er in data["eventResults"]:
             for l in er["eventResponseData"].get("activityLogs", []):
-                d = l.get("defender") if l["type"] == "battleFinished" else None
-                if not d:
+                if l["type"] != "battleFinished":
                     continue
-                heroes.update(u["unitId"] for u in d.get("units", []))
-                if d.get("machineOfWar"):
-                    mows.add(d["machineOfWar"]["unitId"])
+                # defenders AND attackers: the attack lineups show up in the modals too
+                for side in ("defender", "attacker"):
+                    d = l.get(side)
+                    if not d:
+                        continue
+                    heroes.update(u["unitId"] for u in d.get("units", []))
+                    if d.get("machineOfWar"):
+                        mows.add(d["machineOfWar"]["unitId"])
     return heroes, mows
 
 
