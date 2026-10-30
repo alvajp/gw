@@ -671,6 +671,7 @@ details.map-defense > summary .map-thumb { height: 36px; width: auto; border-rad
 details.map-defense .table-scroll { margin-bottom: 0; }
 .defense-table th.guild, .defense-table td.guild { width: 12em; text-align: left; }
 .defense-table td.guild small { display: block; color: var(--text-muted); font-size: 0.75rem; }
-.defense-table th.buffs, .defense-table td.buffs { width: 14em; text-align: left; overflow: visible; white-space: normal; }
-.buff-chip { display: inline-block; margin: 1px 3px 1px 0; padding: 0 0.4rem; border-radius: 999px; background: var(--table-row-alt); border: 1px solid var(--border); font-size: 0.75rem; }
+.defense-table th.buffs, .defense-table td.buffs { width: 11em; text-align: left; overflow: visible; white-space: normal; }
+.buff-list { margin: 0; padding-left: 1.1em; columns: 2; column-gap: 1em; line-height: 1.35; font-size: 0.8rem; }
 .buff-none { color: var(--text-muted); font-size: 0.75rem; }
+.defense-more { margin: 0.5rem 0 1rem; }

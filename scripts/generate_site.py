@@ -1180,34 +1180,34 @@ def war_boards(maps):
     return boards
 
 
-DEFENSE_MIN_ATTACKS = 3  # shown by default; the chips lower/raise it
+DEFENSE_VISIBLE_ROWS = 5  # rows shown per guild before the "Afficher" expand
 
 
 def compute_defense_teams(result, our_idx):
     """One entry per defensive team (a player's 5 characters + machine of war,
     one of the 5 lineups each defender fields): attacks it suffered, mean score
     conceded (zone-clear bonus excluded, `adj`), share of attacks that failed,
-    and mean "bonus" (zone buff points + map bonus on the attack). Keyed per
-    guild so both sides can be listed."""
-    hard = {z for z, _ in result["hard_cols"]}
-    easy = {z for z, _ in result["easy_cols"]}
+    and the mean number of each zone buff on it per attack. Keyed per guild so
+    both sides can be listed."""
     acc = {}
     for e in result["battle_events"]:
         if not e.get("defender"):
             continue
         def_team = next(t for t in result["guilds"] if t != e["team"])
         key = (def_team, e["defender"], tuple(e["units"]), e["mow"])
-        a = acc.setdefault(key, {"n": 0, "score": 0, "fail": 0, "bonus": 0.0, "zones": defaultdict(int)})
+        a = acc.setdefault(key, {"n": 0, "score": 0, "fail": 0, "buffs": defaultdict(int), "zones": defaultdict(int)})
         a["n"] += 1
         a["score"] += e["adj"]
         a["fail"] += 1 if e["fail"] else 0
-        a["bonus"] += e["buff_pts"] + (2 if e["zone"] in hard else 0.5 if e["zone"] in easy else 0)
+        for acr, c in e.get("buffs", {}).items():
+            a["buffs"][acr] += c
         a["zones"][e["zone"]] += 1
     rows = []
     for (team, uid, units, mow), a in acc.items():
         rows.append({
-            "team": team, "uid": uid, "units": units, "mow": mow, "n": a["n"],
-            "avg": a["score"] / a["n"], "fail_rate": a["fail"] / a["n"], "bonus": a["bonus"] / a["n"],
+            "team": team, "uid": uid, "units": units, "mow": mow, "n": a["n"], "fails": a["fail"],
+            "avg": a["score"] / a["n"], "fail_rate": a["fail"] / a["n"],
+            "buffs": {acr: c / a["n"] for acr, c in a["buffs"].items()},
             "zone": max(a["zones"], key=a["zones"].get),
         })
     return rows
@@ -1221,13 +1221,15 @@ def _unit_img(uid, prefix, mow=False):
     return f'<img class="{cls}" src="{prefix}{u["image"]}" alt="{html_escape(u["name"])}" title="{html_escape(u["name"])}" loading="lazy">'
 
 
-def render_defense_table(rows, players, boards, prefix, hard_zones, easy_zones):
+def render_defense_table(rows, players, boards, prefix):
     if not rows:
         return ""
     avgs = [r["avg"] for r in rows]
     lo, hi = min(avgs), max(avgs)
     body = []
-    for r in sorted(rows, key=lambda r: (r["avg"], -r["n"])):
+    # Most tokens spent against it first (the hardest nut to crack), then the
+    # lower mean score.
+    for i, r in enumerate(sorted(rows, key=lambda r: (-r["n"], r["avg"]))):
         board = boards.get(r["zone"])
         m = MAPS_DB.get(board) if board else None
         zlabel = ZONE_LABELS.get(r["zone"], r["zone"])
@@ -1242,45 +1244,46 @@ def render_defense_table(rows, players, boards, prefix, hard_zones, easy_zones):
         if r["mow"]:
             comp += _unit_img(r["mow"], prefix, mow=True)
         bg = value_to_bg(hi - (r["avg"] - lo), lo, hi)  # low conceded score = good = green
-        hidden = "" if r["n"] >= DEFENSE_MIN_ATTACKS else " hidden"
+        hidden = "" if i < DEFENSE_VISIBLE_ROWS else " hidden"
         body.append(
-            f'<tr data-n="{r["n"]}"{hidden}>'
+            f'<tr{hidden}>'
             f'<td>{html_escape(players.get(r["uid"], {}).get("displayName", r["uid"]))}</td>'
             f'<td class="zone">{zone_html}</td><td class="comp">{comp}</td>'
             f'<td>{r["n"]}</td><td{bg}>{r["avg"]:.0f}</td>'
-            f'<td>{r["fail_rate"] * 100:.0f}&nbsp;%</td><td>{r["bonus"]:.1f}</td></tr>'
+            f'<td>{r["fail_rate"] * 100:.0f}&nbsp;%</td><td class="buffs">{_buff_list(r["buffs"])}</td></tr>'
         )
     head = (
         '<tr><th>Joueur</th><th class="zone">Zone</th><th class="comp">Composition</th>'
-        '<th>Attaques</th><th>Score encaissé</th><th>Échec</th><th>Bonus moyen</th></tr>'
+        '<th>Tokens requis</th><th>Score moyen par tokens</th><th>Échec</th><th class="buffs">Buffs</th></tr>'
     )
-    return f'<div class="table-scroll"><table class="sortable defense-table"><thead>{head}</thead><tbody>{"".join(body)}</tbody></table></div>'
+    table = f'<div class="table-scroll"><table class="sortable defense-table"><thead>{head}</thead><tbody>{"".join(body)}</tbody></table></div>'
+    extra = len(rows) - DEFENSE_VISIBLE_ROWS
+    if extra > 0:
+        table += (
+            f'<button type="button" class="chip defense-more" data-extra="{extra}">Afficher les {extra} autres</button>'
+        )
+    return table
 
 
 def render_defense_section(result, our_idx, boards, prefix="../"):
-    """War-page "Défense": every defensive team with its map image, portraits
-    (real names on hover) and how it held (see compute_defense_teams). Teams
-    that suffered fewer than DEFENSE_MIN_ATTACKS attacks start hidden; the
-    chips (defense-filter.js) lower or raise that threshold."""
-    rows = [r for r in compute_defense_teams(result, our_idx) if r["n"] >= 2]
+    """War-page "Défense": every defensive team that held at least once (the
+    attacker failed at least one attack against it), most tokens spent against
+    it first, with its map image, portraits (real names on hover) and how it
+    held (see compute_defense_teams). Only the first DEFENSE_VISIBLE_ROWS per
+    guild show; defense-filter.js expands the rest."""
+    rows = [r for r in compute_defense_teams(result, our_idx) if r["fails"] >= 1]
     if not rows:
         return ""
-    hard = {z for z, _ in result["hard_cols"]}
-    easy = {z for z, _ in result["easy_cols"]}
-    chips = "".join(
-        f'<button type="button" class="chip{" active" if m == DEFENSE_MIN_ATTACKS else ""}" data-min="{m}">'
-        f'{"Min. " + str(m) + " attaques" if m > 2 else "Toutes (2+)"}</button>'
-        for m in (2, 3, 4, 5)
-    )
-    parts = ['<div id="defense-wrap"><h2>Défense</h2><div class="chips defense-chips">' + chips + "</div>"]
+    parts = ['<div id="defense-wrap"><h2>Défense</h2>']
     for team in sorted(result["guilds"], key=lambda t: (t != our_idx, t)):
         name = OUR_GUILD_LABEL if team == our_idx else result["guilds"][team]["name"]
-        table = render_defense_table([r for r in rows if r["team"] == team], result["players"], boards, prefix, hard, easy)
+        table = render_defense_table([r for r in rows if r["team"] == team], result["players"], boards, prefix)
         if table:
-            parts.append(f"<h3>{html_escape(name)}</h3>{table}")
+            parts.append(f'<div class="defense-block"><h3>{html_escape(name)}</h3>{table}</div>')
     parts.append(
-        '<p class="war-chart-note">Une ligne par équipe défensive · score encaissé = score de l\'attaquant sans le bonus de '
-        "bâtiment (plus bas = mieux) · bonus moyen = buffs de la zone + bonus de map · survolez les portraits pour les noms.</p></div>"
+        '<p class="war-chart-note">Équipes défensives qui ont tenu au moins une fois, triées par tokens requis (attaques subies) · '
+        "score moyen par tokens = score moyen des attaques subies, sans le bonus de bâtiment (plus bas = mieux) · "
+        "buffs = nombre moyen par attaque sur la zone · survolez les portraits pour les noms.</p></div>"
     )
     return "".join(parts)
 
@@ -1329,12 +1332,14 @@ def compute_defense_by_map(all_wars):
     return by_board
 
 
-def _buff_chips(buffs):
-    chips = "".join(
-        f'<span class="buff-chip">{acr}&nbsp;×{buffs[acr]:.1f}'.replace(".0", "") + "</span>"
+def _buff_list(buffs):
+    """Bulleted list of the zone buffs that were on a defense: acronym x mean
+    count per attack (e.g. "MS x3", "AP x1.5"), or "aucun" if there were none."""
+    items = "".join(
+        f'<li>{acr}&nbsp;×{buffs[acr]:.1f}</li>'.replace(".0<", "<")
         for acr in BUFF_ORDER if buffs.get(acr, 0) > 0.05
     )
-    return chips or '<span class="buff-none">aucun</span>'
+    return f'<ul class="buff-list">{items}</ul>' if items else '<span class="buff-none">aucun</span>'
 
 
 def render_defense_by_map(all_wars, prefix=""):
@@ -1366,11 +1371,11 @@ def render_defense_by_map(all_wars, prefix=""):
                 f'<tr><td>{html_escape(r["player"])}</td>'
                 f'<td class="guild">{html_escape(r["guild"])}<small>{label} · {ZONE_LABELS.get(r["zone"], r["zone"])}</small></td>'
                 f'<td class="comp">{comp}</td><td>{r["n"]}</td><td>{r["avg"]:.0f}</td>'
-                f'<td>{r["fail_rate"] * 100:.0f}&nbsp;%</td><td class="buffs">{_buff_chips(r["buffs"])}</td></tr>'
+                f'<td>{r["fail_rate"] * 100:.0f}&nbsp;%</td><td class="buffs">{_buff_list(r["buffs"])}</td></tr>'
             )
         head = (
             '<tr><th>Joueur</th><th class="guild">Guilde</th><th class="comp">Composition</th>'
-            '<th>Attaques</th><th>Score encaissé</th><th>Échec</th><th class="buffs">Buffs sur la zone</th></tr>'
+            '<th>Attaques</th><th>Score moyen par tokens</th><th>Échec</th><th class="buffs">Buffs</th></tr>'
         )
         blocks.append(
             f'<details class="map-defense"{" open" if i == 0 else ""}><summary>'
@@ -1384,7 +1389,7 @@ def render_defense_by_map(all_wars, prefix=""):
         '<div id="defense-map-wrap"><h2>Meilleures défenses par map</h2>'
         + "".join(blocks)
         + f'<p class="war-chart-note">Équipes défensives ayant subi au moins {BEST_MIN_ATTACKS} attaques, '
-        'toutes guildes confondues, classées par score encaissé (sans le bonus de bâtiment) · buffs = nombre moyen par attaque · '
+        'toutes guildes confondues, classées par score moyen par tokens (sans le bonus de bâtiment) · buffs = nombre moyen par attaque · '
         'les 6 maps suivies sont couvertes sur toutes les guerres capturées, les autres seulement depuis la S28 G3.</p></div>'
     )
 
