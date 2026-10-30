@@ -358,6 +358,12 @@
         const liveChrono = document.getElementById("chronologie-wrap");
         const newChrono = doc.getElementById("chronologie-wrap");
         if (liveChrono) liveChrono.innerHTML = newChrono ? newChrono.innerHTML : "";
+
+        // Index-only "Meilleures défenses par map" -- an empty div on the
+        // season pages, same always-present/sometimes-empty idea as above.
+        const liveDefMap = document.getElementById("defense-map-wrap");
+        const newDefMap = doc.getElementById("defense-map-wrap");
+        if (liveDefMap) liveDefMap.innerHTML = newDefMap ? newDefMap.innerHTML : "";
       } else {
         const liveMain = document.querySelector("main");
         const newMain = doc.querySelector("main");

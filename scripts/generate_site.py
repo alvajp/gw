@@ -1285,6 +1285,110 @@ def render_defense_section(result, our_idx, boards, prefix="../"):
     return "".join(parts)
 
 
+BUFF_ORDER = ["MS", "AP", "AA", "AR", "FP", "LP"]
+BEST_PER_MAP = 5
+BEST_MIN_ATTACKS = 3
+
+
+def compute_defense_by_map(all_wars):
+    """boardId -> list of defensive teams (across every captured war whose
+    zone->board mapping is known), each with attacks suffered, mean score
+    conceded (zone-clear bonus excluded), fail rate and the mean number of
+    each zone buff that was on it per attack. A "team" is one defender's
+    lineup on one zone in one war."""
+    by_board = defaultdict(list)
+    for w in all_wars:
+        result = w["result"]
+        boards = result.get("boards") or {}
+        if not result["battle_events"] or not boards:
+            continue
+        our_idx = find_team_idx(result["guilds"], OUR_GUILD)
+        acc = {}
+        for e in result["battle_events"]:
+            board = boards.get(e.get("zone"))
+            if not e.get("defender") or not board:
+                continue
+            def_team = next(t for t in result["guilds"] if t != e["team"])
+            key = (board, def_team, e["defender"], tuple(e["units"]), e["mow"], e["zone"])
+            a = acc.setdefault(key, {"n": 0, "score": 0, "fail": 0, "buffs": defaultdict(int)})
+            a["n"] += 1
+            a["score"] += e["adj"]
+            a["fail"] += 1 if e["fail"] else 0
+            for acr, c in e.get("buffs", {}).items():
+                a["buffs"][acr] += c
+        for (board, team, uid, units, mow, zone), a in acc.items():
+            if a["n"] < BEST_MIN_ATTACKS:
+                continue
+            by_board[board].append({
+                "board": board, "war": w, "team": team, "uid": uid, "units": units, "mow": mow, "zone": zone,
+                "n": a["n"], "avg": a["score"] / a["n"], "fail_rate": a["fail"] / a["n"],
+                "buffs": {acr: c / a["n"] for acr, c in a["buffs"].items()},
+                "guild": OUR_GUILD_LABEL if team == our_idx else result["guilds"][team]["name"],
+                "player": result["players"].get(uid, {}).get("displayName", uid),
+            })
+    return by_board
+
+
+def _buff_chips(buffs):
+    chips = "".join(
+        f'<span class="buff-chip">{acr}&nbsp;×{buffs[acr]:.1f}'.replace(".0", "") + "</span>"
+        for acr in BUFF_ORDER if buffs.get(acr, 0) > 0.05
+    )
+    return chips or '<span class="buff-none">aucun</span>'
+
+
+def render_defense_by_map(all_wars, prefix=""):
+    """Index-page section: for every map (board), the best defensive teams
+    seen across all captured wars -- lowest mean score conceded first -- with
+    the zone buffs each one had on it. Every map is a <details>; the one with
+    the most data opens by default. Maps only known for the 6 tracked names in
+    older wars (see war_boards) simply have fewer entries."""
+    by_board = compute_defense_by_map(all_wars)
+    if not by_board:
+        return '<div id="defense-map-wrap"></div>'
+    order = sorted(by_board, key=lambda b: -len(by_board[b]))
+    blocks = []
+    for i, board in enumerate(order):
+        m = MAPS_DB.get(board)
+        if not m:
+            continue
+        rows = sorted(by_board[board], key=lambda r: (r["avg"], -r["n"]))[:BEST_PER_MAP]
+        diff = {"hard": "+2", "easy": "+0,5"}.get(m.get("difficulty"), "")
+        badge = f'<span class="map-bonus">{diff}&nbsp;pts</span>' if diff else ""
+        trs = []
+        for r in rows:
+            comp = "".join(_unit_img(u, prefix) for u in r["units"])
+            if r["mow"]:
+                comp += _unit_img(r["mow"], prefix, mow=True)
+            wr = r["war"]
+            label = f'S{wr["season"]}&nbsp;G{wr["war_number"]}' if wr.get("war_number") else f'S{wr["season"]}'
+            trs.append(
+                f'<tr><td>{html_escape(r["player"])}</td>'
+                f'<td class="guild">{html_escape(r["guild"])}<small>{label} · {ZONE_LABELS.get(r["zone"], r["zone"])}</small></td>'
+                f'<td class="comp">{comp}</td><td>{r["n"]}</td><td>{r["avg"]:.0f}</td>'
+                f'<td>{r["fail_rate"] * 100:.0f}&nbsp;%</td><td class="buffs">{_buff_chips(r["buffs"])}</td></tr>'
+            )
+        head = (
+            '<tr><th>Joueur</th><th class="guild">Guilde</th><th class="comp">Composition</th>'
+            '<th>Attaques</th><th>Score encaissé</th><th>Échec</th><th class="buffs">Buffs sur la zone</th></tr>'
+        )
+        blocks.append(
+            f'<details class="map-defense"{" open" if i == 0 else ""}><summary>'
+            f'<img class="map-thumb" src="{prefix}{m["image"]}" alt="" loading="lazy">'
+            f'<span class="map-name">{html_escape(m["name"])}</span>{badge}'
+            f'<span class="map-count">{len(by_board[board])} défense{"s" if len(by_board[board]) > 1 else ""}</span></summary>'
+            f'<div class="table-scroll"><table class="defense-table"><thead>{head}</thead><tbody>{"".join(trs)}</tbody></table></div>'
+            "</details>"
+        )
+    return (
+        '<div id="defense-map-wrap"><h2>Meilleures défenses par map</h2>'
+        + "".join(blocks)
+        + f'<p class="war-chart-note">Équipes défensives ayant subi au moins {BEST_MIN_ATTACKS} attaques, '
+        'toutes guildes confondues, classées par score encaissé (sans le bonus de bâtiment) · buffs = nombre moyen par attaque · '
+        'les 6 maps suivies sont couvertes sur toutes les guerres capturées, les autres seulement depuis la S28 G3.</p></div>'
+    )
+
+
 FR_MONTHS = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."]
 
 
@@ -1468,6 +1572,7 @@ def render_season_page(season, wars_in_season, active_uids=frozenset()):
     body += '<h2>Scores</h2>'
     body += render_average_chart(display_names, averages, win_rate, tokens, buffs, maps_, score_display_names, score_distributions, active_uids, scope="season")
     body += render_chronologie_section(agg_events, agg_milestones, agg_display_names, relative=True)
+    body += '<div id="defense-map-wrap"></div>'  # filled on the index only, kept here so client-side nav can swap it
     body += '<h2>Détails</h2>'
     body += f'<div id="table-wrap">{render_history_table(wars_in_season)}</div>'
     body += '<div id="bareme-wrap"></div>'
@@ -1917,6 +2022,7 @@ def render_index(seasons, active_uids=frozenset()):
     body += '<h2>Scores</h2>'
     body += render_average_chart(display_names, averages, win_rate, tokens, buffs, maps_, score_display_names, score_distributions, active_uids, scope="global", filterable=True)
     body += render_chronologie_section(agg_events, agg_milestones, agg_display_names, relative=True)
+    body += render_defense_by_map(all_wars_flat)
     body += '<h2>Détails</h2>'
     body += f'<div id="table-wrap">{render_season_average_table(season_numbers, season_stats, display_names, averages, active_uids)}</div>'
     body += f'<div id="bareme-wrap">{BAREME_HTML}</div>'

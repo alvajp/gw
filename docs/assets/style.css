@@ -654,3 +654,23 @@ ul { line-height: 1.8; }
 .defense-table .unit.mow { border-radius: 6px; margin-left: 6px; }
 .defense-table .unit-missing { display: inline-flex; align-items: center; justify-content: center; font-size: 0.7rem; color: var(--text-muted); }
 .defense-table tbody tr[hidden] { display: none; }
+
+/* Index "Meilleures défenses par map" (see render_defense_by_map). */
+details.map-defense { margin: 0 0 0.6rem; border: 1px solid var(--border); background: var(--table-bg); }
+details.map-defense > summary {
+  display: flex; align-items: center; gap: 0.7rem; padding: 0.4rem 0.7rem; cursor: pointer;
+  background: var(--table-header-bg); list-style: none;
+}
+details.map-defense > summary::-webkit-details-marker { display: none; }
+details.map-defense > summary::before { content: "▸"; color: var(--text-muted); }
+details.map-defense[open] > summary::before { content: "▾"; }
+details.map-defense > summary .map-thumb { height: 36px; width: auto; border-radius: 4px; }
+.map-name { font-weight: 600; }
+.map-bonus { color: var(--text-muted); font-size: 0.8rem; border: 1px solid var(--border); border-radius: 999px; padding: 0 0.5rem; }
+.map-count { margin-left: auto; color: var(--text-muted); font-size: 0.8rem; }
+details.map-defense .table-scroll { margin-bottom: 0; }
+.defense-table th.guild, .defense-table td.guild { width: 12em; text-align: left; }
+.defense-table td.guild small { display: block; color: var(--text-muted); font-size: 0.75rem; }
+.defense-table th.buffs, .defense-table td.buffs { width: 14em; text-align: left; overflow: visible; white-space: normal; }
+.buff-chip { display: inline-block; margin: 1px 3px 1px 0; padding: 0 0.4rem; border-radius: 999px; background: var(--table-row-alt); border: 1px solid var(--border); font-size: 0.75rem; }
+.buff-none { color: var(--text-muted); font-size: 0.75rem; }

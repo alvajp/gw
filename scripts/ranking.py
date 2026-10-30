@@ -273,6 +273,11 @@ def compute_ranking(json_path, maps, extra=None):
                 "defender": (e.get("defender") or {}).get("userId"), "zone": zt,
                 "units": [u["unitId"] for u in (e.get("defender") or {}).get("units", [])],
                 "mow": ((e.get("defender") or {}).get("machineOfWar") or {}).get("unitId"),
+                "buffs": {
+                    acr: sum(1 for b in e.get("buffs", []) if BUFF_ACRONYM.get(b.get("abilityId")) == acr)
+                    for acr in BUFF_ACRONYM.values()
+                    if any(BUFF_ACRONYM.get(b.get("abilityId")) == acr for b in e.get("buffs", []))
+                },
                 "buff_pts": sum(
                     2 if b.get("abilityId") == "EnvDefenderHealthBuff2" else 0.5
                     for b in e.get("buffs", []) if b.get("abilityId") in BUFF_ACRONYM
