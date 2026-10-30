@@ -2,10 +2,10 @@ season: 27
 war_number: 4
 result: loss
 hard:
-  ArtilleryPosition1: "Divisée"
-  Bunker2: "3 ponts"
-  Trenches2: "Pont"
+  ArtilleryPosition1: "Split"
+  Bunker2: "Three Bridges"
+  Trenches2: "The Bridge"
 easy:
-  Trenches3: "Lacs"
-  MedicaeStation1: "Abricot"
-  Armoury: "5 pilliers"
+  Trenches3: "AFUITM"
+  MedicaeStation1: "Deathleapers Cove"
+  Armoury: "Five Pillars"

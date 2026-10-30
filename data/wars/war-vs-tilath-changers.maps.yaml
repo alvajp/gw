@@ -2,10 +2,10 @@ season: 28
 war_number: 1
 result: loss
 hard:
-  ArtilleryPosition1: "Divisée"
-  MedicaeStation2: "Pont"
-  LandingPad1: "3 ponts"
+  ArtilleryPosition1: "Split"
+  MedicaeStation2: "The Bridge"
+  LandingPad1: "Three Bridges"
 easy:
-  Trenches2: "5 pilliers"
-  MedicaeStation1: "Abricot"
-  Bunker1: "Lacs"
+  Trenches2: "Five Pillars"
+  MedicaeStation1: "Deathleapers Cove"
+  Bunker1: "AFUITM"

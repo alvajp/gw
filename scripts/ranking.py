@@ -265,6 +265,18 @@ def compute_ranking(json_path, maps, extra=None):
                 # and the fail flag, for the war-page cumulative-score curve
                 # and the "Jetons théoriquement réussis" chart.
                 "score": raw, "fail": tier == "fail",
+                # Who defended against this attack and with what, for the
+                # war-page "Défense" section: defender, zone, lineup (unit
+                # ids in slot order + machine of war) and the zone's buff
+                # points on this attack (MS 2, the others 0.5, regardless of
+                # the attack's outcome -- it describes the defense position).
+                "defender": (e.get("defender") or {}).get("userId"), "zone": zt,
+                "units": [u["unitId"] for u in (e.get("defender") or {}).get("units", [])],
+                "mow": ((e.get("defender") or {}).get("machineOfWar") or {}).get("unitId"),
+                "buff_pts": sum(
+                    2 if b.get("abilityId") == "EnvDefenderHealthBuff2" else 0.5
+                    for b in e.get("buffs", []) if b.get("abilityId") in BUFF_ACRONYM
+                ),
             })
 
         if tier == "win":

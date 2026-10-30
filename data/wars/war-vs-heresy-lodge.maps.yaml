@@ -2,10 +2,10 @@ season: 27
 war_number: 6
 result: win
 hard:
-  MedicaeStation2: "3 ponts"
-  Trenches1: "Divisée"
-  ArtilleryPosition2: "Pont"
+  MedicaeStation2: "Three Bridges"
+  Trenches1: "Split"
+  ArtilleryPosition2: "The Bridge"
 easy:
-  LandingPad2: "Lacs"
-  Bunker1: "Abricot"
-  HQ: "5 pilliers"
+  LandingPad2: "AFUITM"
+  Bunker1: "Deathleapers Cove"
+  HQ: "Five Pillars"

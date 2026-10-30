@@ -2,10 +2,10 @@ season: 27
 war_number: 2
 result: win
 hard:
-  AntiAirBattery: "Pont"
-  HQ: "3 ponts"
-  MedicaeStation2: "Divisée"
+  AntiAirBattery: "The Bridge"
+  HQ: "Three Bridges"
+  MedicaeStation2: "Split"
 easy:
-  Trenches2: "5 pilliers"
-  Trenches3: "Lacs"
-  LandingPad2: "Abricot"
+  Trenches2: "Five Pillars"
+  Trenches3: "AFUITM"
+  LandingPad2: "Deathleapers Cove"

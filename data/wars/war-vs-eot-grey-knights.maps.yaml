@@ -2,10 +2,10 @@ season: 28
 war_number: 2
 result: win
 hard:
-  Trenches2: "Divisée"
-  ArtilleryPosition2: "Pont"
-  Trenches1: "3 ponts"
+  Trenches2: "Split"
+  ArtilleryPosition2: "The Bridge"
+  Trenches1: "Three Bridges"
 easy:
-  MedicaeStation2: "5 pilliers"
-  ArtilleryPosition1: "Abricot"
-  Bunker1: "Lacs"
+  MedicaeStation2: "Five Pillars"
+  ArtilleryPosition1: "Deathleapers Cove"
+  Bunker1: "AFUITM"

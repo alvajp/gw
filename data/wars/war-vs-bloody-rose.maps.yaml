@@ -2,10 +2,10 @@ season: 27
 war_number: 3
 result: loss
 hard:
-  AntiAirBattery: "Pont"
-  Bunker2: "Divisée"
-  Trenches3: "3 ponts"
+  AntiAirBattery: "The Bridge"
+  Bunker2: "Split"
+  Trenches3: "Three Bridges"
 easy:
-  MedicaeStation1: "Abricot"
-  MedicaeStation2: "5 pilliers"
-  LandingPad2: "Lacs"
+  MedicaeStation1: "Deathleapers Cove"
+  MedicaeStation2: "Five Pillars"
+  LandingPad2: "AFUITM"

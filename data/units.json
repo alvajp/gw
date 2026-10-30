@@ -1,0 +1,602 @@
+{
+ "adeptCelestine": {
+  "name": "Celestine",
+  "image": "assets/units/adeptCelestine.webp",
+  "mow": false
+ },
+ "adeptExorcist": {
+  "name": "Exorcist",
+  "image": "assets/units/adeptExorcist.webp",
+  "mow": true
+ },
+ "adeptHospitaller": {
+  "name": "Isabella",
+  "image": "assets/units/adeptHospitaller.webp",
+  "mow": false
+ },
+ "adeptMorvenn": {
+  "name": "Morvenn Vahl",
+  "image": "assets/units/adeptMorvenn.webp",
+  "mow": false
+ },
+ "adeptRetributor": {
+  "name": "Vindicta",
+  "image": "assets/units/adeptRetributor.webp",
+  "mow": false
+ },
+ "admecDestroyer": {
+  "name": "Sy-gex",
+  "image": "assets/units/admecDestroyer.webp",
+  "mow": false
+ },
+ "admecDominus": {
+  "name": "Vitruvius",
+  "image": "assets/units/admecDominus.webp",
+  "mow": false
+ },
+ "admecManipulus": {
+  "name": "Actus",
+  "image": "assets/units/admecManipulus.webp",
+  "mow": false
+ },
+ "admecMarshall": {
+  "name": "Tan Gi'da",
+  "image": "assets/units/admecMarshall.webp",
+  "mow": false
+ },
+ "admecRuststalker": {
+  "name": "Exitor-Rho",
+  "image": "assets/units/admecRuststalker.webp",
+  "mow": false
+ },
+ "astarEradicator": {
+  "name": "Nubari",
+  "image": "assets/units/astarEradicator.webp",
+  "mow": false
+ },
+ "astarLysander": {
+  "name": "Lysander",
+  "image": "assets/units/astarLysander.webp",
+  "mow": false
+ },
+ "astraCreed": {
+  "name": "Creed",
+  "image": "assets/units/astraCreed.webp",
+  "mow": false
+ },
+ "astraDreir": {
+  "name": "Dreir",
+  "image": "assets/units/astraDreir.webp",
+  "mow": false
+ },
+ "astraOrdnance": {
+  "name": "Thaddeus",
+  "image": "assets/units/astraOrdnance.webp",
+  "mow": false
+ },
+ "astraOrdnanceBattery": {
+  "name": "Malleus Rocket Launcher",
+  "image": "assets/units/astraOrdnanceBattery.webp",
+  "mow": true
+ },
+ "astraPrimarisPsy": {
+  "name": "Sibyll",
+  "image": "assets/units/astraPrimarisPsy.webp",
+  "mow": false
+ },
+ "astraYarrick": {
+  "name": "Yarrick",
+  "image": "assets/units/astraYarrick.webp",
+  "mow": false
+ },
+ "blackAbaddon": {
+  "name": "Abaddon",
+  "image": "assets/units/blackAbaddon.webp",
+  "mow": false
+ },
+ "blackForgefiend": {
+  "name": "Forgefiend",
+  "image": "assets/units/blackForgefiend.webp",
+  "mow": true
+ },
+ "blackHaarken": {
+  "name": "Haarken",
+  "image": "assets/units/blackHaarken.webp",
+  "mow": false
+ },
+ "blackObliterator": {
+  "name": "Volk",
+  "image": "assets/units/blackObliterator.webp",
+  "mow": false
+ },
+ "blackPossession": {
+  "name": "Archimatos",
+  "image": "assets/units/blackPossession.webp",
+  "mow": false
+ },
+ "blackTerminator": {
+  "name": "Angrax",
+  "image": "assets/units/blackTerminator.webp",
+  "mow": false
+ },
+ "bloodDante": {
+  "name": "Dante",
+  "image": "assets/units/bloodDante.webp",
+  "mow": false
+ },
+ "bloodDeathCompany": {
+  "name": "Lucien",
+  "image": "assets/units/bloodDeathCompany.webp",
+  "mow": false
+ },
+ "bloodIntercessor": {
+  "name": "Mataneo",
+  "image": "assets/units/bloodIntercessor.webp",
+  "mow": false
+ },
+ "bloodMephiston": {
+  "name": "Mephiston",
+  "image": "assets/units/bloodMephiston.webp",
+  "mow": false
+ },
+ "bloodSanguinary": {
+  "name": "Nicodemus",
+  "image": "assets/units/bloodSanguinary.webp",
+  "mow": false
+ },
+ "bloodTerminator": {
+  "name": "Cezare",
+  "image": "assets/units/bloodTerminator.webp",
+  "mow": false
+ },
+ "custoAtlacoya": {
+  "name": "Atlacoya",
+  "image": "assets/units/custoAtlacoya.webp",
+  "mow": false
+ },
+ "custoBladeChampion": {
+  "name": "Kariyan",
+  "image": "assets/units/custoBladeChampion.webp",
+  "mow": false
+ },
+ "custoKyrus": {
+  "name": "Tyrith",
+  "image": "assets/units/custoKyrus.webp",
+  "mow": false
+ },
+ "custoTrajann": {
+  "name": "Trajann",
+  "image": "assets/units/custoTrajann.webp",
+  "mow": false
+ },
+ "custoVexilusPraetor": {
+  "name": "Aesoth",
+  "image": "assets/units/custoVexilusPraetor.webp",
+  "mow": false
+ },
+ "darkaAsmodai": {
+  "name": "Asmodai",
+  "image": "assets/units/darkaAsmodai.webp",
+  "mow": false
+ },
+ "darkaAzrael": {
+  "name": "Azrael",
+  "image": "assets/units/darkaAzrael.webp",
+  "mow": false
+ },
+ "darkaCompanion": {
+  "name": "Forcas",
+  "image": "assets/units/darkaCompanion.webp",
+  "mow": false
+ },
+ "darkaHellblaster": {
+  "name": "Sarquael",
+  "image": "assets/units/darkaHellblaster.webp",
+  "mow": false
+ },
+ "darkaSternguard": {
+  "name": "Ramus",
+  "image": "assets/units/darkaSternguard.webp",
+  "mow": false
+ },
+ "darkaStormSpeeder": {
+  "name": "Storm Speeder",
+  "image": "assets/units/darkaStormSpeeder.webp",
+  "mow": true
+ },
+ "darkaTerminator": {
+  "name": "Baraqiel",
+  "image": "assets/units/darkaTerminator.webp",
+  "mow": false
+ },
+ "deathBlightbringer": {
+  "name": "Corrodius",
+  "image": "assets/units/deathBlightbringer.webp",
+  "mow": false
+ },
+ "deathBlightlord": {
+  "name": "Maladus",
+  "image": "assets/units/deathBlightlord.webp",
+  "mow": false
+ },
+ "deathCrawler": {
+  "name": "Plagueburst Crawler",
+  "image": "assets/units/deathCrawler.webp",
+  "mow": true
+ },
+ "deathPutrifier": {
+  "name": "Pestillian",
+  "image": "assets/units/deathPutrifier.webp",
+  "mow": false
+ },
+ "deathRotbone": {
+  "name": "Nauseous",
+  "image": "assets/units/deathRotbone.webp",
+  "mow": false
+ },
+ "deathTyphus": {
+  "name": "Typhus",
+  "image": "assets/units/deathTyphus.webp",
+  "mow": false
+ },
+ "eldarAutarch": {
+  "name": "Aethana",
+  "image": "assets/units/eldarAutarch.webp",
+  "mow": false
+ },
+ "eldarFarseer": {
+  "name": "Eldryon",
+  "image": "assets/units/eldarFarseer.webp",
+  "mow": false
+ },
+ "eldarJainZar": {
+  "name": "Jain Zar",
+  "image": "assets/units/eldarJainZar.webp",
+  "mow": false
+ },
+ "eldarLhykhis": {
+  "name": "Lhykhis",
+  "image": "assets/units/eldarLhykhis.webp",
+  "mow": false
+ },
+ "eldarMauganRa": {
+  "name": "Maugan Ra",
+  "image": "assets/units/eldarMauganRa.webp",
+  "mow": false
+ },
+ "eldarRanger": {
+  "name": "Calandis",
+  "image": "assets/units/eldarRanger.webp",
+  "mow": false
+ },
+ "emperExultant": {
+  "name": "Laviscus",
+  "image": "assets/units/emperExultant.webp",
+  "mow": false
+ },
+ "emperKakophonist": {
+  "name": "Adamatar",
+  "image": "assets/units/emperKakophonist.webp",
+  "mow": false
+ },
+ "emperLucius": {
+  "name": "Lucius",
+  "image": "assets/units/emperLucius.webp",
+  "mow": false
+ },
+ "emperNoiseMarine": {
+  "name": "Shiron",
+  "image": "assets/units/emperNoiseMarine.webp",
+  "mow": false
+ },
+ "genesBiophagus": {
+  "name": "Hollan",
+  "image": "assets/units/genesBiophagus.webp",
+  "mow": false
+ },
+ "genesKelermorph": {
+  "name": "Judh",
+  "image": "assets/units/genesKelermorph.webp",
+  "mow": false
+ },
+ "genesMagus": {
+  "name": "Xybia",
+  "image": "assets/units/genesMagus.webp",
+  "mow": false
+ },
+ "genesPatriarch": {
+  "name": "The Patermine",
+  "image": "assets/units/genesPatriarch.webp",
+  "mow": false
+ },
+ "genesPrimus": {
+  "name": "Isaak",
+  "image": "assets/units/genesPrimus.webp",
+  "mow": false
+ },
+ "necroChronomancer": {
+  "name": "Thothmek",
+  "image": "assets/units/necroChronomancer.webp",
+  "mow": false
+ },
+ "necroDestroyer": {
+  "name": "Imospekh",
+  "image": "assets/units/necroDestroyer.webp",
+  "mow": false
+ },
+ "necroOverlord": {
+  "name": "Anuphet",
+  "image": "assets/units/necroOverlord.webp",
+  "mow": false
+ },
+ "necroPlasmancer": {
+  "name": "Thutmose",
+  "image": "assets/units/necroPlasmancer.webp",
+  "mow": false
+ },
+ "necroReanimator": {
+  "name": "Reanimator",
+  "image": "assets/units/necroReanimator.webp",
+  "mow": true
+ },
+ "necroSpyder": {
+  "name": "Aleph-Null",
+  "image": "assets/units/necroSpyder.webp",
+  "mow": false
+ },
+ "necroWarden": {
+  "name": "Makhotep",
+  "image": "assets/units/necroWarden.webp",
+  "mow": false
+ },
+ "orksBigMek": {
+  "name": "Gibbascrapz",
+  "image": "assets/units/orksBigMek.webp",
+  "mow": false
+ },
+ "orksKillaKan": {
+  "name": "Snappawrecka",
+  "image": "assets/units/orksKillaKan.webp",
+  "mow": false
+ },
+ "orksNob": {
+  "name": "Tanksmasha",
+  "image": "assets/units/orksNob.webp",
+  "mow": false
+ },
+ "orksRukkatrukk": {
+  "name": "Rukkatrukk",
+  "image": "assets/units/orksRukkatrukk.webp",
+  "mow": true
+ },
+ "orksRuntherd": {
+  "name": "Snotflogga",
+  "image": "assets/units/orksRuntherd.webp",
+  "mow": false
+ },
+ "orksWarboss": {
+  "name": "Gulgortz",
+  "image": "assets/units/orksWarboss.webp",
+  "mow": false
+ },
+ "spaceBlackmane": {
+  "name": "Ragnar",
+  "image": "assets/units/spaceBlackmane.webp",
+  "mow": false
+ },
+ "spaceHound": {
+  "name": "Tjark",
+  "image": "assets/units/spaceHound.webp",
+  "mow": false
+ },
+ "spaceRockfist": {
+  "name": "Arjac",
+  "image": "assets/units/spaceRockfist.webp",
+  "mow": false
+ },
+ "spaceStormcaller": {
+  "name": "Njal",
+  "image": "assets/units/spaceStormcaller.webp",
+  "mow": false
+ },
+ "spaceWolfPriest": {
+  "name": "Baldr",
+  "image": "assets/units/spaceWolfPriest.webp",
+  "mow": false
+ },
+ "spaceWulfen": {
+  "name": "Ulf",
+  "image": "assets/units/spaceWulfen.webp",
+  "mow": false
+ },
+ "tauAunShi": {
+  "name": "Aun'Shi",
+  "image": "assets/units/tauAunShi.webp",
+  "mow": false
+ },
+ "tauBroadside": {
+  "name": "Tson'ji",
+  "image": "assets/units/tauBroadside.webp",
+  "mow": true
+ },
+ "tauCrisis": {
+  "name": "Re'vas",
+  "image": "assets/units/tauCrisis.webp",
+  "mow": false
+ },
+ "tauDarkstrider": {
+  "name": "Darkstrider",
+  "image": "assets/units/tauDarkstrider.webp",
+  "mow": false
+ },
+ "tauFarsight": {
+  "name": "Farsight",
+  "image": "assets/units/tauFarsight.webp",
+  "mow": false
+ },
+ "tauMarksman": {
+  "name": "Sho'syl",
+  "image": "assets/units/tauMarksman.webp",
+  "mow": false
+ },
+ "tauShadowsun": {
+  "name": "Shadowsun",
+  "image": "assets/units/tauShadowsun.webp",
+  "mow": false
+ },
+ "templAggressor": {
+  "name": "Burchard",
+  "image": "assets/units/templAggressor.webp",
+  "mow": false
+ },
+ "templAncient": {
+  "name": "Thoread",
+  "image": "assets/units/templAncient.webp",
+  "mow": false
+ },
+ "templChampion": {
+  "name": "Jaeger",
+  "image": "assets/units/templChampion.webp",
+  "mow": false
+ },
+ "templHelbrecht": {
+  "name": "Helbrecht",
+  "image": "assets/units/templHelbrecht.webp",
+  "mow": false
+ },
+ "templSwordBrother": {
+  "name": "Godswyl",
+  "image": "assets/units/templSwordBrother.webp",
+  "mow": false
+ },
+ "thousAhriman": {
+  "name": "Ahriman",
+  "image": "assets/units/thousAhriman.webp",
+  "mow": false
+ },
+ "thousDaemonPrince": {
+  "name": "Z'Kar",
+  "image": "assets/units/thousDaemonPrince.webp",
+  "mow": true
+ },
+ "thousInfernalMaster": {
+  "name": "Abraxas",
+  "image": "assets/units/thousInfernalMaster.webp",
+  "mow": false
+ },
+ "thousSekhetar": {
+  "name": "Sekhetar Robot",
+  "image": "assets/units/thousSekhetar.webp",
+  "mow": false
+ },
+ "thousTerminator": {
+  "name": "Toth",
+  "image": "assets/units/thousTerminator.webp",
+  "mow": false
+ },
+ "thousTzaangor": {
+  "name": "Yazaghor",
+  "image": "assets/units/thousTzaangor.webp",
+  "mow": false
+ },
+ "tyranBiovore": {
+  "name": "Biovore",
+  "image": "assets/units/tyranBiovore.webp",
+  "mow": true
+ },
+ "tyranDeathleaper": {
+  "name": "Deathleaper",
+  "image": "assets/units/tyranDeathleaper.webp",
+  "mow": false
+ },
+ "tyranNeurothrope": {
+  "name": "Neurothrope",
+  "image": "assets/units/tyranNeurothrope.webp",
+  "mow": false
+ },
+ "tyranParasite": {
+  "name": "Parasite of Mortrex",
+  "image": "assets/units/tyranParasite.webp",
+  "mow": false
+ },
+ "tyranTyrantGuard": {
+  "name": "Tyrant Guard",
+  "image": "assets/units/tyranTyrantGuard.webp",
+  "mow": false
+ },
+ "tyranWingedPrime": {
+  "name": "Winged Prime",
+  "image": "assets/units/tyranWingedPrime.webp",
+  "mow": false
+ },
+ "ultraApothecary": {
+  "name": "Incisus",
+  "image": "assets/units/ultraApothecary.webp",
+  "mow": false
+ },
+ "ultraCalgar": {
+  "name": "Calgar",
+  "image": "assets/units/ultraCalgar.webp",
+  "mow": false
+ },
+ "ultraDreadnought": {
+  "name": "Galatian",
+  "image": "assets/units/ultraDreadnought.webp",
+  "mow": true
+ },
+ "ultraInceptorSgt": {
+  "name": "Bellator",
+  "image": "assets/units/ultraInceptorSgt.webp",
+  "mow": false
+ },
+ "ultraTigurius": {
+  "name": "Tigurius",
+  "image": "assets/units/ultraTigurius.webp",
+  "mow": false
+ },
+ "ultraTitus": {
+  "name": "Titus",
+  "image": "assets/units/ultraTitus.webp",
+  "mow": false
+ },
+ "votanBeserk": {
+  "name": "Havyr",
+  "image": "assets/units/votanBeserk.webp",
+  "mow": false
+ },
+ "votanChampion": {
+  "name": "Kimm",
+  "image": "assets/units/votanChampion.webp",
+  "mow": false
+ },
+ "votanMemnyr": {
+  "name": "Ammuk",
+  "image": "assets/units/votanMemnyr.webp",
+  "mow": false
+ },
+ "votanUthar": {
+  "name": "Uthar",
+  "image": "assets/units/votanUthar.webp",
+  "mow": false
+ },
+ "worldEightbound": {
+  "name": "Azkor",
+  "image": "assets/units/worldEightbound.webp",
+  "mow": false
+ },
+ "worldExecutions": {
+  "name": "Tarvakh",
+  "image": "assets/units/worldExecutions.webp",
+  "mow": false
+ },
+ "worldKharn": {
+  "name": "Kharn",
+  "image": "assets/units/worldKharn.webp",
+  "mow": false
+ },
+ "worldTerminator": {
+  "name": "Wrask",
+  "image": "assets/units/worldTerminator.webp",
+  "mow": false
+ }
+}

@@ -1,0 +1,122 @@
+{
+  "_comment": "Guild war boards ('maps'). Keyed by boardId, as found per zone in user_progression.json (liveEvents[*].components[0].config.zoneTypeConfigs.<ZoneType>.boardId). English names/images from the S28 G3 screenshot supplied by the user; nickname_fr/difficulty only for the 6 tracked maps (hard +2 / easy +0.5).",
+  "maps": {
+    "MC1_31": {
+      "name": "The Bridge",
+      "board_id": "MC1_31",
+      "image": "assets/maps/MC1_31.webp",
+      "seen_on_zone": "MedicaeStation1",
+      "zone_label": "MS1",
+      "nickname_fr": "Pont",
+      "difficulty": "hard"
+    },
+    "C1_37": {
+      "name": "Three Bridges",
+      "board_id": "C1_37",
+      "image": "assets/maps/C1_37.webp",
+      "seen_on_zone": "HQ",
+      "zone_label": "HQ",
+      "nickname_fr": "3 ponts",
+      "difficulty": "hard"
+    },
+    "LHE_Desert_05": {
+      "name": "Peak",
+      "board_id": "LHE_Desert_05",
+      "image": "assets/maps/LHE_Desert_05.webp",
+      "seen_on_zone": "MedicaeStation2",
+      "zone_label": "MS2"
+    },
+    "LHE_Desert_03": {
+      "name": "Oasis (Wonderwall)",
+      "board_id": "LHE_Desert_03",
+      "image": "assets/maps/LHE_Desert_03.webp",
+      "seen_on_zone": "SupplyDepot",
+      "zone_label": "SD"
+    },
+    "C1_15": {
+      "name": "Grasslands",
+      "board_id": "C1_15",
+      "image": "assets/maps/C1_15.webp",
+      "seen_on_zone": "LandingPad2",
+      "zone_label": "LP2"
+    },
+    "EC1_09": {
+      "name": "Right Ridge",
+      "board_id": "EC1_09",
+      "image": "assets/maps/EC1_09.webp",
+      "seen_on_zone": "Armoury",
+      "zone_label": "AR"
+    },
+    "C1_70": {
+      "name": "Five Pillars",
+      "board_id": "C1_70",
+      "image": "assets/maps/C1_70.webp",
+      "seen_on_zone": "ArtilleryPosition1",
+      "zone_label": "AP1",
+      "nickname_fr": "5 pilliers",
+      "difficulty": "easy"
+    },
+    "LHE_Desert_04": {
+      "name": "Canyon",
+      "board_id": "LHE_Desert_04",
+      "image": "assets/maps/LHE_Desert_04.webp",
+      "seen_on_zone": "AntiAirBattery",
+      "zone_label": "AA"
+    },
+    "C1_23": {
+      "name": "Sniper's Nests",
+      "board_id": "C1_23",
+      "image": "assets/maps/C1_23.webp",
+      "seen_on_zone": "ArtilleryPosition2",
+      "zone_label": "AP2"
+    },
+    "PVP_desert_10": {
+      "name": "AFUITM",
+      "board_id": "PVP_desert_10",
+      "image": "assets/maps/PVP_desert_10.webp",
+      "seen_on_zone": "Bunker1",
+      "zone_label": "FP1",
+      "nickname_fr": "Lacs",
+      "difficulty": "easy"
+    },
+    "LHE_Desert_06": {
+      "name": "RV Point",
+      "board_id": "LHE_Desert_06",
+      "image": "assets/maps/LHE_Desert_06.webp",
+      "seen_on_zone": "LandingPad1",
+      "zone_label": "LP1"
+    },
+    "CE2_06": {
+      "name": "Deathleapers Cove",
+      "board_id": "CE2_06",
+      "image": "assets/maps/CE2_06.webp",
+      "seen_on_zone": "Bunker2",
+      "zone_label": "FP2",
+      "nickname_fr": "Abricot",
+      "difficulty": "easy"
+    },
+    "MC1_11": {
+      "name": "Split",
+      "board_id": "MC1_11",
+      "image": "assets/maps/MC1_11.webp",
+      "seen_on_zone": "Trenches1",
+      "zone_label": "Left FL",
+      "nickname_fr": "Divisée",
+      "difficulty": "hard"
+    },
+    "EMC1_06": {
+      "name": "Left Ridge",
+      "board_id": "EMC1_06",
+      "image": "assets/maps/EMC1_06.webp",
+      "seen_on_zone": "Trenches2",
+      "zone_label": "Mid FL"
+    },
+    "LHE_Desert_02": {
+      "name": "Gulch",
+      "board_id": "LHE_Desert_02",
+      "image": "assets/maps/LHE_Desert_02.webp",
+      "seen_on_zone": "Trenches3",
+      "zone_label": "Right FL"
+    }
+  }
+}

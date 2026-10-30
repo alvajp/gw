@@ -93,11 +93,42 @@ BAREME_HTML = """<h2 id="bareme">Barème de points</h2>
   </li>
   <li><strong>Bonus de map</strong> :
     <ul>
-      <li>+2 pts pour 3 ponts, Pont, Divisée</li>
-      <li>+0.5 pt pour 5 pilliers, Abricot, Lacs</li>
+      <li>+2 pts pour {HARD_MAP_NAMES}</li>
+      <li>+0.5 pt pour {EASY_MAP_NAMES}</li>
     </ul>
   </li>
 </ul>"""
+
+
+def _load_maps_db():
+    """data/maps.json: boardId -> English name / image / difficulty for the
+    guild war boards (the "maps"). Missing file just means no map images."""
+    path = os.path.join(ROOT, "data", "maps.json")
+    if not os.path.exists(path):
+        return {}
+    with open(path, encoding="utf-8") as f:
+        return json.load(f)["maps"]
+
+
+MAPS_DB = _load_maps_db()
+
+
+def _load_units_db():
+    """data/units.json (see sync_units.py): unitId -> real name + portrait."""
+    path = os.path.join(ROOT, "data", "units.json")
+    if not os.path.exists(path):
+        return {}
+    with open(path, encoding="utf-8") as f:
+        return json.load(f)
+
+
+UNITS_DB = _load_units_db()
+MAP_BOARD_BY_NAME = {m["name"]: board for board, m in MAPS_DB.items()}
+BAREME_HTML = BAREME_HTML.replace(
+    "{HARD_MAP_NAMES}", ", ".join(m["name"] for m in MAPS_DB.values() if m.get("difficulty") == "hard")
+).replace(
+    "{EASY_MAP_NAMES}", ", ".join(m["name"] for m in MAPS_DB.values() if m.get("difficulty") == "easy")
+)
 
 
 def round_pts(x):
@@ -428,6 +459,7 @@ PAGE_TEMPLATE = """<!doctype html>
 <script src="{asset_prefix}assets/active-toggle.js?v={v}"></script>
 <script src="{asset_prefix}assets/theme-toggle.js?v={v}"></script>
 <script src="{asset_prefix}assets/timeline-filter.js?v={v}"></script>
+<script src="{asset_prefix}assets/defense-filter.js?v={v}"></script>
 <script src="{asset_prefix}assets/page-transition.js?v={v}"></script>
 </body>
 </html>"""
@@ -1128,6 +1160,131 @@ def render_war_chronologie_section(result, our_idx, display_names):
     return html + "</div>"
 
 
+ZONE_LABELS = {
+    "MedicaeStation1": "MS1", "MedicaeStation2": "MS2", "HQ": "HQ", "SupplyDepot": "SD", "Armoury": "AR",
+    "AntiAirBattery": "AA", "ArtilleryPosition1": "AP1", "ArtilleryPosition2": "AP2",
+    "LandingPad1": "LP1", "LandingPad2": "LP2", "Bunker1": "FP1", "Bunker2": "FP2",
+    "Trenches1": "FL gauche", "Trenches2": "FL milieu", "Trenches3": "FL droite",
+}
+
+
+def war_boards(maps):
+    """zone type -> boardId for a war: the full table when its maps.yaml has a
+    boards: block (see read_maps.py), otherwise just the 6 tracked zones,
+    recovered from their map names."""
+    boards = dict(maps.get("boards") or {})
+    for group in ("hard", "easy"):
+        for zone, name in (maps.get(group) or {}).items():
+            if zone not in boards and name in MAP_BOARD_BY_NAME:
+                boards[zone] = MAP_BOARD_BY_NAME[name]
+    return boards
+
+
+DEFENSE_MIN_ATTACKS = 3  # shown by default; the chips lower/raise it
+
+
+def compute_defense_teams(result, our_idx):
+    """One entry per defensive team (a player's 5 characters + machine of war,
+    one of the 5 lineups each defender fields): attacks it suffered, mean score
+    conceded (zone-clear bonus excluded, `adj`), share of attacks that failed,
+    and mean "bonus" (zone buff points + map bonus on the attack). Keyed per
+    guild so both sides can be listed."""
+    hard = {z for z, _ in result["hard_cols"]}
+    easy = {z for z, _ in result["easy_cols"]}
+    acc = {}
+    for e in result["battle_events"]:
+        if not e.get("defender"):
+            continue
+        def_team = next(t for t in result["guilds"] if t != e["team"])
+        key = (def_team, e["defender"], tuple(e["units"]), e["mow"])
+        a = acc.setdefault(key, {"n": 0, "score": 0, "fail": 0, "bonus": 0.0, "zones": defaultdict(int)})
+        a["n"] += 1
+        a["score"] += e["adj"]
+        a["fail"] += 1 if e["fail"] else 0
+        a["bonus"] += e["buff_pts"] + (2 if e["zone"] in hard else 0.5 if e["zone"] in easy else 0)
+        a["zones"][e["zone"]] += 1
+    rows = []
+    for (team, uid, units, mow), a in acc.items():
+        rows.append({
+            "team": team, "uid": uid, "units": units, "mow": mow, "n": a["n"],
+            "avg": a["score"] / a["n"], "fail_rate": a["fail"] / a["n"], "bonus": a["bonus"] / a["n"],
+            "zone": max(a["zones"], key=a["zones"].get),
+        })
+    return rows
+
+
+def _unit_img(uid, prefix, mow=False):
+    u = UNITS_DB.get(uid)
+    cls = "unit mow" if mow else "unit"
+    if not u:
+        return f'<span class="{cls} unit-missing" title="{html_escape(uid)}">?</span>'
+    return f'<img class="{cls}" src="{prefix}{u["image"]}" alt="{html_escape(u["name"])}" title="{html_escape(u["name"])}" loading="lazy">'
+
+
+def render_defense_table(rows, players, boards, prefix, hard_zones, easy_zones):
+    if not rows:
+        return ""
+    avgs = [r["avg"] for r in rows]
+    lo, hi = min(avgs), max(avgs)
+    body = []
+    for r in sorted(rows, key=lambda r: (r["avg"], -r["n"])):
+        board = boards.get(r["zone"])
+        m = MAPS_DB.get(board) if board else None
+        zlabel = ZONE_LABELS.get(r["zone"], r["zone"])
+        if m:
+            zone_html = (
+                f'<img class="map-thumb" src="{prefix}{m["image"]}" alt="{html_escape(m["name"])}" loading="lazy">'
+                f'<span class="zone-text"><b>{zlabel}</b><small>{html_escape(m["name"])}</small></span>'
+            )
+        else:
+            zone_html = f'<span class="zone-text"><b>{zlabel}</b></span>'
+        comp = "".join(_unit_img(u, prefix) for u in r["units"])
+        if r["mow"]:
+            comp += _unit_img(r["mow"], prefix, mow=True)
+        bg = value_to_bg(hi - (r["avg"] - lo), lo, hi)  # low conceded score = good = green
+        hidden = "" if r["n"] >= DEFENSE_MIN_ATTACKS else " hidden"
+        body.append(
+            f'<tr data-n="{r["n"]}"{hidden}>'
+            f'<td>{html_escape(players.get(r["uid"], {}).get("displayName", r["uid"]))}</td>'
+            f'<td class="zone">{zone_html}</td><td class="comp">{comp}</td>'
+            f'<td>{r["n"]}</td><td{bg}>{r["avg"]:.0f}</td>'
+            f'<td>{r["fail_rate"] * 100:.0f}&nbsp;%</td><td>{r["bonus"]:.1f}</td></tr>'
+        )
+    head = (
+        '<tr><th>Joueur</th><th class="zone">Zone</th><th class="comp">Composition</th>'
+        '<th>Attaques</th><th>Score encaissé</th><th>Échec</th><th>Bonus moyen</th></tr>'
+    )
+    return f'<div class="table-scroll"><table class="sortable defense-table"><thead>{head}</thead><tbody>{"".join(body)}</tbody></table></div>'
+
+
+def render_defense_section(result, our_idx, boards, prefix="../"):
+    """War-page "Défense": every defensive team with its map image, portraits
+    (real names on hover) and how it held (see compute_defense_teams). Teams
+    that suffered fewer than DEFENSE_MIN_ATTACKS attacks start hidden; the
+    chips (defense-filter.js) lower or raise that threshold."""
+    rows = [r for r in compute_defense_teams(result, our_idx) if r["n"] >= 2]
+    if not rows:
+        return ""
+    hard = {z for z, _ in result["hard_cols"]}
+    easy = {z for z, _ in result["easy_cols"]}
+    chips = "".join(
+        f'<button type="button" class="chip{" active" if m == DEFENSE_MIN_ATTACKS else ""}" data-min="{m}">'
+        f'{"Min. " + str(m) + " attaques" if m > 2 else "Toutes (2+)"}</button>'
+        for m in (2, 3, 4, 5)
+    )
+    parts = ['<div id="defense-wrap"><h2>Défense</h2><div class="chips defense-chips">' + chips + "</div>"]
+    for team in sorted(result["guilds"], key=lambda t: (t != our_idx, t)):
+        name = OUR_GUILD_LABEL if team == our_idx else result["guilds"][team]["name"]
+        table = render_defense_table([r for r in rows if r["team"] == team], result["players"], boards, prefix, hard, easy)
+        if table:
+            parts.append(f"<h3>{html_escape(name)}</h3>{table}")
+    parts.append(
+        '<p class="war-chart-note">Une ligne par équipe défensive · score encaissé = score de l\'attaquant sans le bonus de '
+        "bâtiment (plus bas = mieux) · bonus moyen = buffs de la zone + bonus de map · survolez les portraits pour les noms.</p></div>"
+    )
+    return "".join(parts)
+
+
 FR_MONTHS = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."]
 
 
@@ -1281,6 +1438,8 @@ def render_war_page(slug, result, season, outcome=None, active_uids=frozenset(),
 
     if other_tables:
         body += "<h2>Adversaires</h2>" + "".join(other_tables)
+
+    body += render_defense_section(result, our_idx, result.get("boards") or {})
 
     title = ", ".join(opponent_names(result, our_idx)) or slug
     back_link = back_link_html(f"../seasons/{season}.html", f"Saison {season}", transition=True)
@@ -1816,6 +1975,7 @@ def main():
     all_wars = []
     for slug, json_path, maps, extra in discover_wars():
         result = compute_ranking(json_path, maps, extra)
+        result["boards"] = war_boards(maps)
         season = int(maps.get("season") or 0)
         war_number = int(maps.get("war_number") or 0)
         outcome = maps.get("result")
