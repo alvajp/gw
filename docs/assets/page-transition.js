@@ -364,6 +364,13 @@
         const liveDefMap = document.getElementById("defense-map-wrap");
         const newDefMap = doc.getElementById("defense-map-wrap");
         if (liveDefMap) liveDefMap.innerHTML = newDefMap ? newDefMap.innerHTML : "";
+
+        // Index-only bottom sections (combined opponent map + the shared modal).
+        ["opp-map-wrap", "defense-modal-wrap"].forEach(function (id) {
+          const live = document.getElementById(id);
+          const fresh = doc.getElementById(id);
+          if (live) live.innerHTML = fresh ? fresh.innerHTML : "";
+        });
       } else {
         const liveMain = document.querySelector("main");
         const newMain = doc.querySelector("main");

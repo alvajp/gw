@@ -142,7 +142,36 @@
     if (modal.showModal) modal.showModal(); else modal.setAttribute("open", "");
   }
 
+  // ---- Click one of our attack teams (index): every time it was used, against which defense ----
+  function openUsesModal(tr) {
+    const modal = document.getElementById("defense-modal");
+    if (!modal) return;
+    const uses = JSON.parse(tr.dataset.uses);
+    const names = getData().players;
+    const counts = { w: 0, f: 0, x: 0 };
+    uses.forEach(function (a) { if (counts[a[1]] !== undefined) counts[a[1]]++; });
+    modal.querySelector(".dm-title").innerHTML =
+      '<div class="dm-def"><span class="dm-def-comp">' + tr.children[0].innerHTML + '</span></div>' +
+      '<div class="dm-summary">' + uses.length + " utilisation" + (uses.length > 1 ? "s" : "") +
+      " · " + counts.w + " victoire" + (counts.w > 1 ? "s" : "") +
+      " · " + counts.f + " finish" + (counts.f > 1 ? "es" : "") +
+      " · " + counts.x + " échec" + (counts.x > 1 ? "s" : "") + "</div>";
+    modal.querySelector(".dm-body").innerHTML = uses.map(function (a) {
+      const o = OUTCOME[a[1]] || OUTCOME.u;
+      return '<div class="dm-row use"><span class="dm-player">' + esc(names[a[0]] || a[0]) + '</span>' +
+        '<span class="dm-against">' + esc(a[3]) + '</span>' +
+        '<span class="dm-result ' + o[1] + '">' + o[0] + '</span>' +
+        '<span class="dm-score">' + a[2] + '</span></div>';
+    }).join("");
+    if (modal.showModal) modal.showModal(); else modal.setAttribute("open", "");
+  }
+
   document.addEventListener("click", function (e) {
+    const useRow = e.target.closest(".attack-table tbody tr[data-uses]");
+    if (useRow) {
+      openUsesModal(useRow);
+      return;
+    }
     const defChip = e.target.closest(".map-def");
     if (defChip) {
       openDefenderModal(defChip);
@@ -165,6 +194,8 @@
 
   document.addEventListener("keydown", function (e) {
     if (e.key !== "Enter") return;
+    const useRow = e.target.closest && e.target.closest(".attack-table tbody tr[data-uses]");
+    if (useRow) { openUsesModal(useRow); return; }
     const tr = e.target.closest && e.target.closest(".defense-table tbody tr[data-attacks]");
     if (tr) openModal(tr);
   });

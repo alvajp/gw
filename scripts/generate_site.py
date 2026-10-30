@@ -1396,7 +1396,7 @@ def render_defense_by_map(all_wars, prefix=""):
     older wars (see war_boards) simply have fewer entries."""
     by_board = compute_defense_by_map(all_wars)
     if not by_board:
-        return '<div id="defense-map-wrap"></div>'
+        return '<div id="defense-map-wrap"></div>', [], {}
     order = sorted(by_board, key=lambda b: -len(by_board[b]))
     blocks = []
     shown_attacks, all_players = [], {}
@@ -1436,11 +1436,8 @@ def render_defense_by_map(all_wars, prefix=""):
             "</details>"
         )
     return (
-        '<div id="defense-map-wrap"><h2>Meilleures défenses par map</h2>'
-        + "".join(blocks)
-        + _defense_modal_html(shown_attacks, all_players, prefix)
-        + '</div>'
-    )
+        '<div id="defense-map-wrap"><h2>Meilleures défenses par map</h2>' + "".join(blocks) + '</div>'
+    ), shown_attacks, all_players
 
 
 BATTLEFIELD_ORDER = [
@@ -1529,6 +1526,123 @@ def render_battlefield_section(result, our_idx, boards, prefix="../"):
             )
         grids.append(f'<div class="battlefield-side"><h3>{html_escape(name)}</h3><div class="battlefield-grid">{"".join(tiles)}</div></div>')
     return '<div id="battlefield-wrap"><h2>Carte</h2><div class="battlefield">' + "".join(grids) + "</div></div>"
+
+
+COMBINED_OPPONENTS = {"Bloody Rose", "Ti'lath's Changers", "Red Corsairs"}  # + any guild with "Alpha Legion" in its name
+OPP_ATTACK_MIN_USES = 2
+
+
+def _is_combined_opponent(name):
+    return name in COMBINED_OPPONENTS or "Alpha Legion" in name
+
+
+def render_opponent_map(all_wars, prefix=""):
+    """Bottom of the index: ONE map (the 15 boards) combining every defense of
+    the combined opponents (see COMBINED_OPPONENTS) across the wars against
+    them -- grouped by board, since a map moves between zones from war to war --
+    with, underneath, all our attacks against those defenses grouped by attack
+    team. Returns (html, events for the modal, players for the modal)."""
+    tiles_by_board = defaultdict(list)
+    uses = {}  # (sorted attacker units, mow) -> list of our attacks
+    events_all, players_all, guild_names = [], {}, []
+    for w in all_wars:
+        result = w["result"]
+        boards = result.get("boards") or {}
+        our_idx = find_team_idx(result["guilds"], OUR_GUILD)
+        opp_idx = next((t for t in result["guilds"] if t != our_idx), None)
+        if opp_idx is None or not result["battle_events"] or not boards:
+            continue
+        opp_name = result["guilds"][opp_idx]["name"]
+        if not _is_combined_opponent(opp_name):
+            continue
+        guild_names.append(opp_name)
+        players_all.update(result["players"])
+        t0 = min(e["createdOn"] for e in result["battle_events"])
+        war_tag = f'S{w["season"]} G{w["war_number"]}' if w.get("war_number") else f'S{w["season"]}'
+        field = compute_battlefield(result).get(opp_idx, {})
+        for zone, entries in field.items():
+            board = boards.get(zone)
+            if not board:
+                continue
+            for d in entries:
+                events_all.append(d["events"])
+                tiles_by_board[board].append((opp_name, war_tag, zone, d, t0, result["players"]))
+                for e in d["events"]:
+                    key = (tuple(sorted(e["att_units"])), e["att_mow"])
+                    uses.setdefault(key, []).append((e, MAPS_DB.get(board, {}).get("name", ""), opp_name))
+    if not tiles_by_board:
+        return '<div id="opp-map-wrap"></div>', [], {}
+
+    tiles = []
+    for board, m in MAPS_DB.items():
+        chips = []
+        for opp_name, war_tag, zone, d, t0, players in sorted(tiles_by_board.get(board, []), key=lambda x: -len(x[3]["events"])):
+            name = players.get(d["uid"], {}).get("displayName", d["uid"])
+            payload = {
+                "p": d["uid"], "z": f'{ZONE_LABELS.get(zone, zone)} · {opp_name} {war_tag}', "m": m["name"], "i": prefix + m["image"],
+                "l": [[ln["units"], ln["mow"], ln["n"], ln["fails"], round(ln["score"] / ln["n"])] for ln in d["lines"]],
+                "a": [[e["uid"], TIER_CODE.get(e["tier"], "u"), round(e["adj"]), e["att_units"], e["att_mow"],
+                       round((e["createdOn"] - t0) / 60000), e["_line"]] for e in d["events"]],
+            }
+            attr = html_escape(json.dumps(payload, separators=(",", ":"), ensure_ascii=False)).replace(chr(34), "&quot;")
+            fails = sum(1 for e in d["events"] if e["fail"])
+            chips.append(
+                f'<button type="button" class="map-def" data-def="{attr}">'
+                f'<span class="map-def-name">{html_escape(name)}</span>'
+                f'<small>{html_escape(opp_name)} · {ZONE_LABELS.get(zone, zone)}</small>'
+                f'<small>{len(d["events"])} att. · {fails} échec{"s" if fails > 1 else ""}</small></button>'
+            )
+        tiles.append(
+            f'<div class="map-tile"><div class="map-tile-head"><b>{html_escape(m["name"])}</b></div>'
+            f'<img src="{prefix}{m["image"]}" alt="{html_escape(m["name"])}" loading="lazy">'
+            f'<div class="map-tile-defs">{"".join(chips)}</div></div>'
+        )
+
+    # Our attacks, grouped by attack team (used at least OPP_ATTACK_MIN_USES times).
+    rows = []
+    for (units, mow), lst in uses.items():
+        if len(lst) < OPP_ATTACK_MIN_USES:
+            continue
+        wins = sum(1 for e, _, _ in lst if e["tier"] == "win")
+        avg = sum(e["adj"] for e, _, _ in lst) / len(lst)
+        rows.append((len(lst), wins, avg, units, mow, lst))
+    rows.sort(key=lambda r: (-r[0], -r[1] / r[0], -r[2]))
+    body = []
+    for i, (n, wins, avg, units, mow, lst) in enumerate(rows):
+        comp = "".join(_unit_img(u, prefix) for u in units) + (_unit_img(mow, prefix, mow=True) if mow else "")
+        payload = [[e["uid"], TIER_CODE.get(e["tier"], "u"), round(e["adj"]), f"{mname} · {gname}"] for e, mname, gname in lst]
+        attr = html_escape(json.dumps(payload, separators=(",", ":"), ensure_ascii=False)).replace(chr(34), "&quot;")
+        hidden = "" if i < DEFENSE_VISIBLE_ROWS else " hidden"
+        body.append(
+            f'<tr{hidden} tabindex="0" data-uses="{attr}"><td class="comp">{comp}</td><td>{n}</td><td>{wins}</td>'
+            f'<td>{wins / n * 100:.0f}&nbsp;%</td><td>{avg:.0f}</td></tr>'
+        )
+        events_all.append([e for e, _, _ in lst])
+    table = ""
+    if rows:
+        head = '<tr><th class="comp">Composition</th><th>Tokens</th><th>Victoires</th><th>Taux</th><th>Score moy.</th></tr>'
+        table = (
+            f'<div class="defense-block"><h3>Nos attaques</h3><div class="table-scroll"><table class="sortable defense-table attack-table">'
+            f'<thead>{head}</thead><tbody>{"".join(body)}</tbody></table></div>'
+        )
+        extra = len(rows) - DEFENSE_VISIBLE_ROWS
+        if extra > 0:
+            table += (
+                f'<button type="button" class="defense-more" aria-expanded="false" aria-label="Afficher les {extra} autres" '
+                f'data-extra="{extra}"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">'
+                '<polyline points="6 9 12 15 18 9" fill="none" stroke="currentColor" stroke-width="2" '
+                'stroke-linecap="round" stroke-linejoin="round"/></svg></button>'
+            )
+        table += "</div>"
+
+    uniq = list(dict.fromkeys(guild_names))
+    title = "Défenses de " + (", ".join(uniq[:-1]) + " et " + uniq[-1] if len(uniq) > 1 else uniq[0])
+    html = (
+        f'<div id="opp-map-wrap"><h2>{html_escape(title)}</h2>'
+        f'<div class="battlefield battlefield-single"><div class="battlefield-side"><div class="battlefield-grid">{"".join(tiles)}</div></div></div>'
+        f'{table}</div>'
+    )
+    return html, events_all, players_all
 
 
 FR_MONTHS = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."]
@@ -1722,6 +1836,7 @@ def render_season_page(season, wars_in_season, active_uids=frozenset()):
     body += '<h2>Détails</h2>'
     body += f'<div id="table-wrap">{render_history_table(wars_in_season)}</div>'
     body += '<div id="bareme-wrap"></div>'
+    body += '<div id="opp-map-wrap"></div><div id="defense-modal-wrap"></div>'  # index-only, kept so client-side nav can swap them
 
     back_link = back_link_html("../index.html", "Classement général", transition=True)
     html = PAGE_TEMPLATE.format(title=f"Saison {season}", asset_prefix="../", body=body, back_link=back_link, title_class="", header_extra="", v=ASSETS_VERSION)
@@ -2168,10 +2283,15 @@ def render_index(seasons, active_uids=frozenset()):
     body += '<h2>Scores</h2>'
     body += render_average_chart(display_names, averages, win_rate, tokens, buffs, maps_, score_display_names, score_distributions, active_uids, scope="global", filterable=True)
     body += render_chronologie_section(agg_events, agg_milestones, agg_display_names, relative=True)
-    body += render_defense_by_map(all_wars_flat)
+    by_map_html, by_map_events, by_map_players = render_defense_by_map(all_wars_flat)
+    body += by_map_html
     body += '<h2>Détails</h2>'
     body += f'<div id="table-wrap">{render_season_average_table(season_numbers, season_stats, display_names, averages, active_uids)}</div>'
     body += f'<div id="bareme-wrap">{BAREME_HTML}</div>'
+    opp_html, opp_events, opp_players = render_opponent_map(all_wars_flat)
+    body += opp_html
+    # One shared modal (+ its names/portraits blob) for both index sections that open it.
+    body += '<div id="defense-modal-wrap">' + _defense_modal_html(by_map_events + opp_events, {**by_map_players, **opp_players}, "") + "</div>"
 
     # Header-level filter (not a .chips row filter like the chart's, since
     # it acts on both the table below and the chart above rather than being
