@@ -450,7 +450,7 @@ PAGE_TEMPLATE = """<!doctype html>
 <link rel="stylesheet" href="{asset_prefix}assets/style.css?v={v}">
 </head>
 <body>
-<header><div class="breadcrumb" id="breadcrumb">{back_link}</div><h1 id="page-title" class="{title_class}">{title}</h1><div id="header-extra">{header_extra}</div></header>
+<header><div class="breadcrumb" id="breadcrumb">{back_link}</div><h1 id="page-title" class="{title_class}">{title}</h1><div id="header-extra">{header_extra}</div><div id="header-action">{header_action}</div></header>
 <main>
 {body}
 </main>
@@ -464,6 +464,11 @@ PAGE_TEMPLATE = """<!doctype html>
 <script src="{asset_prefix}assets/page-transition.js?v={v}"></script>
 </body>
 </html>"""
+
+
+def strategy_button(href):
+    """The prominent "Stratégie" button next to the H1 (see #header-action in style.css)."""
+    return f'<a class="strategy-btn" href="{href}">Stratégie<span aria-hidden="true">&nbsp;&rarr;</span></a>'
 
 
 def back_link_html(href, label, transition=False):
@@ -1526,9 +1531,9 @@ def render_battlefield_section(result, our_idx, boards, prefix="../", attack_tab
         attackers = next((t for t in result["guilds"] if t != team), None)
         under = (attack_tables or {}).get(attackers, "")
         grids.append(
-            f'<div class="battlefield-side"><h3>{html_escape(name)}</h3><div class="battlefield-grid">{"".join(tiles)}</div>{under}</div>'
+            f'<div class="battlefield-side side-{len(grids)}"><h3>{html_escape(name)}</h3><div class="battlefield-grid">{"".join(tiles)}</div>{under}</div>'
         )
-    return '<div id="battlefield-wrap"><h2>Carte</h2><div class="battlefield">' + "".join(grids) + "</div>" + attacks_script + "</div>"
+    return '<div id="battlefield-wrap"><div class="battlefield">' + "".join(grids) + "</div>" + attacks_script + "</div>"
 
 
 COMBINED_OPPONENTS = {"Bloody Rose", "Ti'lath's Changers", "Red Corsairs"}  # + any guild with "Alpha Legion" in its name
@@ -1606,9 +1611,9 @@ def render_opponent_map(all_wars, prefix=""):
                 f'<div class="map-tile-defs">{chips}</div></div>'
             )
         sides.append(
-            f'<div class="battlefield-side"><h3>{html_escape(heading)}</h3><div class="battlefield-grid">{"".join(tiles)}</div></div>'
+            f'<div class="battlefield-side side-{len(sides)}"><h3>{html_escape(heading)}</h3><div class="battlefield-grid">{"".join(tiles)}</div></div>'
         )
-    html = f'<div id="opp-map-wrap"><h2>Contre les meilleurs</h2><div class="battlefield">{"".join(sides)}</div></div>'
+    html = f'<div id="opp-map-wrap"><div class="battlefield">{"".join(sides)}</div></div>'
     return html, events_all, players_all
 
 
@@ -1835,20 +1840,40 @@ def render_war_page(slug, result, season, outcome=None, active_uids=frozenset(),
         body += "<h2>Adversaires</h2>" + "".join(other_tables)
 
     body += render_defense_section(result, our_idx, result.get("boards") or {})
-    attack_tables, attacks_script = build_attacks(result, our_idx, result.get("boards") or {})
-    battlefield_html = render_battlefield_section(
-        result, our_idx, result.get("boards") or {}, attack_tables=attack_tables, attacks_script=attacks_script
-    )
-    body += battlefield_html
-    if battlefield_html:
+    has_strategy = any(e.get("defender") for e in result["battle_events"])
+    if has_strategy:
+        # the Défense rows open the shared modal; it needs its names/portraits blob
         body += _defense_modal_html([[e for e in result["battle_events"] if e.get("defender")]], result["players"], "../")
+    header_action = strategy_button(slug + "-strategie.html") if has_strategy else ""
 
     title = ", ".join(opponent_names(result, our_idx)) or slug
     back_link = back_link_html(f"../seasons/{season}.html", f"Saison {season}", transition=True)
-    html = PAGE_TEMPLATE.format(title=title, asset_prefix="../", body=body, back_link=back_link, title_class="", header_extra="", v=ASSETS_VERSION)
+    html = PAGE_TEMPLATE.format(title=title, asset_prefix="../", body=body, back_link=back_link, title_class="", header_extra="", header_action=header_action, v=ASSETS_VERSION)
     out_path = os.path.join(DOCS_DIR, "wars", slug + ".html")
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(html)
+
+
+def render_war_strategy_page(slug, result, season):
+    """"Stratégie" page of a war (button next to the war's H1): both guilds' full
+    map with defenders, and under each map the attack table of the guild that hit
+    it (see build_attacks / render_battlefield_section)."""
+    our_idx = find_team_idx(result["guilds"], OUR_GUILD)
+    boards = result.get("boards") or {}
+    attack_tables, attacks_script = build_attacks(result, our_idx, boards)
+    section = render_battlefield_section(result, our_idx, boards, attack_tables=attack_tables, attacks_script=attacks_script)
+    if not section:
+        return False
+    body = section + _defense_modal_html([[e for e in result["battle_events"] if e.get("defender")]], result["players"], "../")
+    opp = ", ".join(opponent_names(result, our_idx)) or slug
+    back_link = back_link_html(f"{slug}.html", opp)
+    html = PAGE_TEMPLATE.format(
+        title=f"Stratégie · {opp}", asset_prefix="../", body=body, back_link=back_link,
+        title_class="", header_extra="", header_action="", v=ASSETS_VERSION,
+    )
+    with open(os.path.join(DOCS_DIR, "wars", slug + "-strategie.html"), "w", encoding="utf-8") as f:
+        f.write(html)
+    return True
 
 
 def render_season_page(season, wars_in_season, active_uids=frozenset()):
@@ -1870,15 +1895,13 @@ def render_season_page(season, wars_in_season, active_uids=frozenset()):
     body += '<h2>Scores</h2>'
     body += render_average_chart(display_names, averages, win_rate, tokens, buffs, maps_, score_display_names, score_distributions, active_uids, scope="season")
     body += render_chronologie_section(agg_events, agg_milestones, agg_display_names, relative=True)
-    body += '<div id="opp-map-wrap"></div>'  # index-only sections, kept here (same spot as on the index) so client-side nav can swap them
-    body += '<div id="defense-map-wrap"></div>'
     body += '<h2>Détails</h2>'
     body += f'<div id="table-wrap">{render_history_table(wars_in_season)}</div>'
     body += '<div id="bareme-wrap"></div>'
-    body += '<div id="defense-modal-wrap"></div>'
 
+    header_action = ""
     back_link = back_link_html("../index.html", "Classement général", transition=True)
-    html = PAGE_TEMPLATE.format(title=f"Saison {season}", asset_prefix="../", body=body, back_link=back_link, title_class="", header_extra="", v=ASSETS_VERSION)
+    html = PAGE_TEMPLATE.format(title=f"Saison {season}", asset_prefix="../", body=body, back_link=back_link, title_class="", header_extra="", header_action=header_action, v=ASSETS_VERSION)
     out_dir = os.path.join(DOCS_DIR, "seasons")
     os.makedirs(out_dir, exist_ok=True)
     with open(os.path.join(out_dir, f"{season}.html"), "w", encoding="utf-8") as f:
@@ -2322,15 +2345,9 @@ def render_index(seasons, active_uids=frozenset()):
     body += '<h2>Scores</h2>'
     body += render_average_chart(display_names, averages, win_rate, tokens, buffs, maps_, score_display_names, score_distributions, active_uids, scope="global", filterable=True)
     body += render_chronologie_section(agg_events, agg_milestones, agg_display_names, relative=True)
-    opp_html, opp_events, opp_players = render_opponent_map(all_wars_flat)
-    by_map_html, by_map_events, by_map_players = render_defense_by_map(all_wars_flat)
-    body += opp_html
-    body += by_map_html
     body += '<h2>Détails</h2>'
     body += f'<div id="table-wrap">{render_season_average_table(season_numbers, season_stats, display_names, averages, active_uids)}</div>'
     body += f'<div id="bareme-wrap">{BAREME_HTML}</div>'
-    # One shared modal (+ its names/portraits blob) for both index sections that open it.
-    body += '<div id="defense-modal-wrap">' + _defense_modal_html(by_map_events + opp_events, {**by_map_players, **opp_players}, "") + "</div>"
 
     # Header-level filter (not a .chips row filter like the chart's, since
     # it acts on both the table below and the chart above rather than being
@@ -2372,9 +2389,25 @@ def render_index(seasons, active_uids=frozenset()):
 
     html = PAGE_TEMPLATE.format(
         title="Classement général", asset_prefix="", body=body, back_link=guild_label,
-        title_class="hero-title", header_extra=theme_toggle + active_toggle, v=ASSETS_VERSION,
+        title_class="hero-title", header_extra=theme_toggle + active_toggle,
+        header_action=strategy_button("strategie.html"), v=ASSETS_VERSION,
     )
     with open(os.path.join(DOCS_DIR, "index.html"), "w", encoding="utf-8") as f:
+        f.write(html)
+
+
+def render_strategy_index(all_wars):
+    """docs/strategie.html (button next to the index H1): "Contre les meilleurs"
+    (combined opponents' map, both sides) then "Meilleures défenses par map"."""
+    opp_html, opp_events, opp_players = render_opponent_map(all_wars)
+    by_map_html, by_map_events, by_map_players = render_defense_by_map(all_wars)
+    body = opp_html + by_map_html
+    body += _defense_modal_html(by_map_events + opp_events, {**by_map_players, **opp_players}, "")
+    html = PAGE_TEMPLATE.format(
+        title="Stratégie", asset_prefix="", body=body, back_link=back_link_html("index.html", "Classement général"),
+        title_class="hero-title", header_extra="", header_action="", v=ASSETS_VERSION,
+    )
+    with open(os.path.join(DOCS_DIR, "strategie.html"), "w", encoding="utf-8") as f:
         f.write(html)
 
 
@@ -2421,6 +2454,9 @@ def main():
         render_season_page(season, season_wars, active_uids)
 
     render_index(seasons, active_uids)
+    render_strategy_index(all_wars)
+    for w in all_wars:
+        render_war_strategy_page(w["slug"], w["result"], w["season"])
     print(f"Generated {len(all_wars)} war page(s), {len(seasons)} season page(s) + index.html into {DOCS_DIR}")
 
 

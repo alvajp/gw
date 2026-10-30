@@ -358,19 +358,6 @@
         const liveChrono = document.getElementById("chronologie-wrap");
         const newChrono = doc.getElementById("chronologie-wrap");
         if (liveChrono) liveChrono.innerHTML = newChrono ? newChrono.innerHTML : "";
-
-        // Index-only "Meilleures défenses par map" -- an empty div on the
-        // season pages, same always-present/sometimes-empty idea as above.
-        const liveDefMap = document.getElementById("defense-map-wrap");
-        const newDefMap = doc.getElementById("defense-map-wrap");
-        if (liveDefMap) liveDefMap.innerHTML = newDefMap ? newDefMap.innerHTML : "";
-
-        // Index-only bottom sections (combined opponent map + the shared modal).
-        ["opp-map-wrap", "defense-modal-wrap"].forEach(function (id) {
-          const live = document.getElementById(id);
-          const fresh = doc.getElementById(id);
-          if (live) live.innerHTML = fresh ? fresh.innerHTML : "";
-        });
       } else {
         const liveMain = document.querySelector("main");
         const newMain = doc.querySelector("main");
@@ -410,6 +397,12 @@
         const liveExtra = document.getElementById("header-extra");
         const newExtra = doc.getElementById("header-extra");
         if (liveExtra) liveExtra.innerHTML = newExtra ? newExtra.innerHTML : "";
+
+        // #header-action (the index's "Stratégie" button) is absolutely
+        // positioned next to the H1 and swapped wholesale the same way.
+        const liveAction = document.getElementById("header-action");
+        const newAction = doc.getElementById("header-action");
+        if (liveAction) liveAction.innerHTML = newAction ? newAction.innerHTML : "";
         if (window.syncThemeToggle) window.syncThemeToggle();
 
         if (header && headerFromH != null) {

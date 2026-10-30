@@ -714,8 +714,22 @@ dialog.defense-modal::backdrop { background: rgba(0, 0, 0, 0.55); }
 .dm-score { text-align: right; font-variant-numeric: tabular-nums; }
 
 /* Bottom-of-page "Carte": both guilds' 3x5 battlefield, defenders under each tile (see render_battlefield_section). */
-.battlefield { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; align-items: start; }
-@media (max-width: 900px) { .battlefield { grid-template-columns: 1fr; } }
+/* The two sides are laid out as ONE grid (display: contents) so they share rows:
+   names / maps / pills / tables each start at the same height on both sides. */
+.battlefield { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 1.5rem; align-items: start; }
+.battlefield-side, .attacks-block { display: contents; }
+.battlefield-side > h3 { grid-row: 1; }
+.battlefield-side > .battlefield-grid { grid-row: 2; }
+.attacks-block > .attacks-chips { grid-row: 3; }
+.attacks-block > .attacks-scroll { grid-row: 4; }
+.side-0 h3, .side-0 .battlefield-grid, .side-0 .attacks-chips, .side-0 .attacks-scroll { grid-column: 1; min-width: 0; }
+.side-1 h3, .side-1 .battlefield-grid, .side-1 .attacks-chips, .side-1 .attacks-scroll { grid-column: 2; min-width: 0; }
+@media (max-width: 900px) {
+  .battlefield { grid-template-columns: 1fr; }
+  .battlefield-side { display: block; }
+  .attacks-block { display: block; }
+  .battlefield-side > h3, .battlefield-side > .battlefield-grid, .attacks-block > .attacks-chips, .attacks-block > .attacks-scroll { grid-row: auto; }
+}
 .battlefield-side h3 { margin: 0 0 0.5rem; font-size: 1rem; }
 .battlefield-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
 .map-tile { display: flex; flex-direction: column; background: var(--table-bg); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
@@ -743,8 +757,7 @@ dialog.defense-modal::backdrop { background: rgba(0, 0, 0, 0.55); }
 /* Index "Défenses de ..." combined single map + our attacks (see render_opponent_map). */
 
 /* War-page "Attaques": every attack, one table per guild + player pills (attacks-table.js). */
-.attacks-block { margin-top: 1rem; }
-.attacks-chips { margin: 0 0 0.6rem; }
+.attacks-chips { margin: 1rem 0 0.6rem; }
 .attacks-scroll { max-height: 70vh; overflow-y: auto; overflow-x: hidden; border: 1px solid var(--border); }
 .attacks-table { width: 100%; table-layout: fixed; font-size: 0.85rem; }
 .attacks-table th, .attacks-table td { width: auto; border-left: none; border-right: none; text-align: left; overflow: visible; }
@@ -769,3 +782,21 @@ dialog.defense-modal::backdrop { background: rgba(0, 0, 0, 0.55); }
 .attacks-table td.a-map .map-thumb { height: 30px; width: auto; border-radius: 4px; vertical-align: middle; margin-right: 0.4rem; }
 .attacks-table .zone-text { display: inline-flex; flex-direction: column; vertical-align: middle; line-height: 1.2; }
 .attacks-table .zone-text small { color: var(--text-muted); font-size: 0.75rem; }
+
+/* "Stratégie" button: absolutely positioned on the H1's row, right-aligned (swapped by page-transition.js on index<->season nav). */
+#header-action {
+  position: absolute;
+  right: var(--gutter);
+  bottom: 3rem;  /* header padding-bottom .5rem + h1 margin-bottom 1rem + half its 3rem line */
+  transform: translateY(50%);
+  z-index: 2;
+}
+.strategy-btn {
+  display: inline-flex; align-items: center;
+  padding: 0.55rem 1.3rem; border-radius: 999px;
+  background: var(--accent); color: var(--bg);
+  font-weight: 700; font-size: 1rem; text-decoration: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent);
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+.strategy-btn:hover { transform: translateY(-1px); box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 35%, transparent); }
