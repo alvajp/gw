@@ -1,5 +1,5 @@
 // War-page "Défense" (see render_defense_section in generate_site.py): each
-// guild's table shows its first 5 rows; the "Afficher les N autres" button
+// guild's table shows its first 5 rows; the centered chevron button under it
 // expands/collapses the rest. Visibility is by row POSITION, re-applied after a
 // column sort (sort-table.js reorders the rows), so the 5 visible ones are
 // always the top 5 of the current order. Delegated on document, like the other
@@ -13,7 +13,10 @@
       tr.hidden = !open && i >= LIMIT;
     });
     const btn = block.querySelector(".defense-more");
-    if (btn) btn.textContent = open ? "Réduire" : "Afficher les " + btn.dataset.extra + " autres";
+    if (btn) {
+      btn.setAttribute("aria-expanded", open ? "true" : "false");
+      btn.setAttribute("aria-label", open ? "Réduire" : "Afficher les " + btn.dataset.extra + " autres");
+    }
   }
 
   document.addEventListener("click", function (e) {

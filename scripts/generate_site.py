@@ -1254,13 +1254,16 @@ def render_defense_table(rows, players, boards, prefix):
         )
     head = (
         '<tr><th>Joueur</th><th class="zone">Zone</th><th class="comp">Composition</th>'
-        '<th>Tokens requis</th><th>Score moyen par tokens</th><th>Échec</th><th class="buffs">Buffs</th></tr>'
+        '<th>Tokens</th><th>Score moy.</th><th>Échec</th><th class="buffs">Buffs</th></tr>'
     )
     table = f'<div class="table-scroll"><table class="sortable defense-table"><thead>{head}</thead><tbody>{"".join(body)}</tbody></table></div>'
     extra = len(rows) - DEFENSE_VISIBLE_ROWS
     if extra > 0:
         table += (
-            f'<button type="button" class="chip defense-more" data-extra="{extra}">Afficher les {extra} autres</button>'
+            f'<button type="button" class="defense-more" aria-expanded="false" aria-label="Afficher les {extra} autres" '
+            f'data-extra="{extra}"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">'
+            '<polyline points="6 9 12 15 18 9" fill="none" stroke="currentColor" stroke-width="2" '
+            'stroke-linecap="round" stroke-linejoin="round"/></svg></button>'
         )
     return table
 
@@ -1280,11 +1283,7 @@ def render_defense_section(result, our_idx, boards, prefix="../"):
         table = render_defense_table([r for r in rows if r["team"] == team], result["players"], boards, prefix)
         if table:
             parts.append(f'<div class="defense-block"><h3>{html_escape(name)}</h3>{table}</div>')
-    parts.append(
-        '<p class="war-chart-note">Équipes défensives qui ont tenu au moins une fois, triées par tokens requis (attaques subies) · '
-        "score moyen par tokens = score moyen des attaques subies, sans le bonus de bâtiment (plus bas = mieux) · "
-        "buffs = nombre moyen par attaque sur la zone · survolez les portraits pour les noms.</p></div>"
-    )
+    parts.append("</div>")
     return "".join(parts)
 
 
@@ -1375,7 +1374,7 @@ def render_defense_by_map(all_wars, prefix=""):
             )
         head = (
             '<tr><th>Joueur</th><th class="guild">Guilde</th><th class="comp">Composition</th>'
-            '<th>Attaques</th><th>Score moyen par tokens</th><th>Échec</th><th class="buffs">Buffs</th></tr>'
+            '<th>Tokens</th><th>Score moy.</th><th>Échec</th><th class="buffs">Buffs</th></tr>'
         )
         blocks.append(
             f'<details class="map-defense"{" open" if i == 0 else ""}><summary>'

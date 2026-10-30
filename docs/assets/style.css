@@ -674,4 +674,10 @@ details.map-defense .table-scroll { margin-bottom: 0; }
 .defense-table th.buffs, .defense-table td.buffs { width: 11em; text-align: left; overflow: visible; white-space: normal; }
 .buff-list { margin: 0; padding-left: 1.1em; columns: 2; column-gap: 1em; line-height: 1.35; font-size: 0.8rem; }
 .buff-none { color: var(--text-muted); font-size: 0.75rem; }
-.defense-more { margin: 0.5rem 0 1rem; }
+.defense-more {
+  display: block; margin: 0 auto 1rem; padding: 0.2rem 2rem;
+  background: none; border: none; color: var(--text-muted); cursor: pointer; line-height: 0;
+}
+.defense-more:hover { color: var(--accent); }
+.defense-more svg { transition: transform 150ms ease; }
+.defense-more[aria-expanded="true"] svg { transform: rotate(180deg); }
