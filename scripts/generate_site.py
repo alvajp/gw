@@ -1497,10 +1497,12 @@ def _battlefield_chip(entry, zone, board_name, board_img, players):
     )
 
 
-def render_battlefield_section(result, our_idx, boards, prefix="../"):
+def render_battlefield_section(result, our_idx, boards, prefix="../", attack_tables=None, attacks_script=""):
     """Bottom of a war page: the full map, one 3x5 grid of tiles per guild
     (ours on the left, theirs on the right). Each tile is the zone's map with
-    its defenders underneath; clicking a defender opens the modal."""
+    its defenders underneath; clicking a defender opens the modal. Under each
+    grid sits the table of the attacks that landed on it (attack_tables, keyed by
+    the ATTACKING team)."""
     field = compute_battlefield(result)
     if not field:
         return ""
@@ -1521,8 +1523,12 @@ def render_battlefield_section(result, our_idx, boards, prefix="../"):
                 f'<span>{html_escape(m["name"]) if m else ""}</span></div>{img}'
                 f'<div class="map-tile-defs">{chips}</div></div>'
             )
-        grids.append(f'<div class="battlefield-side"><h3>{html_escape(name)}</h3><div class="battlefield-grid">{"".join(tiles)}</div></div>')
-    return '<div id="battlefield-wrap"><h2>Carte</h2><div class="battlefield">' + "".join(grids) + "</div></div>"
+        attackers = next((t for t in result["guilds"] if t != team), None)
+        under = (attack_tables or {}).get(attackers, "")
+        grids.append(
+            f'<div class="battlefield-side"><h3>{html_escape(name)}</h3><div class="battlefield-grid">{"".join(tiles)}</div>{under}</div>'
+        )
+    return '<div id="battlefield-wrap"><h2>Carte</h2><div class="battlefield">' + "".join(grids) + "</div>" + attacks_script + "</div>"
 
 
 COMBINED_OPPONENTS = {"Bloody Rose", "Ti'lath's Changers", "Red Corsairs"}  # + any guild with "Alpha Legion" in its name
@@ -1606,27 +1612,29 @@ def render_opponent_map(all_wars, prefix=""):
     return html, events_all, players_all
 
 
-def render_attacks_section(result, our_idx, boards, prefix="../"):
-    """Very bottom of a war page, under the map: every attack thrown, one table
-    per guild (the attackers' side) -- who attacked, with which team, against
-    which defense (defender, its lineup and line), the result and the map it
-    was on -- with one pill per attacking player to filter. The rows are built
-    client-side (attacks-table.js) from a compact JSON blob that indexes into
-    its own unit/player/map lists; names and portraits come from the page's
-    shared #defense-data blob."""
+def build_attacks(result, our_idx, boards, prefix="../"):
+    """Per-guild attack tables for the bottom of a war page. Returns
+    ({attacking team: table html}, data <script> html): the tables are placed
+    under the map where those attacks landed (see render_battlefield_section) --
+    their attacks under our defense map, ours under theirs. One pill per attacking
+    player; exactly one player is shown at a time (the first pill is preselected).
+    Rows are built client-side (attacks-table.js) from a compact JSON blob that
+    indexes into its own unit/player/map lists; names and portraits come from the
+    page's shared #defense-data blob."""
     compute_battlefield(result)  # numbers each attack's defense line (e["_line"])
     events = sorted((e for e in result["battle_events"] if e.get("defender")), key=lambda e: e["createdOn"])
     if not events:
-        return ""
+        return {}, ""
     units, players, zones, maps = {}, {}, {}, {}
 
-    def idx(table, key, make=None):
+    def idx(table, key):
         if key not in table:
             table[key] = len(table)
         return table[key]
 
-    teams_out = []
-    for team in sorted(result["guilds"], key=lambda t: (t != our_idx, t)):
+    teams = sorted(result["guilds"], key=lambda t: (t != our_idx, t))
+    tables, rows_by_team = {}, []
+    for ti, team in enumerate(teams):
         rows, attackers = [], {}
         for e in events:
             if e["team"] != team:
@@ -1639,38 +1647,37 @@ def render_attacks_section(result, our_idx, boards, prefix="../"):
             rows.append([
                 pi, TIER_CODE.get(e["tier"], "u"), round(e["adj"]),
                 [idx(units, u) for u in e["att_units"]], idx(units, e["att_mow"]) if e["att_mow"] else -1,
-                idx(players, e["defender"]), [idx(units, u) for u in e["units"]], idx(units, e["mow"]) if e["mow"] else -1,
-                idx(zones, ZONE_LABELS.get(e["zone"], e["zone"])), mi, e["_line"],
+                [idx(units, u) for u in e["units"]], idx(units, e["mow"]) if e["mow"] else -1,
+                idx(zones, ZONE_LABELS.get(e["zone"], e["zone"])), mi,
             ])
-        name = OUR_GUILD_LABEL if team == our_idx else result["guilds"][team]["name"]
-        teams_out.append((name, rows, attackers))
-    data = {
-        "u": list(units), "p": list(players), "z": list(zones),
-        "m": [[MAPS_DB[b]["name"], prefix + MAPS_DB[b]["image"]] for b in maps],
-        "t": [rows for _, rows, _ in teams_out],
-    }
-    blocks = []
-    for ti, (name, rows, attackers) in enumerate(teams_out):
+        rows_by_team.append(rows)
         if not rows:
             continue
         pills = "".join(
-            f'<button type="button" class="chip" data-p="{pi}">{html_escape(result["players"].get(uid, {}).get("displayName", uid))}</button>'
-            for uid, pi in sorted(attackers.items(), key=lambda kv: result["players"].get(kv[0], {}).get("displayName", kv[0]).lower())
+            f'<button type="button" class="chip{" active" if n == 0 else ""}" data-p="{pi}">'
+            f'{html_escape(result["players"].get(uid, {}).get("displayName", uid))}</button>'
+            for n, (uid, pi) in enumerate(sorted(
+                attackers.items(), key=lambda kv: result["players"].get(kv[0], {}).get("displayName", kv[0]).lower()
+            ))
         )
-        blocks.append(
-            f'<div class="attacks-block" data-team="{ti}"><h3>{html_escape(name)}</h3>'
-            f'<div class="chips attacks-chips">{pills}</div>'
+        tables[team] = (
+            f'<div class="attacks-block" data-team="{ti}"><div class="chips attacks-chips timeline-player-chips">{pills}</div>'
             '<div class="attacks-scroll"><table class="attacks-table"><thead><tr>'
-            '<th class="a-player">Joueur</th><th class="a-comp">Attaque</th><th class="a-def">Contre</th>'
+            '<th class="a-comp">Attaque</th><th class="a-def">Contre</th>'
             '<th class="a-res">Résultat</th><th class="a-score">Score</th><th class="a-map">Map</th>'
             '</tr></thead><tbody></tbody></table></div></div>'
         )
-    return (
-        '<div id="attacks-wrap"><h2>Attaques</h2>' + "".join(blocks)
-        + '<script type="application/json" id="attacks-data">'
+    data = {
+        "u": list(units), "p": list(players), "z": list(zones),
+        "m": [[MAPS_DB[b]["name"], prefix + MAPS_DB[b]["image"]] for b in maps],
+        "t": rows_by_team,
+    }
+    script = (
+        '<script type="application/json" id="attacks-data">'
         + json.dumps(data, separators=(",", ":"), ensure_ascii=False).replace("</", "<\\\\/")
-        + "</script></div>"
+        + "</script>"
     )
+    return tables, script
 
 
 FR_MONTHS = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."]
@@ -1828,9 +1835,11 @@ def render_war_page(slug, result, season, outcome=None, active_uids=frozenset(),
         body += "<h2>Adversaires</h2>" + "".join(other_tables)
 
     body += render_defense_section(result, our_idx, result.get("boards") or {})
-    battlefield_html = render_battlefield_section(result, our_idx, result.get("boards") or {})
+    attack_tables, attacks_script = build_attacks(result, our_idx, result.get("boards") or {})
+    battlefield_html = render_battlefield_section(
+        result, our_idx, result.get("boards") or {}, attack_tables=attack_tables, attacks_script=attacks_script
+    )
     body += battlefield_html
-    body += render_attacks_section(result, our_idx, result.get("boards") or {})
     if battlefield_html:
         body += _defense_modal_html([[e for e in result["battle_events"] if e.get("defender")]], result["players"], "../")
 

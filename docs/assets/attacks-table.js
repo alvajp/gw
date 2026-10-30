@@ -1,7 +1,7 @@
-// War-page "Attaques" (see render_attacks_section in generate_site.py): builds
-// one table per guild from the compact #attacks-data JSON (rows index into its
-// own unit/player/zone/map lists) and wires the player pills as a single-select
-// filter. Names + portraits come from the page's shared #defense-data blob.
+// War-page attack tables (see build_attacks in generate_site.py): one table per
+// guild, built from the compact #attacks-data JSON (rows index into its own
+// unit/player/zone/map lists). The player pills pick WHICH single player's
+// attacks the table shows (the first pill is preselected). Names + portraits come from the page's shared #defense-data blob.
 (function () {
   const OUTCOME = { w: ["Victoire", "is-win"], f: ["Finish", "is-finish"], x: ["Échec", "is-fail"], u: ["?", ""] };
 
@@ -27,10 +27,6 @@
       if (!u) return '<span class="' + cls + ' unit-missing" title="' + esc(id) + '">?</span>';
       return '<img class="' + cls + '" src="' + u[1] + '" alt="' + esc(u[0]) + '" title="' + esc(u[0]) + '" loading="lazy">';
     }
-    function player(i) {
-      const uid = d.p[i];
-      return esc(info.players[uid] || uid);
-    }
     function comp(units, mow) {
       return units.map(function (i) { return portrait(i, false); }).join("") + portrait(mow, true);
     }
@@ -38,29 +34,32 @@
     document.querySelectorAll(".attacks-block").forEach(function (block) {
       const rows = d.t[parseInt(block.dataset.team, 10)] || [];
       const tbody = block.querySelector("tbody");
-      tbody.innerHTML = rows.map(function (r) {
-        const o = OUTCOME[r[1]] || OUTCOME.u;
-        const map = r[9] >= 0 ? d.m[r[9]] : null;
-        const mapHtml = (map ? '<img class="map-thumb" src="' + map[1] + '" alt="" loading="lazy">' : "") +
-          '<span class="zone-text"><b>' + esc(d.z[r[8]]) + '</b>' + (map ? "<small>" + esc(map[0]) + "</small>" : "") + "</span>";
-        return '<tr data-p="' + r[0] + '">' +
-          '<td class="a-player">' + player(r[0]) + "</td>" +
-          '<td class="a-comp">' + comp(r[3], r[4]) + "</td>" +
-          '<td class="a-def"><span class="a-def-name">' + player(r[5]) + "<small>L" + r[10] + "</small></span>" +
-          '<span class="a-def-comp">' + comp(r[6], r[7]) + "</span></td>" +
-          '<td class="a-res"><span class="dm-result ' + o[1] + '">' + o[0] + "</span></td>" +
-          '<td class="a-score">' + r[2] + "</td>" +
-          '<td class="a-map">' + mapHtml + "</td></tr>";
-      }).join("");
+
+      // Exactly one player is shown at a time; rows are built only for that player.
+      function show(p) {
+        tbody.innerHTML = rows.filter(function (r) { return String(r[0]) === p; }).map(function (r) {
+          const o = OUTCOME[r[1]] || OUTCOME.u;
+          const map = r[8] >= 0 ? d.m[r[8]] : null;
+          const mapHtml = (map ? '<img class="map-thumb" src="' + map[1] + '" alt="" loading="lazy">' : "") +
+            '<span class="zone-text"><b>' + esc(d.z[r[7]]) + '</b>' + (map ? "<small>" + esc(map[0]) + "</small>" : "") + "</span>";
+          return "<tr>" +
+            '<td class="a-comp">' + comp(r[3], r[4]) + "</td>" +
+            '<td class="a-def">' + comp(r[5], r[6]) + "</td>" +
+            '<td class="a-res"><span class="dm-result ' + o[1] + '">' + o[0] + "</span></td>" +
+            '<td class="a-score">' + r[2] + "</td>" +
+            '<td class="a-map">' + mapHtml + "</td></tr>";
+        }).join("");
+      }
+
+      const first = block.querySelector(".attacks-chips .chip.active") || block.querySelector(".attacks-chips .chip");
+      if (first) show(first.dataset.p);
 
       block.querySelector(".attacks-chips").addEventListener("click", function (e) {
         const chip = e.target.closest(".chip[data-p]");
-        if (!chip) return;
-        const wasActive = chip.classList.contains("active");
+        if (!chip || chip.classList.contains("active")) return;
         block.querySelectorAll(".attacks-chips .chip.active").forEach(function (c) { c.classList.remove("active"); });
-        if (!wasActive) chip.classList.add("active");
-        const p = wasActive ? null : chip.dataset.p;
-        tbody.querySelectorAll("tr").forEach(function (tr) { tr.hidden = p !== null && tr.dataset.p !== p; });
+        chip.classList.add("active");
+        show(chip.dataset.p);
       });
     });
   }
