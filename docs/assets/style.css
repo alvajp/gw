@@ -701,9 +701,8 @@ dialog.defense-modal::backdrop { background: rgba(0, 0, 0, 0.55); }
 .dm-def .zone-text small { color: var(--text-muted); font-size: 0.75rem; }
 .dm-summary { color: var(--text-muted); font-size: 0.8rem; margin-top: 0.4rem; }
 .dm-body { padding: 0.4rem 1rem 0.8rem; }
-.dm-row { display: grid; grid-template-columns: 4.2em minmax(0, 1fr) auto 4.6em 3.2em; align-items: center; gap: 0.6rem; padding: 0.4rem 0; border-bottom: 1px solid var(--border); font-size: 0.85rem; }
+.dm-row { display: grid; grid-template-columns: minmax(0, 1fr) auto 4.6em 3.2em; align-items: center; gap: 0.6rem; padding: 0.4rem 0; border-bottom: 1px solid var(--border); font-size: 0.85rem; }
 .dm-row:last-child { border-bottom: none; }
-.dm-time { color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .dm-player { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dm-comp { display: inline-flex; align-items: center; }
 .dm-comp .unit, .dm-def-comp .unit { width: 26px; height: 26px; border-radius: 50%; margin-right: 2px; background: var(--surface); }
@@ -739,6 +738,34 @@ dialog.defense-modal::backdrop { background: rgba(0, 0, 0, 0.55); }
 .dm-lineup { display: grid; grid-template-columns: 2.2em minmax(0, 1fr) auto; align-items: center; gap: 0.6rem; padding: 0.3rem 0; border-bottom: 1px solid var(--border); font-size: 0.85rem; }
 .dm-lineno { color: var(--text-muted); font-variant-numeric: tabular-nums; font-size: 0.78rem; }
 .dm-linestats { color: var(--text-muted); font-size: 0.78rem; white-space: nowrap; }
-.dm-row.with-line { grid-template-columns: 2.2em 4.2em minmax(0, 1fr) auto 4.6em 3.2em; }
+.dm-row.with-line { grid-template-columns: 2.2em minmax(0, 1fr) auto 4.6em 3.2em; }
 
 /* Index "Défenses de ..." combined single map + our attacks (see render_opponent_map). */
+
+/* War-page "Attaques": every attack, one table per guild + player pills (attacks-table.js). */
+.attacks-block { margin-bottom: 1.5rem; }
+.attacks-block h3 { margin: 1rem 0 0.5rem; font-size: 1rem; }
+.attacks-chips { margin-bottom: 0.6rem; }
+.attacks-scroll { max-height: 70vh; overflow: auto; border: 1px solid var(--border); }
+.attacks-table { width: 100%; min-width: 760px; table-layout: fixed; font-size: 0.85rem; }
+.attacks-table th, .attacks-table td { width: auto; border-left: none; border-right: none; text-align: left; overflow: visible; }
+.attacks-table th { position: sticky; top: 0; z-index: 1; cursor: default; }
+.attacks-table th:hover { background: var(--table-header-bg); }
+.attacks-table th:first-child, .attacks-table td:first-child { position: static; background: none; width: 9em; }
+.attacks-table th.a-comp { width: 15em; }
+.attacks-table th.a-def { width: 17em; }
+.attacks-table th.a-res { width: 6.5em; }
+.attacks-table th.a-score { width: 4.5em; text-align: right; }
+.attacks-table td.a-score { text-align: right; font-variant-numeric: tabular-nums; }
+.attacks-table th.a-map { width: 11em; }
+.attacks-table td { vertical-align: middle; white-space: normal; }
+.attacks-table tbody tr[hidden] { display: none; }
+.attacks-table .unit { width: 26px; height: 26px; border-radius: 50%; margin-right: 2px; vertical-align: middle; background: var(--surface); }
+.attacks-table .unit.mow { border-radius: 6px; margin-left: 4px; }
+.attacks-table .unit-missing { display: inline-flex; align-items: center; justify-content: center; font-size: 0.7rem; color: var(--text-muted); }
+.a-def-name { display: block; margin-bottom: 2px; }
+.a-def-name small { margin-left: 0.4rem; color: var(--text-muted); font-size: 0.75rem; }
+.a-def-comp .unit { width: 22px; height: 22px; }
+.attacks-table td.a-map .map-thumb { height: 34px; width: auto; border-radius: 4px; vertical-align: middle; margin-right: 0.4rem; }
+.attacks-table .zone-text { display: inline-flex; flex-direction: column; vertical-align: middle; line-height: 1.2; }
+.attacks-table .zone-text small { color: var(--text-muted); font-size: 0.75rem; }

@@ -460,6 +460,7 @@ PAGE_TEMPLATE = """<!doctype html>
 <script src="{asset_prefix}assets/theme-toggle.js?v={v}"></script>
 <script src="{asset_prefix}assets/timeline-filter.js?v={v}"></script>
 <script src="{asset_prefix}assets/defense-filter.js?v={v}"></script>
+<script src="{asset_prefix}assets/attacks-table.js?v={v}"></script>
 <script src="{asset_prefix}assets/page-transition.js?v={v}"></script>
 </body>
 </html>"""
@@ -1226,13 +1227,12 @@ def _unit_img(uid, prefix, mow=False):
 TIER_CODE = {"win": "w", "finish": "f", "fail": "x"}
 
 
-def _attacks_attr(events, t0):
+def _attacks_attr(events):
     """data-attacks value for a clickable defense row: every attack thrown at
-    that defense, as [attacker uid, outcome code, score, lineup, MoW, minutes
-    since the war's first battle] (read by defense-filter.js)."""
+    that defense, as [attacker uid, outcome code, score, lineup, MoW] (read by
+    defense-filter.js)."""
     raw = json.dumps(
-        [[e["uid"], TIER_CODE.get(e["tier"], "u"), round(e["adj"]), e["att_units"], e["att_mow"],
-          round((e["createdOn"] - t0) / 60000)] for e in events],
+        [[e["uid"], TIER_CODE.get(e["tier"], "u"), round(e["adj"]), e["att_units"], e["att_mow"]] for e in events],
         separators=(",", ":"), ensure_ascii=False,
     )
     return html_escape(raw).replace(chr(34), "&quot;")
@@ -1263,7 +1263,7 @@ def _defense_modal_html(rows_events, players, prefix):
     )
 
 
-def render_defense_table(rows, players, boards, prefix, t0=0):
+def render_defense_table(rows, players, boards, prefix):
     if not rows:
         return ""
     avgs = [r["avg"] for r in rows]
@@ -1288,7 +1288,7 @@ def render_defense_table(rows, players, boards, prefix, t0=0):
         bg = value_to_bg(hi - (r["avg"] - lo), lo, hi)  # low conceded score = good = green
         hidden = "" if i < DEFENSE_VISIBLE_ROWS else " hidden"
         body.append(
-            f'<tr{hidden} tabindex="0" data-attacks="{_attacks_attr(r["attacks"], t0)}">'
+            f'<tr{hidden} tabindex="0" data-attacks="{_attacks_attr(r["attacks"])}">'
             f'<td>{html_escape(players.get(r["uid"], {}).get("displayName", r["uid"]))}</td>'
             f'<td class="zone">{zone_html}</td><td class="comp">{comp}</td>'
             f'<td>{r["n"]}</td><td{bg}>{r["avg"]:.0f}</td>'
@@ -1319,11 +1319,10 @@ def render_defense_section(result, our_idx, boards, prefix="../"):
     rows = [r for r in compute_defense_teams(result, our_idx) if r["fails"] >= 1]
     if not rows:
         return ""
-    t0 = min(e["createdOn"] for e in result["battle_events"])
     parts = ['<div id="defense-wrap"><h2>Défense</h2>']
     for team in sorted(result["guilds"], key=lambda t: (t != our_idx, t)):
         name = OUR_GUILD_LABEL if team == our_idx else result["guilds"][team]["name"]
-        table = render_defense_table([r for r in rows if r["team"] == team], result["players"], boards, prefix, t0)
+        table = render_defense_table([r for r in rows if r["team"] == team], result["players"], boards, prefix)
         if table:
             parts.append(f'<div class="defense-block"><h3>{html_escape(name)}</h3>{table}</div>')
     parts.append("</div>")
@@ -1372,7 +1371,6 @@ def compute_defense_by_map(all_wars):
                 "guild": OUR_GUILD_LABEL if team == our_idx else result["guilds"][team]["name"],
                 "player": result["players"].get(uid, {}).get("displayName", uid),
                 "attacks": sorted(a["attacks"], key=lambda e: e["createdOn"]),
-                "t0": min(ev["createdOn"] for ev in result["battle_events"]),
                 "players": result["players"],
             })
     return by_board
@@ -1418,7 +1416,7 @@ def render_defense_by_map(all_wars, prefix=""):
             wr = r["war"]
             label = f'S{wr["season"]}&nbsp;G{wr["war_number"]}' if wr.get("war_number") else f'S{wr["season"]}'
             trs.append(
-                f'<tr tabindex="0" data-attacks="{_attacks_attr(r["attacks"], r["t0"])}"><td>{html_escape(r["player"])}</td>'
+                f'<tr tabindex="0" data-attacks="{_attacks_attr(r["attacks"])}"><td>{html_escape(r["player"])}</td>'
                 f'<td class="guild">{html_escape(r["guild"])}<small>{label} · {ZONE_LABELS.get(r["zone"], r["zone"])}</small></td>'
                 f'<td class="comp">{comp}</td><td>{r["n"]}</td><td>{r["avg"]:.0f}</td>'
                 f'<td>{r["fail_rate"] * 100:.0f}&nbsp;%</td><td class="buffs">{_buff_list(r["buffs"])}</td></tr>'
@@ -1480,7 +1478,7 @@ def compute_battlefield(result):
     return out
 
 
-def _battlefield_chip(entry, zone, board_name, board_img, players, t0):
+def _battlefield_chip(entry, zone, board_name, board_img, players):
     """One defender button under a map tile; its data-def feeds the modal
     (lineups on top, every attack below)."""
     name = players.get(entry["uid"], {}).get("displayName", entry["uid"])
@@ -1488,7 +1486,7 @@ def _battlefield_chip(entry, zone, board_name, board_img, players, t0):
         "p": entry["uid"], "z": ZONE_LABELS.get(zone, zone), "m": board_name, "i": board_img,
         "l": [[ln["units"], ln["mow"], ln["n"], ln["fails"], round(ln["score"] / ln["n"])] for ln in entry["lines"]],
         "a": [[e["uid"], TIER_CODE.get(e["tier"], "u"), round(e["adj"]), e["att_units"], e["att_mow"],
-               round((e["createdOn"] - t0) / 60000), e["_line"]] for e in entry["events"]],
+               e["_line"]] for e in entry["events"]],
     }
     attr = html_escape(json.dumps(payload, separators=(",", ":"), ensure_ascii=False)).replace(chr(34), "&quot;")
     fails = sum(1 for e in entry["events"] if e["fail"])
@@ -1506,7 +1504,6 @@ def render_battlefield_section(result, our_idx, boards, prefix="../"):
     field = compute_battlefield(result)
     if not field:
         return ""
-    t0 = min(e["createdOn"] for e in result["battle_events"])
     teams = sorted(result["guilds"], key=lambda t: (t != our_idx, t))
     grids = []
     for team in teams:
@@ -1516,7 +1513,7 @@ def render_battlefield_section(result, our_idx, boards, prefix="../"):
             m = MAPS_DB.get(boards.get(zone)) if boards.get(zone) else None
             img = f'<img src="{prefix}{m["image"]}" alt="{html_escape(m["name"])}" loading="lazy">' if m else '<div class="map-tile-noimg"></div>'
             chips = "".join(
-                _battlefield_chip(d, zone, m["name"] if m else "", (prefix + m["image"]) if m else "", result["players"], t0)
+                _battlefield_chip(d, zone, m["name"] if m else "", (prefix + m["image"]) if m else "", result["players"])
                 for d in field.get(team, {}).get(zone, [])
             )
             tiles.append(
@@ -1557,7 +1554,6 @@ def render_opponent_map(all_wars, prefix=""):
             continue
         guild_names.append(opp_name)
         players_all.update(result["players"])
-        t0 = min(e["createdOn"] for e in result["battle_events"])
         war_tag = f'S{w["season"]} G{w["war_number"]}' if w.get("war_number") else f'S{w["season"]}'
         field = compute_battlefield(result)
         for side, team in (("us", our_idx), ("them", opp_idx)):
@@ -1567,12 +1563,12 @@ def render_opponent_map(all_wars, prefix=""):
                     continue
                 for d in entries:
                     events_all.append(d["events"])
-                    tiles_by_board[side][board].append((opp_name, war_tag, zone, d, t0, result["players"]))
+                    tiles_by_board[side][board].append((opp_name, war_tag, zone, d, result["players"]))
 
     if not guild_names:
         return '<div id="opp-map-wrap"></div>', [], {}
 
-    def chip(side, opp_name, war_tag, zone, d, t0, players, m):
+    def chip(side, opp_name, war_tag, zone, d, players, m):
         name = players.get(d["uid"], {}).get("displayName", d["uid"])
         zlabel = ZONE_LABELS.get(zone, zone)
         context = f"vs {opp_name}" if side == "us" else opp_name
@@ -1580,7 +1576,7 @@ def render_opponent_map(all_wars, prefix=""):
             "p": d["uid"], "z": f"{zlabel} · {context} {war_tag}", "m": m["name"], "i": prefix + m["image"],
             "l": [[ln["units"], ln["mow"], ln["n"], ln["fails"], round(ln["score"] / ln["n"])] for ln in d["lines"]],
             "a": [[e["uid"], TIER_CODE.get(e["tier"], "u"), round(e["adj"]), e["att_units"], e["att_mow"],
-                   round((e["createdOn"] - t0) / 60000), e["_line"]] for e in d["events"]],
+                   e["_line"]] for e in d["events"]],
         }
         attr = html_escape(json.dumps(payload, separators=(",", ":"), ensure_ascii=False)).replace(chr(34), "&quot;")
         fails = sum(1 for e in d["events"] if e["fail"])
@@ -1608,6 +1604,73 @@ def render_opponent_map(all_wars, prefix=""):
         )
     html = f'<div id="opp-map-wrap"><h2>Contre les meilleurs</h2><div class="battlefield">{"".join(sides)}</div></div>'
     return html, events_all, players_all
+
+
+def render_attacks_section(result, our_idx, boards, prefix="../"):
+    """Very bottom of a war page, under the map: every attack thrown, one table
+    per guild (the attackers' side) -- who attacked, with which team, against
+    which defense (defender, its lineup and line), the result and the map it
+    was on -- with one pill per attacking player to filter. The rows are built
+    client-side (attacks-table.js) from a compact JSON blob that indexes into
+    its own unit/player/map lists; names and portraits come from the page's
+    shared #defense-data blob."""
+    compute_battlefield(result)  # numbers each attack's defense line (e["_line"])
+    events = sorted((e for e in result["battle_events"] if e.get("defender")), key=lambda e: e["createdOn"])
+    if not events:
+        return ""
+    units, players, zones, maps = {}, {}, {}, {}
+
+    def idx(table, key, make=None):
+        if key not in table:
+            table[key] = len(table)
+        return table[key]
+
+    teams_out = []
+    for team in sorted(result["guilds"], key=lambda t: (t != our_idx, t)):
+        rows, attackers = [], {}
+        for e in events:
+            if e["team"] != team:
+                continue
+            board = boards.get(e["zone"])
+            m = MAPS_DB.get(board) if board else None
+            mi = idx(maps, board) if m else -1
+            pi = idx(players, e["uid"])
+            attackers[e["uid"]] = pi
+            rows.append([
+                pi, TIER_CODE.get(e["tier"], "u"), round(e["adj"]),
+                [idx(units, u) for u in e["att_units"]], idx(units, e["att_mow"]) if e["att_mow"] else -1,
+                idx(players, e["defender"]), [idx(units, u) for u in e["units"]], idx(units, e["mow"]) if e["mow"] else -1,
+                idx(zones, ZONE_LABELS.get(e["zone"], e["zone"])), mi, e["_line"],
+            ])
+        name = OUR_GUILD_LABEL if team == our_idx else result["guilds"][team]["name"]
+        teams_out.append((name, rows, attackers))
+    data = {
+        "u": list(units), "p": list(players), "z": list(zones),
+        "m": [[MAPS_DB[b]["name"], prefix + MAPS_DB[b]["image"]] for b in maps],
+        "t": [rows for _, rows, _ in teams_out],
+    }
+    blocks = []
+    for ti, (name, rows, attackers) in enumerate(teams_out):
+        if not rows:
+            continue
+        pills = "".join(
+            f'<button type="button" class="chip" data-p="{pi}">{html_escape(result["players"].get(uid, {}).get("displayName", uid))}</button>'
+            for uid, pi in sorted(attackers.items(), key=lambda kv: result["players"].get(kv[0], {}).get("displayName", kv[0]).lower())
+        )
+        blocks.append(
+            f'<div class="attacks-block" data-team="{ti}"><h3>{html_escape(name)}</h3>'
+            f'<div class="chips attacks-chips">{pills}</div>'
+            '<div class="attacks-scroll"><table class="attacks-table"><thead><tr>'
+            '<th class="a-player">Joueur</th><th class="a-comp">Attaque</th><th class="a-def">Contre</th>'
+            '<th class="a-res">Résultat</th><th class="a-score">Score</th><th class="a-map">Map</th>'
+            '</tr></thead><tbody></tbody></table></div></div>'
+        )
+    return (
+        '<div id="attacks-wrap"><h2>Attaques</h2>' + "".join(blocks)
+        + '<script type="application/json" id="attacks-data">'
+        + json.dumps(data, separators=(",", ":"), ensure_ascii=False).replace("</", "<\\\\/")
+        + "</script></div>"
+    )
 
 
 FR_MONTHS = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."]
@@ -1767,6 +1830,7 @@ def render_war_page(slug, result, season, outcome=None, active_uids=frozenset(),
     body += render_defense_section(result, our_idx, result.get("boards") or {})
     battlefield_html = render_battlefield_section(result, our_idx, result.get("boards") or {})
     body += battlefield_html
+    body += render_attacks_section(result, our_idx, result.get("boards") or {})
     if battlefield_html:
         body += _defense_modal_html([[e for e in result["battle_events"] if e.get("defender")]], result["players"], "../")
 

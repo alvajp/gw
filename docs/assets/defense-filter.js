@@ -53,10 +53,6 @@
     return data;
   }
 
-  function fmtTime(min) {
-    return "+" + Math.floor(min / 60) + "h" + String(min % 60).padStart(2, "0");
-  }
-
   function portrait(id, mow) {
     const u = getData().units[id];
     if (!u) return '<span class="unit unit-missing' + (mow ? " mow" : "") + '" title="' + id + '">?</span>';
@@ -91,7 +87,7 @@
     modal.querySelector(".dm-body").innerHTML = attacks.map(function (a) {
       const o = OUTCOME[a[1]] || OUTCOME.u;
       const comp = a[3].map(function (u) { return portrait(u, false); }).join("") + (a[4] ? portrait(a[4], true) : "");
-      return '<div class="dm-row"><span class="dm-time">' + fmtTime(a[5]) + '</span>' +
+      return '<div class="dm-row">' +
         '<span class="dm-player">' + esc(names[a[0]] || a[0]) + '</span>' +
         '<span class="dm-comp">' + comp + '</span>' +
         '<span class="dm-result ' + o[1] + '">' + o[0] + '</span>' +
@@ -128,8 +124,7 @@
     const attacks = d.a.map(function (a) {
       const o = OUTCOME[a[1]] || OUTCOME.u;
       const comp = a[3].map(function (u) { return portrait(u, false); }).join("") + (a[4] ? portrait(a[4], true) : "");
-      return '<div class="dm-row with-line"><span class="dm-lineno">L' + a[6] + '</span>' +
-        '<span class="dm-time">' + fmtTime(a[5]) + '</span>' +
+      return '<div class="dm-row with-line"><span class="dm-lineno">L' + a[5] + '</span>' +
         '<span class="dm-player">' + esc(names[a[0]] || a[0]) + '</span>' +
         '<span class="dm-comp">' + comp + '</span>' +
         '<span class="dm-result ' + o[1] + '">' + o[0] + '</span>' +
