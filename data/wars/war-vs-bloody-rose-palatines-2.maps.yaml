@@ -9,3 +9,19 @@ easy:
   AntiAirBattery: "AFUITM"
   Trenches1: "Deathleapers Cove"
   MedicaeStation1: "Five Pillars"
+boards:
+  MedicaeStation1: C1_70
+  HQ: C1_15
+  MedicaeStation2: C1_23
+  SupplyDepot: LHE_Desert_03
+  LandingPad2: C1_37
+  Armoury: MC1_31
+  ArtilleryPosition1: LHE_Desert_06
+  AntiAirBattery: PVP_desert_10
+  ArtilleryPosition2: LHE_Desert_02
+  Bunker1: EC1_09
+  LandingPad1: LHE_Desert_04
+  Bunker2: MC1_11
+  Trenches1: CE2_06
+  Trenches2: LHE_Desert_05
+  Trenches3: EMC1_06
