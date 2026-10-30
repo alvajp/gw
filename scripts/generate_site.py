@@ -1245,9 +1245,11 @@ def _defense_modal_html(rows_events, players, prefix):
     for events in rows_events:
         for e in events:
             used_units.update(e["att_units"])
-            if e["att_mow"]:
-                used_units.add(e["att_mow"])
+            used_units.update(e.get("units") or [])
+            used_units.update(u for u in (e["att_mow"], e.get("mow")) if u)
             used_players.add(e["uid"])
+            if e.get("defender"):
+                used_players.add(e["defender"])
     data = {
         "units": {u: [UNITS_DB[u]["name"], prefix + UNITS_DB[u]["image"]] for u in sorted(used_units) if u in UNITS_DB},
         "players": {uid: players.get(uid, {}).get("displayName", uid) for uid in sorted(used_players)},
@@ -1324,7 +1326,6 @@ def render_defense_section(result, our_idx, boards, prefix="../"):
         table = render_defense_table([r for r in rows if r["team"] == team], result["players"], boards, prefix, t0)
         if table:
             parts.append(f'<div class="defense-block"><h3>{html_escape(name)}</h3>{table}</div>')
-    parts.append(_defense_modal_html([r["attacks"] for r in rows], result["players"], prefix))
     parts.append("</div>")
     return "".join(parts)
 
@@ -1440,6 +1441,94 @@ def render_defense_by_map(all_wars, prefix=""):
         + _defense_modal_html(shown_attacks, all_players, prefix)
         + '</div>'
     )
+
+
+BATTLEFIELD_ORDER = [
+    "MedicaeStation1", "HQ", "MedicaeStation2", "SupplyDepot", "LandingPad2", "Armoury",
+    "ArtilleryPosition1", "AntiAirBattery", "ArtilleryPosition2", "Bunker1", "LandingPad1", "Bunker2",
+    "Trenches1", "Trenches2", "Trenches3",
+]  # the in-game map grid, row by row (3 per row)
+
+
+def compute_battlefield(result):
+    """team -> zone -> defenders (usually 2 per zone), each with the lineups
+    it fielded (numbered in the order the attackers first reached them, i.e.
+    line 1..5) and every attack thrown at it."""
+    by = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
+    for e in result["battle_events"]:
+        if not e.get("defender"):
+            continue
+        def_team = next(t for t in result["guilds"] if t != e["team"])
+        by[def_team][e["zone"]][e["defender"]].append(e)
+    out = {}
+    for team, zones in by.items():
+        out[team] = {}
+        for zone, defenders in zones.items():
+            entries = []
+            for uid, events in defenders.items():
+                events = sorted(events, key=lambda e: e["createdOn"])
+                lines, order = {}, []
+                for e in events:
+                    k = (tuple(e["units"]), e["mow"])
+                    if k not in lines:
+                        lines[k] = {"units": e["units"], "mow": e["mow"], "n": 0, "fails": 0, "score": 0}
+                        order.append(k)
+                    ln = lines[k]
+                    ln["n"] += 1
+                    ln["fails"] += 1 if e["fail"] else 0
+                    ln["score"] += e["adj"]
+                    e["_line"] = order.index(k) + 1
+                entries.append({"uid": uid, "events": events, "lines": [lines[k] for k in order]})
+            out[team][zone] = sorted(entries, key=lambda d: -len(d["events"]))
+    return out
+
+
+def _battlefield_chip(entry, zone, board_name, board_img, players, t0):
+    """One defender button under a map tile; its data-def feeds the modal
+    (lineups on top, every attack below)."""
+    name = players.get(entry["uid"], {}).get("displayName", entry["uid"])
+    payload = {
+        "p": entry["uid"], "z": ZONE_LABELS.get(zone, zone), "m": board_name, "i": board_img,
+        "l": [[ln["units"], ln["mow"], ln["n"], ln["fails"], round(ln["score"] / ln["n"])] for ln in entry["lines"]],
+        "a": [[e["uid"], TIER_CODE.get(e["tier"], "u"), round(e["adj"]), e["att_units"], e["att_mow"],
+               round((e["createdOn"] - t0) / 60000), e["_line"]] for e in entry["events"]],
+    }
+    attr = html_escape(json.dumps(payload, separators=(",", ":"), ensure_ascii=False)).replace(chr(34), "&quot;")
+    fails = sum(1 for e in entry["events"] if e["fail"])
+    return (
+        f'<button type="button" class="map-def" data-def="{attr}">'
+        f'<span class="map-def-name">{html_escape(name)}</span>'
+        f'<small>{len(entry["events"])} att. · {fails} échec{"s" if fails > 1 else ""}</small></button>'
+    )
+
+
+def render_battlefield_section(result, our_idx, boards, prefix="../"):
+    """Bottom of a war page: the full map, one 3x5 grid of tiles per guild
+    (ours on the left, theirs on the right). Each tile is the zone's map with
+    its defenders underneath; clicking a defender opens the modal."""
+    field = compute_battlefield(result)
+    if not field:
+        return ""
+    t0 = min(e["createdOn"] for e in result["battle_events"])
+    teams = sorted(result["guilds"], key=lambda t: (t != our_idx, t))
+    grids = []
+    for team in teams:
+        name = OUR_GUILD_LABEL if team == our_idx else result["guilds"][team]["name"]
+        tiles = []
+        for zone in BATTLEFIELD_ORDER:
+            m = MAPS_DB.get(boards.get(zone)) if boards.get(zone) else None
+            img = f'<img src="{prefix}{m["image"]}" alt="{html_escape(m["name"])}" loading="lazy">' if m else '<div class="map-tile-noimg"></div>'
+            chips = "".join(
+                _battlefield_chip(d, zone, m["name"] if m else "", (prefix + m["image"]) if m else "", result["players"], t0)
+                for d in field.get(team, {}).get(zone, [])
+            )
+            tiles.append(
+                f'<div class="map-tile"><div class="map-tile-head"><b>{ZONE_LABELS.get(zone, zone)}</b>'
+                f'<span>{html_escape(m["name"]) if m else ""}</span></div>{img}'
+                f'<div class="map-tile-defs">{chips}</div></div>'
+            )
+        grids.append(f'<div class="battlefield-side"><h3>{html_escape(name)}</h3><div class="battlefield-grid">{"".join(tiles)}</div></div>')
+    return '<div id="battlefield-wrap"><h2>Carte</h2><div class="battlefield">' + "".join(grids) + "</div></div>"
 
 
 FR_MONTHS = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."]
@@ -1597,6 +1686,10 @@ def render_war_page(slug, result, season, outcome=None, active_uids=frozenset(),
         body += "<h2>Adversaires</h2>" + "".join(other_tables)
 
     body += render_defense_section(result, our_idx, result.get("boards") or {})
+    battlefield_html = render_battlefield_section(result, our_idx, result.get("boards") or {})
+    body += battlefield_html
+    if battlefield_html:
+        body += _defense_modal_html([[e for e in result["battle_events"] if e.get("defender")]], result["players"], "../")
 
     title = ", ".join(opponent_names(result, our_idx)) or slug
     back_link = back_link_html(f"../seasons/{season}.html", f"Saison {season}", transition=True)

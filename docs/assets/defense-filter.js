@@ -100,7 +100,54 @@
     if (modal.showModal) modal.showModal(); else modal.setAttribute("open", "");
   }
 
+  // ---- Click a defender under a map tile: its lineups on top, every attack below ----
+  function openDefenderModal(chip) {
+    const modal = document.getElementById("defense-modal");
+    if (!modal) return;
+    const d = JSON.parse(chip.dataset.def);
+    const names = getData().players;
+    const counts = { w: 0, f: 0, x: 0 };
+    d.a.forEach(function (a) { if (counts[a[1]] !== undefined) counts[a[1]]++; });
+
+    modal.querySelector(".dm-title").innerHTML =
+      '<div class="dm-def"><span class="dm-def-player">' + esc(names[d.p] || d.p) + '</span>' +
+      '<span class="dm-def-zone">' + (d.i ? '<img class="map-thumb" src="' + d.i + '" alt="">' : "") +
+      '<span class="zone-text"><b>' + esc(d.z) + '</b><small>' + esc(d.m) + '</small></span></span></div>' +
+      '<div class="dm-summary">' + d.a.length + " attaque" + (d.a.length > 1 ? "s" : "") +
+      " · " + counts.w + " victoire" + (counts.w > 1 ? "s" : "") +
+      " · " + counts.f + " finish" + (counts.f > 1 ? "es" : "") +
+      " · " + counts.x + " échec" + (counts.x > 1 ? "s" : "") + "</div>";
+
+    const lines = d.l.map(function (l, i) {
+      const comp = l[0].map(function (u) { return portrait(u, false); }).join("") + (l[1] ? portrait(l[1], true) : "");
+      return '<div class="dm-lineup"><span class="dm-lineno">L' + (i + 1) + '</span>' +
+        '<span class="dm-comp">' + comp + '</span>' +
+        '<span class="dm-linestats">' + l[2] + " att. · " + l[3] + " échec" + (l[3] > 1 ? "s" : "") + " · " + l[4] + '</span></div>';
+    }).join("");
+
+    const attacks = d.a.map(function (a) {
+      const o = OUTCOME[a[1]] || OUTCOME.u;
+      const comp = a[3].map(function (u) { return portrait(u, false); }).join("") + (a[4] ? portrait(a[4], true) : "");
+      return '<div class="dm-row with-line"><span class="dm-lineno">L' + a[6] + '</span>' +
+        '<span class="dm-time">' + fmtTime(a[5]) + '</span>' +
+        '<span class="dm-player">' + esc(names[a[0]] || a[0]) + '</span>' +
+        '<span class="dm-comp">' + comp + '</span>' +
+        '<span class="dm-result ' + o[1] + '">' + o[0] + '</span>' +
+        '<span class="dm-score">' + a[2] + '</span></div>';
+    }).join("");
+
+    modal.querySelector(".dm-body").innerHTML =
+      '<div class="dm-section">Défense</div>' + lines +
+      '<div class="dm-section">Attaques (' + d.a.length + ')</div>' + attacks;
+    if (modal.showModal) modal.showModal(); else modal.setAttribute("open", "");
+  }
+
   document.addEventListener("click", function (e) {
+    const defChip = e.target.closest(".map-def");
+    if (defChip) {
+      openDefenderModal(defChip);
+      return;
+    }
     if (e.target.closest(".dm-close")) {
       const m = document.getElementById("defense-modal");
       if (m) m.close();
