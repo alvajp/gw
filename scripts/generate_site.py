@@ -1387,9 +1387,7 @@ def render_defense_by_map(all_wars, prefix=""):
     return (
         '<div id="defense-map-wrap"><h2>Meilleures défenses par map</h2>'
         + "".join(blocks)
-        + f'<p class="war-chart-note">Équipes défensives ayant subi au moins {BEST_MIN_ATTACKS} attaques, '
-        'toutes guildes confondues, classées par score moyen par tokens (sans le bonus de bâtiment) · buffs = nombre moyen par attaque · '
-        'les 6 maps suivies sont couvertes sur toutes les guerres capturées, les autres seulement depuis la S28 G3.</p></div>'
+        + '</div>'
     )
 
 
