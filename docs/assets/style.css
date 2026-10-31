@@ -725,7 +725,10 @@ dialog.defense-modal::backdrop { background: rgba(0, 0, 0, 0.55); }
 .side-0 h3, .side-0 .battlefield-grid, .side-0 .attacks-chips, .side-0 .attacks-scroll { grid-column: 1; min-width: 0; }
 .side-1 h3, .side-1 .battlefield-grid, .side-1 .attacks-chips, .side-1 .attacks-scroll { grid-column: 2; min-width: 0; }
 @media (max-width: 900px) {
-  .battlefield { grid-template-columns: 1fr; }
+  /* minmax(0, 1fr), not 1fr: a bare 1fr has an automatic minimum (the content's min-content width), so the
+     three-image tile grid inside blew the column out to ~2800px on a phone. */
+  .battlefield { grid-template-columns: minmax(0, 1fr); }
+  .battlefield-side { min-width: 0; }
   .battlefield-side { display: block; }
   .attacks-block { display: block; }
   .battlefield-side > h3, .battlefield-side > .battlefield-grid, .attacks-block > .attacks-chips, .attacks-block > .attacks-scroll { grid-row: auto; }
