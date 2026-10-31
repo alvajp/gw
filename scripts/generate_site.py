@@ -450,7 +450,7 @@ PAGE_TEMPLATE = """<!doctype html>
 <link rel="stylesheet" href="{asset_prefix}assets/style.css?v={v}">
 </head>
 <body>
-<header><div class="breadcrumb" id="breadcrumb">{back_link}</div><h1 id="page-title" class="{title_class}">{title}</h1><div id="header-extra">{header_extra}</div><div id="header-action">{header_action}</div></header>
+<header><div class="breadcrumb" id="breadcrumb">{back_link}</div><div id="title-row"><h1 id="page-title" class="{title_class}">{title}</h1><div id="header-action">{header_action}</div></div><div id="header-extra">{header_extra}</div></header>
 <main>
 {body}
 </main>

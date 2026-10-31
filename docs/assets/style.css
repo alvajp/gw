@@ -735,8 +735,8 @@ dialog.defense-modal::backdrop { background: rgba(0, 0, 0, 0.55); }
 .map-tile { display: flex; flex-direction: column; background: var(--table-bg); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
 .map-tile-head { display: flex; flex-direction: column; align-items: center; padding: 0.25rem 0.2rem; background: var(--table-header-bg); font-size: 0.8rem; line-height: 1.2; text-align: center; }
 .map-tile-head span { color: var(--text-muted); font-size: 0.7rem; }
-.map-tile img { display: block; width: 100%; height: auto; }
-.map-tile-noimg { aspect-ratio: 98 / 136; background: var(--surface); }
+.map-tile img { display: block; width: 100%; height: auto; aspect-ratio: 1 / 1; object-fit: cover; }  /* the high-res map art is square; old portrait crops get centre-cropped */
+.map-tile-noimg { aspect-ratio: 1 / 1; background: var(--surface); }
 .map-tile-defs { display: flex; flex-direction: column; gap: 3px; padding: 4px; }
 .map-def {
   display: flex; flex-direction: column; align-items: flex-start; width: 100%; padding: 0.2rem 0.4rem;
@@ -763,7 +763,9 @@ dialog.defense-modal::backdrop { background: rgba(0, 0, 0, 0.55); }
 .attacks-table th, .attacks-table td { width: auto; border-left: none; border-right: none; text-align: left; overflow: visible; }
 .attacks-table th { position: sticky; top: 0; z-index: 1; cursor: default; }
 .attacks-table th:hover { background: var(--table-header-bg); }
-.attacks-table th:first-child, .attacks-table td:first-child { position: static; background: none; }
+.attacks-table th:first-child, .attacks-table td:first-child { position: static; }
+.attacks-table td:first-child { background: none; }  /* body cells show the row's (striped) background like the other columns */
+.attacks-table th:first-child { background: var(--table-header-bg); }  /* header cell keeps the header background like the other columns */
 /* Percent widths so the table always fits its column; portraits wrap onto a second line when it is narrow. */
 .attacks-table th.a-comp { width: 33%; }
 .attacks-table th.a-def { width: 31%; }
@@ -783,20 +785,17 @@ dialog.defense-modal::backdrop { background: rgba(0, 0, 0, 0.55); }
 .attacks-table .zone-text { display: inline-flex; flex-direction: column; vertical-align: middle; line-height: 1.2; }
 .attacks-table .zone-text small { color: var(--text-muted); font-size: 0.75rem; }
 
-/* "Stratégie" button: absolutely positioned on the H1's row, right-aligned (swapped by page-transition.js on index<->season nav). */
-#header-action {
-  position: absolute;
-  right: var(--gutter);
-  bottom: 3rem;  /* header padding-bottom .5rem + h1 margin-bottom 1rem + half its 3rem line */
-  transform: translateY(50%);
-  z-index: 2;
-}
+/* "Stratégie" button: right next to the H1 text, orange (swapped by page-transition.js on index<->season nav).
+   The h1 keeps its own margins, so the row is exactly as tall as the h1 alone and the header height doesn't change. */
+#title-row { display: flex; align-items: center; flex-wrap: wrap; column-gap: 1.25rem; }
+#header-action { display: flex; align-self: center; margin-bottom: 0.7rem; /* the h1's bottom margin (1rem) vs top (0.3rem): re-centre on the text line */ }
+#header-action:empty { display: none; }
 .strategy-btn {
   display: inline-flex; align-items: center;
-  padding: 0.55rem 1.3rem; border-radius: 999px;
-  background: var(--accent); color: var(--bg);
-  font-weight: 700; font-size: 1rem; text-decoration: none;
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent);
+  padding: 0.5rem 1.2rem; border-radius: 999px;
+  background: #f97316; color: #1a1c23;
+  font-weight: 700; font-size: 1rem; line-height: 1.2; text-decoration: none; white-space: nowrap;
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.28);
   transition: transform 120ms ease, box-shadow 120ms ease;
 }
-.strategy-btn:hover { transform: translateY(-1px); box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 35%, transparent); }
+.strategy-btn:hover { transform: translateY(-1px); box-shadow: 0 0 0 5px rgba(249, 115, 22, 0.38); }
