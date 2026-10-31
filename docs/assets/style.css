@@ -803,3 +803,8 @@ dialog.defense-modal::backdrop { background: rgba(0, 0, 0, 0.55); }
 }
 :root[data-theme="light"] .strategy-btn { color: #fff; }  /* --team-us is a darker amber in the light theme */
 .strategy-btn:hover { transform: translateY(-1px); box-shadow: 0 0 0 2px var(--team-us); }
+
+/* Defender modal: "Toutes / Ligne 1..5" pills filtering the attacks below (defense-filter.js). */
+.dm-filters { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0.3rem 0 0.4rem; }
+.dm-filters .chip { padding: 0.15rem 0.7rem; font-size: 0.78rem; }
+.dm-row[hidden] { display: none; }

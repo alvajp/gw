@@ -124,7 +124,7 @@
     const attacks = d.a.map(function (a) {
       const o = OUTCOME[a[1]] || OUTCOME.u;
       const comp = a[3].map(function (u) { return portrait(u, false); }).join("") + (a[4] ? portrait(a[4], true) : "");
-      return '<div class="dm-row with-line"><span class="dm-lineno">L' + a[5] + '</span>' +
+      return '<div class="dm-row with-line" data-line="' + a[5] + '"><span class="dm-lineno">L' + a[5] + '</span>' +
         '<span class="dm-player">' + esc(names[a[0]] || a[0]) + '</span>' +
         '<span class="dm-comp">' + comp + '</span>' +
         '<span class="dm-result ' + o[1] + '">' + o[0] + '</span>' +
@@ -133,11 +133,28 @@
 
     modal.querySelector(".dm-body").innerHTML =
       '<div class="dm-section">Défense</div>' + lines +
-      '<div class="dm-section">Attaques (' + d.a.length + ')</div>' + attacks;
+      '<div class="dm-section">Attaques (<span class="dm-count">' + d.a.length + '</span>)</div>' +
+      '<div class="dm-filters"><button type="button" class="chip active" data-line="">Toutes</button>' +
+      d.l.map(function (l, i) { return '<button type="button" class="chip" data-line="' + (i + 1) + '">Ligne ' + (i + 1) + "</button>"; }).join("") +
+      "</div>" + attacks;
     if (modal.showModal) modal.showModal(); else modal.setAttribute("open", "");
   }
 
   document.addEventListener("click", function (e) {
+    const filter = e.target.closest(".dm-filters .chip");
+    if (filter) {
+      const body = filter.closest(".dm-body");
+      const line = filter.dataset.line;
+      body.querySelectorAll(".dm-filters .chip").forEach(function (c) { c.classList.toggle("active", c === filter); });
+      let shown = 0;
+      body.querySelectorAll(".dm-row[data-line]").forEach(function (row) {
+        row.hidden = line !== "" && row.dataset.line !== line;
+        if (!row.hidden) shown++;
+      });
+      const count = body.querySelector(".dm-count");
+      if (count) count.textContent = shown;
+      return;
+    }
     const defChip = e.target.closest(".map-def");
     if (defChip) {
       openDefenderModal(defChip);
