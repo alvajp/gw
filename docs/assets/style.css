@@ -788,17 +788,18 @@ dialog.defense-modal::backdrop { background: rgba(0, 0, 0, 0.55); }
 .attacks-table .zone-text { display: inline-flex; flex-direction: column; vertical-align: middle; line-height: 1.2; }
 .attacks-table .zone-text small { color: var(--text-muted); font-size: 0.75rem; }
 
-/* "Stratégie" button: right next to the H1 text, orange (swapped by page-transition.js on index<->season nav).
+/* "Stratégie" button: right next to the H1 text, in the guild yellow (swapped by page-transition.js on index<->season nav).
    The h1 keeps its own margins, so the row is exactly as tall as the h1 alone and the header height doesn't change. */
 #title-row { display: flex; align-items: center; flex-wrap: wrap; column-gap: 1.25rem; }
 #header-action { display: flex; align-self: center; margin-bottom: 0.7rem; /* the h1's bottom margin (1rem) vs top (0.3rem): re-centre on the text line */ }
 #header-action:empty { display: none; }
 .strategy-btn {
   display: inline-flex; align-items: center;
-  padding: 0.5rem 1.2rem; border-radius: 999px;
-  background: #f97316; color: #1a1c23;
+  padding: 0.5rem 1.2rem; border-radius: 3px;  /* squared, not a pill */
+  background: var(--team-us); color: #1a1c23;  /* the guild's score yellow */
   font-weight: 700; font-size: 1rem; line-height: 1.2; text-decoration: none; white-space: nowrap;
-  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.28);
+  box-shadow: 0 0 0 1px var(--team-us);
   transition: transform 120ms ease, box-shadow 120ms ease;
 }
-.strategy-btn:hover { transform: translateY(-1px); box-shadow: 0 0 0 5px rgba(249, 115, 22, 0.38); }
+:root[data-theme="light"] .strategy-btn { color: #fff; }  /* --team-us is a darker amber in the light theme */
+.strategy-btn:hover { transform: translateY(-1px); box-shadow: 0 0 0 2px var(--team-us); }
