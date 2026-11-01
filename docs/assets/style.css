@@ -779,3 +779,15 @@ dialog.defense-modal::backdrop { background: rgba(0, 0, 0, 0.55); }
 .dm-filters { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0.3rem 0 0.4rem; }
 .dm-filters .chip { padding: 0.15rem 0.7rem; font-size: 0.78rem; }
 .dm-row[hidden] { display: none; }
+
+/* ---- polish: inline arrows, hover states ---- */
+.arrow { vertical-align: -2px; flex: none; }
+header a .arrow { margin-right: 0.4rem; }
+.strategy-btn .arrow { margin-left: 0.5rem; }
+.chart-bar { transition: opacity 120ms ease; }
+.chart-bar:hover { opacity: 0.8; }
+.map-tile { transition: border-color 120ms ease; }
+.map-tile:hover { border-color: var(--text-muted); }
+details.map-defense > summary { transition: background 120ms ease; }
+details.map-defense > summary:hover { background: var(--table-header-hover); }
+.war-recap, details.map-defense { box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12); }

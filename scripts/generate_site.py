@@ -423,6 +423,7 @@ PAGE_TEMPLATE = """<!doctype html>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230d1014'/%3E%3Cpath d='M16 6l8 10-8 10-8-10z' fill='%23f2b134'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="{asset_prefix}assets/style.css?v={v}">
 </head>
 <body>
@@ -474,16 +475,26 @@ def render_page(nav_active="ranking", **kw):
     return PAGE_TEMPLATE.format(**kw)
 
 
+ARROW_LEFT = (
+    '<svg class="arrow" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" '
+    'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>'
+)
+ARROW_RIGHT = (
+    '<svg class="arrow" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" '
+    'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>'
+)
+
+
 def strategy_button(href):
     """The prominent "Stratégie" button next to the H1 (see #header-action in style.css)."""
-    return f'<a class="strategy-btn" href="{href}">Stratégie<span aria-hidden="true">&nbsp;&rarr;</span></a>'
+    return f'<a class="strategy-btn" href="{href}">Stratégie{ARROW_RIGHT}</a>'
 
 
 def back_link_html(href, label, transition=False):
     if not href:
         return ""
     attr = ' data-transition="true"' if transition else ""
-    return f'<a href="{href}"{attr}>&larr; {html_escape(label)}</a>'
+    return f'<a href="{href}"{attr}>{ARROW_LEFT}{html_escape(label)}</a>'
 
 
 def guild_rows(result, team_idx):
@@ -2090,7 +2101,7 @@ def render_metric_svg(metric_key, display_names, values, active_uids, fmt, ascen
         fill = "var(--bar-active)" if uid in active_uids else "var(--bar-muted)"
         bars.append(
             f'<rect class="chart-bar" data-uid="{uid}" x="{x:.1f}" y="{y:.1f}" '
-            f'width="{bar_width}" height="{h:.1f}" rx="2" fill="{fill}"/>'
+            f'width="{bar_width}" height="{h:.1f}" rx="2" fill="{fill}"><title>{html_escape(display_names[uid])} · {fmt(val)}</title></rect>'
         )
         bars.append(f'<text data-uid="{uid}" x="{cx:.1f}" y="{y - 6:.1f}" class="chart-value">{fmt(val)}</text>')
         label_y = top_pad + chart_h + 12

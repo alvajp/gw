@@ -20,10 +20,14 @@ python3 scripts/generate_site.py
 
 ## Adding a new war
 
-1. Drop the captured JSON into `data/wars/<slug>.json`
-2. Right after the capture (the game save only keeps the latest war), run
-   `python3 scripts/read_maps.py <slug> --season N --war N --result win|loss`
-   — it reads the zone→board table from `user_progression.json` and writes the maps.yaml (and refuses if the save has already moved on to another war)
-3. `python3 scripts/sync_units.py` (only needed when a new unit shows up in a defense; downloads its portrait)
-4. Run `python3 scripts/generate_site.py`
-5. Commit and push
+Right after capturing it (the game save only keeps the latest war, and `read_maps.py` reads the maps and the
+real battlefield layout from it), run one command:
+
+```
+python3 scripts/add_war.py <capture.json> <slug> --season N --war N --result win|loss
+```
+
+It validates the capture, copies it to `data/wars/<slug>.json`, writes `<slug>.maps.yaml` from the save
+(`read_maps.py`), downloads the portraits of any new unit (`sync_units.py`), regenerates the site and
+checks the result. Then preview locally (`cd docs && python3 -m http.server`), `git add -A`, commit and push.
+Run the steps separately if you prefer: `read_maps.py`, `sync_units.py`, `generate_site.py`.
