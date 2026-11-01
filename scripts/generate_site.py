@@ -4,7 +4,6 @@ compute the ranking for each, and render the static site into docs/.
 
 Usage: python3 scripts/generate_site.py
 """
-import colorsys
 import datetime
 import json
 import math
@@ -154,42 +153,16 @@ def round_breakdown(total, parts):
     return result
 
 
-GRADIENT_LOW = (154, 164, 255)  # #9aa4ff, matches the chart's inactive bar color
-GRADIENT_HIGH = (34, 197, 94)  # #22c55e, matches the chart's active/win bar color
-
-
-def _rgb_to_hls(rgb):
-    r, g, b = (c / 255.0 for c in rgb)
-    return colorsys.rgb_to_hls(r, g, b)
-
-
-GRADIENT_LOW_HLS = _rgb_to_hls(GRADIENT_LOW)
-GRADIENT_HIGH_HLS = _rgb_to_hls(GRADIENT_HIGH)
-
-
 def value_to_bg(val, lo, hi):
-    """Map val within [lo, hi] to a blue->green background-color, for the
-    lowest->highest gradient on a table cell. Interpolates in HLS (hue along
-    its shortest path) rather than straight RGB: lerping RGB directly between
-    a blue and a green washes out into a grayish, low-saturation teal in the
-    middle, whereas HLS keeps the hue/saturation vivid all the way through.
-    Returns "" (no styling) when every row shares the same value, since
-    there's nothing to gradient."""
+    """Heat-map background for a table cell: ONE hue (the theme's --heat-rgb, the
+    guild gold) whose opacity grows from `lo` to `hi` -- calm and readable in both
+    themes, instead of the old blue->green->purple rainbow. Returns "" (no
+    styling) when every row shares the same value, since there is nothing to
+    gradient."""
     if hi <= lo:
         return ""
     t = max(0.0, min(1.0, (val - lo) / (hi - lo)))
-    h1, l1, s1 = GRADIENT_LOW_HLS
-    h2, l2, s2 = GRADIENT_HIGH_HLS
-    dh = h2 - h1
-    if dh > 0.5:
-        dh -= 1.0
-    elif dh < -0.5:
-        dh += 1.0
-    h = (h1 + dh * t) % 1.0
-    l = l1 + (l2 - l1) * t
-    s = s1 + (s2 - s1) * t
-    r, g, b = (round(c * 255) for c in colorsys.hls_to_rgb(h, l, s))
-    return f' style="background-color: rgb({r}, {g}, {b}); color: #000"'
+    return f' style="background-color: rgba(var(--heat-rgb), {0.05 + 0.33 * t:.2f})"'
 
 
 def slugify(name):
@@ -447,16 +420,19 @@ PAGE_TEMPLATE = """<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script>try{{if(localStorage.getItem("theme")==="light")document.documentElement.setAttribute("data-theme","light");}}catch(e){{}}</script>
 <title>{title}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="{asset_prefix}assets/style.css?v={v}">
 </head>
 <body>
+{topbar}
 <header><div class="breadcrumb" id="breadcrumb">{back_link}</div><div id="title-row"><h1 id="page-title" class="{title_class}">{title}</h1><div id="header-action">{header_action}</div></div><div id="header-extra">{header_extra}</div></header>
 <main>
 {body}
 </main>
 <script src="{asset_prefix}assets/sort-table.js?v={v}"></script>
 <script src="{asset_prefix}assets/chart-toggle.js?v={v}"></script>
-<script src="{asset_prefix}assets/active-toggle.js?v={v}"></script>
 <script src="{asset_prefix}assets/theme-toggle.js?v={v}"></script>
 <script src="{asset_prefix}assets/timeline-filter.js?v={v}"></script>
 <script src="{asset_prefix}assets/defense-filter.js?v={v}"></script>
@@ -464,6 +440,38 @@ PAGE_TEMPLATE = """<!doctype html>
 <script src="{asset_prefix}assets/page-transition.js?v={v}"></script>
 </body>
 </html>"""
+
+
+THEME_ICONS = (
+    '<svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" '
+    'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/>'
+    '<path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>'
+    '<svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" '
+    'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>'
+)
+
+
+def render_topbar(prefix, active):
+    """Sticky top bar shared by every page: brand, the two sections, theme switch.
+    (A <nav>, not a <header>: page-transition.js locks/animates the first <header>.)"""
+    def link(key, href, label):
+        cls = ' class="active"' if key == active else ""
+        return f'<a{cls} href="{prefix}{href}">{label}</a>'
+    return (
+        '<nav class="topbar"><div class="topbar-inner">'
+        f'<a class="brand" href="{prefix}index.html"><span class="brand-mark"></span>'
+        f'<span class="brand-name">{html_escape(OUR_GUILD_LABEL)}</span></a>'
+        f'<div class="topnav">{link("ranking", "index.html", "Classement")}{link("strategy", "strategie.html", "Stratégie")}</div>'
+        '<button type="button" id="theme-toggle" class="icon-btn" aria-label="Changer de thème" aria-pressed="false" '
+        f'data-label-off="Sombre" data-label-on="Clair">{THEME_ICONS}</button>'
+        '</div></nav>'
+    )
+
+
+def render_page(nav_active="ranking", **kw):
+    """PAGE_TEMPLATE.format with the top bar (needs asset_prefix) filled in."""
+    kw["topbar"] = render_topbar(kw["asset_prefix"], nav_active)
+    return PAGE_TEMPLATE.format(**kw)
 
 
 def strategy_button(href):
@@ -1870,7 +1878,7 @@ def render_war_page(slug, result, season, outcome=None, active_uids=frozenset(),
 
     title = ", ".join(opponent_names(result, our_idx)) or slug
     back_link = back_link_html(f"../seasons/{season}.html", f"Saison {season}", transition=True)
-    html = PAGE_TEMPLATE.format(title=title, asset_prefix="../", body=body, back_link=back_link, title_class="", header_extra="", header_action=header_action, v=ASSETS_VERSION)
+    html = render_page(title=title, asset_prefix="../", body=body, back_link=back_link, title_class="", header_extra="", header_action=header_action, v=ASSETS_VERSION)
     out_path = os.path.join(DOCS_DIR, "wars", slug + ".html")
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(html)
@@ -1889,8 +1897,8 @@ def render_war_strategy_page(slug, result, season):
     body = section + _defense_modal_html([[e for e in result["battle_events"] if e.get("defender")]], result["players"], "../")
     opp = ", ".join(opponent_names(result, our_idx)) or slug
     back_link = back_link_html(f"{slug}.html", opp)
-    html = PAGE_TEMPLATE.format(
-        title=f"Stratégie · {opp}", asset_prefix="../", body=body, back_link=back_link,
+    html = render_page(
+        nav_active="strategy", title=f"Stratégie · {opp}", asset_prefix="../", body=body, back_link=back_link,
         title_class="", header_extra="", header_action="", v=ASSETS_VERSION,
     )
     with open(os.path.join(DOCS_DIR, "wars", slug + "-strategie.html"), "w", encoding="utf-8") as f:
@@ -1923,7 +1931,7 @@ def render_season_page(season, wars_in_season, active_uids=frozenset()):
 
     header_action = ""
     back_link = back_link_html("../index.html", "Classement général", transition=True)
-    html = PAGE_TEMPLATE.format(title=f"Saison {season}", asset_prefix="../", body=body, back_link=back_link, title_class="", header_extra="", header_action=header_action, v=ASSETS_VERSION)
+    html = render_page(title=f"Saison {season}", asset_prefix="../", body=body, back_link=back_link, title_class="", header_extra="", header_action=header_action, v=ASSETS_VERSION)
     out_dir = os.path.join(DOCS_DIR, "seasons")
     os.makedirs(out_dir, exist_ok=True)
     with open(os.path.join(out_dir, f"{season}.html"), "w", encoding="utf-8") as f:
@@ -2079,7 +2087,7 @@ def render_metric_svg(metric_key, display_names, values, active_uids, fmt, ascen
         x = left_pad + gap + i * (bar_width + gap)
         y = top_pad + (chart_h - h)
         cx = x + bar_width / 2
-        fill = "#22c55e" if uid in active_uids else "#9aa4ff"
+        fill = "var(--bar-active)" if uid in active_uids else "var(--bar-muted)"
         bars.append(
             f'<rect class="chart-bar" data-uid="{uid}" x="{x:.1f}" y="{y:.1f}" '
             f'width="{bar_width}" height="{h:.1f}" rx="2" fill="{fill}"/>'
@@ -2100,7 +2108,7 @@ def render_metric_svg(metric_key, display_names, values, active_uids, fmt, ascen
 def render_average_chart(
     display_names, averages, win_rate, tokens, buffs, maps_,
     score_display_names, score_distributions,
-    active_uids=frozenset(), scope="global", filterable=False,
+    active_uids=frozenset(), scope="global",
 ):
     """Chip-toggled chart section: "Moyenne" (avg points, shown by default),
     "Scores" (per-player score variance -- median + Q1/Q3 box-plot on a fixed
@@ -2173,35 +2181,13 @@ def render_average_chart(
     for key, values, fmt, ascending in metrics:
         style = "" if key == "moyenne" else ' style="display:none"'
         svg = render_metric_svg(key, display_names, values, active_uids, fmt, ascending=ascending)
-        if filterable:
-            # Pre-render an "active players only" variant alongside the full
-            # one so the header's roster toggle (active-toggle.js) can just
-            # show/hide the right static SVG, same static-content philosophy
-            # as the metric chips themselves -- no client-side layout math
-            # to re-flow bars after removing some.
-            active_values = {uid: v for uid, v in values.items() if uid in active_uids}
-            active_svg = render_metric_svg(
-                key, display_names, active_values, active_uids, fmt, ascending=ascending, id_suffix="-active"
-            )
-            charts.append(f'<div class="chart-scroll" data-metric="{key}" data-active-filter="all"{style}>{svg}</div>')
-            charts.append(f'<div class="chart-scroll" data-metric="{key}" data-active-filter="active" style="display:none">{active_svg}</div>')
-        else:
-            charts.append(f'<div class="chart-scroll" data-metric="{key}"{style}>{svg}</div>')
+        charts.append(f'<div class="chart-scroll" data-metric="{key}"{style}>{svg}</div>')
 
     scores_svg = render_boxplot_svg(score_display_names, score_distributions, active_uids)
-    if filterable:
-        active_score_distributions = {uid: vals for uid, vals in score_distributions.items() if uid in active_uids}
-        active_scores_svg = render_boxplot_svg(
-            score_display_names, active_score_distributions, active_uids, id_suffix="-active"
-        )
-        charts.append(f'<div class="chart-scroll" data-metric="scores" data-active-filter="all" style="display:none">{scores_svg}</div>')
-        charts.append(f'<div class="chart-scroll" data-metric="scores" data-active-filter="active" style="display:none">{active_scores_svg}</div>')
-    else:
-        charts.append(f'<div class="chart-scroll" data-metric="scores" style="display:none">{scores_svg}</div>')
+    charts.append(f'<div class="chart-scroll" data-metric="scores" style="display:none">{scores_svg}</div>')
 
-    wrap_attr = ' data-active-filter="all"' if filterable else ""
     return (
-        f'<div id="chart-wrap" class="chart-wrap"{wrap_attr}><div class="chips">{chips}</div>'
+        f'<div id="chart-wrap" class="chart-wrap"><div class="chips">{chips}</div>'
         f'<p class="chart-legend">{html_escape(legends["moyenne"])}</p>'
         f'{"".join(charts)}</div>'
     )
@@ -2302,7 +2288,7 @@ def render_boxplot_svg(display_names, distributions, active_uids, id_suffix=""):
         ty = y_of(tick)
         axis.append(
             f'<line x1="{left_pad:.1f}" y1="{ty:.1f}" x2="{width:.1f}" y2="{ty:.1f}" '
-            f'stroke="#2a2d38" stroke-width="1"/>'
+            f'stroke="var(--border)" stroke-width="1"/>'
         )
         axis.append(f'<text x="{left_pad - 6:.1f}" y="{ty + 3:.1f}" class="chart-axis-label">{tick}</text>')
 
@@ -2313,7 +2299,7 @@ def render_boxplot_svg(display_names, distributions, active_uids, id_suffix=""):
         lo, hi = min(vals), max(vals)
         x = left_pad + gap + i * (bar_width + gap)
         cx = x + bar_width / 2
-        color = "#22c55e" if uid in active_uids else "#9aa4ff"
+        color = "var(--bar-active)" if uid in active_uids else "var(--bar-muted)"
         y_lo, y_hi = y_of(lo), y_of(hi)
         y_q1, y_q3, y_med = y_of(q1), y_of(q3), y_of(med)
         cap_half = bar_width * 0.22
@@ -2323,12 +2309,12 @@ def render_boxplot_svg(display_names, distributions, active_uids, id_suffix=""):
         # the eye lands on the box/median first and treats this as context.
         bars.append(
             f'<line class="chart-whisker" x1="{cx:.1f}" y1="{y_lo:.1f}" x2="{cx:.1f}" y2="{y_hi:.1f}" '
-            f'stroke="#4b5160" stroke-width="1.5" stroke-linecap="round"/>'
+            f'stroke="var(--text-muted)" stroke-width="1.5" stroke-linecap="round"/>'
         )
         for cap_y in (y_lo, y_hi):
             bars.append(
                 f'<line class="chart-whisker-cap" x1="{cx - cap_half:.1f}" y1="{cap_y:.1f}" '
-                f'x2="{cx + cap_half:.1f}" y2="{cap_y:.1f}" stroke="#4b5160" stroke-width="1.5" '
+                f'x2="{cx + cap_half:.1f}" y2="{cap_y:.1f}" stroke="var(--text-muted)" stroke-width="1.5" '
                 f'stroke-linecap="round"/>'
             )
         bars.append(
@@ -2365,53 +2351,20 @@ def render_index(seasons, active_uids=frozenset()):
 
     body = render_frise(frise_items, transition=True)
     body += '<h2>Scores</h2>'
-    body += render_average_chart(display_names, averages, win_rate, tokens, buffs, maps_, score_display_names, score_distributions, active_uids, scope="global", filterable=True)
+    body += render_average_chart(display_names, averages, win_rate, tokens, buffs, maps_, score_display_names, score_distributions, active_uids, scope="global")
     body += render_chronologie_section(agg_events, agg_milestones, agg_display_names, relative=True)
     body += '<h2>Détails</h2>'
     body += f'<div id="table-wrap">{render_season_average_table(season_numbers, season_stats, display_names, averages, active_uids)}</div>'
     body += f'<div id="bareme-wrap">{BAREME_HTML}</div>'
-
-    # Header-level filter (not a .chips row filter like the chart's, since
-    # it acts on both the table below and the chart above rather than being
-    # itself a chart metric, and needs to live at the title's height on the
-    # far right -- see #header-extra in style.css) toggling the roster down
-    # to just players present in the most recently recorded war. Rendered as
-    # an actual switch (track + sliding thumb), not a plain button, so it
-    # reads as a toggle rather than a filter chip. Starts off (shows
-    # everyone); active-toggle.js flips the label/state, hides
-    # data-active="false" table rows, and swaps in the pre-rendered
-    # "active players only" chart variant (data-active-filter="active").
-    active_toggle = (
-        '<button type="button" id="active-toggle" class="toggle" aria-pressed="false" '
-        'data-label-off="Tous les joueurs" data-label-on="Joueurs actifs seulement">'
-        '<span class="toggle-track"><span class="toggle-thumb"></span></span>'
-        '<span class="toggle-label">Tous les joueurs</span>'
-        "</button>"
-    )
-
-    # Light/dark theme switch, same track+thumb idiom as the roster toggle
-    # above (index only -- see theme-toggle.js). Its initial "off"/"Sombre"
-    # markup here is just the pre-JS default; theme-toggle.js resyncs it to
-    # whatever theme is actually active (set even earlier, before first
-    # paint, by PAGE_TEMPLATE's inline head script) the moment it runs, so
-    # this never shows the wrong state to a returning visitor with a saved
-    # "light" preference.
-    theme_toggle = (
-        '<button type="button" id="theme-toggle" class="toggle" aria-pressed="false" '
-        'data-label-off="Sombre" data-label-on="Clair">'
-        '<span class="toggle-track"><span class="toggle-thumb"></span></span>'
-        '<span class="toggle-label">Sombre</span>'
-        "</button>"
-    )
 
     # Guild name sits where the breadcrumb back-link would on other pages --
     # same visual format (color/size), just not a link and with no arrow,
     # since index has nothing to navigate back to.
     guild_label = f'<span class="breadcrumb-label">{html_escape(OUR_GUILD_LABEL)}</span>'
 
-    html = PAGE_TEMPLATE.format(
+    html = render_page(
         title="Classement général", asset_prefix="", body=body, back_link=guild_label,
-        title_class="hero-title", header_extra=theme_toggle + active_toggle,
+        title_class="hero-title", header_extra="",
         header_action=strategy_button("strategie.html"), v=ASSETS_VERSION,
     )
     with open(os.path.join(DOCS_DIR, "index.html"), "w", encoding="utf-8") as f:
@@ -2425,8 +2378,8 @@ def render_strategy_index(all_wars):
     by_map_html, by_map_events, by_map_players = render_defense_by_map(all_wars)
     body = opp_html + by_map_html
     body += _defense_modal_html(by_map_events + opp_events, {**by_map_players, **opp_players}, "")
-    html = PAGE_TEMPLATE.format(
-        title="Stratégie", asset_prefix="", body=body, back_link=back_link_html("index.html", "Classement général"),
+    html = render_page(
+        nav_active="strategy", title="Stratégie", asset_prefix="", body=body, back_link=back_link_html("index.html", "Classement général"),
         title_class="hero-title", header_extra="", header_action="", v=ASSETS_VERSION,
     )
     with open(os.path.join(DOCS_DIR, "strategie.html"), "w", encoding="utf-8") as f:

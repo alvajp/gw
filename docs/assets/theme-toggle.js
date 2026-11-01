@@ -1,5 +1,5 @@
-// Light/dark theme toggle (index page only, see #header-extra in
-// generate_site.py). The actual theme is applied as early as possible by a
+// Light/dark theme toggle (icon button in the top bar of every page, see
+// render_topbar in generate_site.py). The actual theme is applied as early as possible by a
 // tiny inline script in <head> (see PAGE_TEMPLATE) so every page reflects
 // the stored preference before first paint, even pages with no toggle
 // button on them -- this file only wires up the button itself and keeps it

@@ -5,9 +5,9 @@
 // behaving as a normal <a href> navigation (progressive enhancement: works
 // with JS disabled too).
 (function () {
-  const FRISE_MS = 420;
-  const CHART_MS = 480;
-  const TITLE_MS = 420;
+  const FRISE_MS = 220;
+  const CHART_MS = 250;
+  const TITLE_MS = 220;
 
   function easeIn(t) { return t * t * t; }
   function easeOut(t) { return 1 - Math.pow(1 - t, 3); }
@@ -273,7 +273,7 @@
       });
       requestAnimationFrame(function () {
         liveSvg.querySelectorAll("text").forEach(function (t) {
-          t.style.transition = "opacity 200ms ease-out";
+          t.style.transition = "opacity 110ms ease-out";
           t.style.opacity = "1";
         });
       });
@@ -363,15 +363,15 @@
         const newMain = doc.querySelector("main");
         if (liveMain && newMain) {
           const newMainHTML = newMain.innerHTML;
-          liveMain.style.transition = "opacity 200ms ease-out";
+          liveMain.style.transition = "opacity 110ms ease-out";
           liveMain.style.opacity = "0";
           setTimeout(function () {
             liveMain.innerHTML = newMainHTML;
             if (window.initSortableTables) window.initSortableTables(liveMain);
             void liveMain.offsetWidth;
             liveMain.style.opacity = "1";
-            setTimeout(function () { liveMain.style.transition = ""; }, 220);
-          }, 200);
+            setTimeout(function () { liveMain.style.transition = ""; }, 120);
+          }, 110);
         }
       }
 
