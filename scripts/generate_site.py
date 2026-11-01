@@ -1186,6 +1186,21 @@ def war_boards(maps):
     return boards
 
 
+def war_layouts(maps):
+    """{'ours': [zone x15], 'theirs': [zone x15]} in row-major order (3 per row),
+    from the maps.yaml layout_ours / layout_theirs blocks (see read_maps.py);
+    a side without a valid 15-distinct-zone layout is left out (callers fall back to
+    BATTLEFIELD_ORDER)."""
+    out = {}
+    for key in ("ours", "theirs"):
+        block = maps.get(f"layout_{key}") or {}
+        rows = [block[k].split(",") for k in sorted(block, key=lambda k: int(k[1:]))]
+        flat = [z.strip() for row in rows for z in row]
+        if len(flat) == 15 and len(set(flat)) == 15:
+            out[key] = flat
+    return out
+
+
 DEFENSE_VISIBLE_ROWS = 5  # rows shown per guild before the "Afficher" expand
 
 
@@ -1516,7 +1531,14 @@ def render_battlefield_section(result, our_idx, boards, prefix="../", attack_tab
     for team in teams:
         name = OUR_GUILD_LABEL if team == our_idx else result["guilds"][team]["name"]
         tiles = []
-        for zone in BATTLEFIELD_ORDER:
+        # this war's real layout for this guild if known (row 1 at the bottom), else the default order
+        order = (result.get("layouts") or {}).get("ours" if team == our_idx else "theirs")
+        if order:
+            # the save lists the rows from the player's own line (row 1) outwards: row 1 is at the BOTTOM of the map
+            order = [z for r in range(4, -1, -1) for z in order[r * 3: r * 3 + 3]]
+        else:
+            order = BATTLEFIELD_ORDER
+        for zone in order:
             m = MAPS_DB.get(boards.get(zone)) if boards.get(zone) else None
             img = f'<img src="{prefix}{m["image"]}" alt="{html_escape(m["name"])}" loading="lazy">' if m else '<div class="map-tile-noimg"></div>'
             chips = "".join(
@@ -2420,6 +2442,7 @@ def main():
     for slug, json_path, maps, extra in discover_wars():
         result = compute_ranking(json_path, maps, extra)
         result["boards"] = war_boards(maps)
+        result["layouts"] = war_layouts(maps)
         season = int(maps.get("season") or 0)
         war_number = int(maps.get("war_number") or 0)
         outcome = maps.get("result")

@@ -1,15 +1,17 @@
 """
 Tiny reader for the fixed `<war>.maps.yaml` shape used in data/wars/:
 top-level scalars (season:, war_number:) plus hard:/easy: nested blocks,
-each mapping zone_type -> map name, and an optional boards: block mapping
-EVERY zone_type -> boardId (see read_maps.py). Not a general YAML parser -- avoids
+each mapping zone_type -> map name, an optional boards: block mapping
+EVERY zone_type -> boardId, and optional layout_ours:/layout_theirs: blocks (one
+r1..r5 row each, 3 comma-separated zone types) giving each guild's real 5x3
+battlefield layout for that war (see read_maps.py). Not a general YAML parser -- avoids
 adding a PyYAML dependency for a format this simple and unlikely to
 change shape.
 """
 
 
 def load_maps(path):
-    result = {"hard": {}, "easy": {}, "boards": {}}
+    result = {"hard": {}, "easy": {}, "boards": {}, "layout_ours": {}, "layout_theirs": {}}
     current = None
     with open(path, encoding="utf-8") as f:
         for raw_line in f:
@@ -24,7 +26,7 @@ def load_maps(path):
                     result[key] = value
                     current = None
                 else:
-                    current = key if key in ("hard", "easy", "boards") else None
+                    current = key if key in ("hard", "easy", "boards", "layout_ours", "layout_theirs") else None
                 continue
             if current is None:
                 continue

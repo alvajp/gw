@@ -13,6 +13,9 @@ Usage:
   python3 scripts/read_maps.py <slug> --season 28 --war 4 --result win|loss
         [--progression PATH] [--dry-run]
 
+The yaml also gets each guild's real 5x3 battlefield layout for that war (layout_ours /
+layout_theirs): it changes from war to war and can differ between the two guilds.
+
 It checks that the war in the save actually matches data/wars/<slug>.json (the
 captured battles must fall inside the war's battle window) so it can't silently
 read the next war's boards.
@@ -41,8 +44,23 @@ def find_war_event(save):
         for comp in ev.get("components", []):
             cfg = comp.get("config") or {}
             if "zoneTypeConfigs" in cfg:
-                return ev, cfg["zoneTypeConfigs"]
+                return ev, cfg["zoneTypeConfigs"], comp
     sys.exit("No guild war zoneTypeConfigs found in the save.")
+
+
+def read_layouts(comp, our_guild):
+    """{'ours': [[zone x3] x5], 'theirs': ...}: each guild's real 5x3 battlefield
+    layout for this war (components[0].team1/team2.defendingFrontline.warZones).
+    The layout changes from war to war and can differ between the two guilds."""
+    out = {}
+    for team in ("team1", "team2"):
+        t = comp.get(team) or {}
+        names = [t.get("guildWarGuildData", {}).get(k) for k in ("name", "guildName")]
+        rows = [[z["warZoneType"] for z in row] for row in t.get("defendingFrontline", {}).get("warZones", [])]
+        if not rows:
+            continue
+        out["ours" if our_guild in names else "theirs" if any(names) else team] = rows
+    return out
 
 
 def capture_battle_span(slug):
@@ -69,7 +87,7 @@ def main():
 
     with open(args.progression, encoding="utf-8") as f:
         save = json.load(f)
-    ev, zones = find_war_event(save)
+    ev, zones, comp = find_war_event(save)
 
     start, end = ms_date(ev["activeTimeSlot"]["start"]), ms_date(ev["activeTimeSlot"]["end"])
     first, last = capture_battle_span(args.slug)
@@ -98,12 +116,17 @@ def main():
     if len(hard) != 3 or len(easy) != 3:
         print(f"WARNING expected 3 hard + 3 easy tracked maps, got {len(hard)} + {len(easy)}", file=sys.stderr)
 
+    layouts = read_layouts(comp, "Les Joyeux Psychopathes !")
     lines = [f"season: {args.season}", f"war_number: {args.war}", f"result: {args.result}", "hard:"]
     lines += [f'  {z}: "{n}"' for z, n in hard.items()]
     lines.append("easy:")
     lines += [f'  {z}: "{n}"' for z, n in easy.items()]
     lines.append("boards:")
     lines += [f"  {z}: {b}" for z, b in boards.items()]
+    for key in ("ours", "theirs"):
+        if key in layouts:
+            lines.append(f"layout_{key}:")
+            lines += [f'  r{i}: "{",".join(row)}"' for i, row in enumerate(layouts[key], start=1)]
     out = "\n".join(lines) + "\n"
 
     path = os.path.join(WARS_DIR, args.slug + ".maps.yaml")

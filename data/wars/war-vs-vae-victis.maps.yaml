@@ -25,3 +25,15 @@ boards:
   MedicaeStation1: MC1_31
   MedicaeStation2: LHE_Desert_05
   AntiAirBattery: LHE_Desert_04
+layout_ours:
+  r1: "Trenches1,Trenches2,Trenches3"
+  r2: "ArtilleryPosition1,LandingPad2,LandingPad1"
+  r3: "ArtilleryPosition2,HQ,Bunker2"
+  r4: "MedicaeStation1,Armoury,Bunker1"
+  r5: "AntiAirBattery,MedicaeStation2,SupplyDepot"
+layout_theirs:
+  r1: "Trenches1,Trenches2,Trenches3"
+  r2: "ArtilleryPosition2,AntiAirBattery,LandingPad2"
+  r3: "ArtilleryPosition1,LandingPad1,Bunker2"
+  r4: "SupplyDepot,Bunker1,HQ"
+  r5: "MedicaeStation1,Armoury,MedicaeStation2"
