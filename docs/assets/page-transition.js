@@ -403,6 +403,17 @@
         const liveAction = document.getElementById("header-action");
         const newAction = doc.getElementById("header-action");
         if (liveAction) liveAction.innerHTML = newAction ? newAction.innerHTML : "";
+
+        // The top bar's links are RELATIVE ("index.html" on the index, "../index.html" on a
+        // season page). After pushState the address changes but this bar would keep the
+        // previous page's hrefs, which then resolve against the new URL and 404
+        // (/seasons/index.html...). Swap in the destination page's own bar.
+        const liveBar = document.querySelector(".topbar");
+        const newBar = doc.querySelector(".topbar");
+        if (liveBar && newBar) {
+          liveBar.innerHTML = newBar.innerHTML;
+          if (window.syncThemeToggle) window.syncThemeToggle();
+        }
         if (window.syncThemeToggle) window.syncThemeToggle();
 
         if (header && headerFromH != null) {
