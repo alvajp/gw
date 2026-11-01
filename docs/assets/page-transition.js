@@ -26,9 +26,20 @@
 
   function lerp(a, b, t) { return a + (b - a) * t; }
 
-  function hexToRgb(hex) {
-    const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex || "");
-    return m ? [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)] : [154, 164, 255];
+  // Bar fills are theme variables ("var(--bar-active)"), and the SVGs being animated can come from a
+  // fetched (detached) document, where computed style can't resolve them -- so read the variable
+  // off <html> ourselves. Anything unparseable falls back to the accent, never to a stray colour.
+  function resolveColor(v) {
+    const m = /^var\(\s*(--[\w-]+)\s*\)$/.exec(v || "");
+    return m ? getComputedStyle(document.documentElement).getPropertyValue(m[1]).trim() : v;
+  }
+  function hexToRgb(color) {
+    const c = resolveColor(color) || "";
+    let m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(c);
+    if (m) return [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)];
+    m = /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/.exec(c);
+    if (m) return [+m[1], +m[2], +m[3]];
+    return [242, 177, 52];
   }
   function lerpColor(c1, c2, t) {
     const a = hexToRgb(c1), b = hexToRgb(c2);
@@ -261,10 +272,10 @@
       });
     }, function () {
       uids.forEach(function (uid) {
-        if (!newBars.has(uid)) {
-          const rect = rectEls.get(uid);
-          if (rect) rect.remove();
-        }
+        const rect = rectEls.get(uid);
+        if (!rect) return;
+        if (!newBars.has(uid)) rect.remove();
+        else rect.setAttribute("fill", newBars.get(uid).fill);  // back to var(--bar-*): follows the theme again
       });
       newSvg.querySelectorAll("text").forEach(function (t) {
         const clone = t.cloneNode(true);
@@ -281,7 +292,7 @@
   }
 
   function fetchDoc(url) {
-    return fetch(url).then(function (r) {
+    return fetch(url, { cache: "no-cache" }).then(function (r) {
       if (!r.ok) throw new Error("fetch failed: " + r.status);
       return r.text();
     }).then(function (html) {
