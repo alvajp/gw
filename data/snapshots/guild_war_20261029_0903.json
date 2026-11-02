@@ -1,0 +1,81 @@
+{
+ "liveEventId": "guild_war_20261029_0903",
+ "kind": "war",
+ "slot_start": 1793266200000,
+ "slot_end": 1793394000000,
+ "boards": {
+  "Trenches1": "MC1_11",
+  "Trenches2": "EMC1_06",
+  "Trenches3": "LHE_Desert_02",
+  "HQ": "C1_37",
+  "ArtilleryPosition1": "C1_70",
+  "ArtilleryPosition2": "C1_23",
+  "LandingPad1": "LHE_Desert_06",
+  "LandingPad2": "C1_15",
+  "Armoury": "EC1_09",
+  "Bunker1": "PVP_desert_10",
+  "Bunker2": "CE2_06",
+  "SupplyDepot": "LHE_Desert_03",
+  "MedicaeStation1": "MC1_31",
+  "MedicaeStation2": "LHE_Desert_05",
+  "AntiAirBattery": "LHE_Desert_04"
+ },
+ "layouts": {
+  "ours": [
+   [
+    "Trenches1",
+    "Trenches2",
+    "Trenches3"
+   ],
+   [
+    "ArtilleryPosition1",
+    "LandingPad2",
+    "LandingPad1"
+   ],
+   [
+    "ArtilleryPosition2",
+    "HQ",
+    "Bunker2"
+   ],
+   [
+    "MedicaeStation1",
+    "Armoury",
+    "Bunker1"
+   ],
+   [
+    "AntiAirBattery",
+    "MedicaeStation2",
+    "SupplyDepot"
+   ]
+  ],
+  "theirs": [
+   [
+    "Trenches1",
+    "Trenches2",
+    "Trenches3"
+   ],
+   [
+    "ArtilleryPosition2",
+    "AntiAirBattery",
+    "LandingPad2"
+   ],
+   [
+    "ArtilleryPosition1",
+    "LandingPad1",
+    "Bunker2"
+   ],
+   [
+    "SupplyDepot",
+    "Bunker1",
+    "HQ"
+   ],
+   [
+    "MedicaeStation1",
+    "Armoury",
+    "MedicaeStation2"
+   ]
+  ]
+ },
+ "captured_at": "2026-11-02T00:00:00",
+ "note": "rebuilt from war-vs-vae-victis.maps.yaml (the save had been overwritten)"
+}

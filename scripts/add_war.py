@@ -91,9 +91,12 @@ def main():
     if not a.no_maps:
         ok = run("read_maps.py", a.slug, "--season", str(a.season), "--war", str(a.war), "--result", a.result, allow_fail=True)
         if not ok and not os.path.exists(maps_path):
+            os.remove(dest)  # a war without maps would be published with no map bonus
             sys.exit(
-                f"The game save no longer holds this war, so data/wars/{a.slug}.maps.yaml could not be written. "
-                "Create it by hand (season, war_number, result, hard:/easy:, boards:, layout_*) and re-run with --no-maps."
+                f"Neither the game save nor a snapshot (data/snapshots/) covers this war, so data/wars/{a.slug}.maps.yaml "
+                "could not be written and the war was NOT published. Create it by hand (season, war_number, result, "
+                "hard:/easy:, boards:, optional layout_*) and re-run with --no-maps. "
+                "Run scripts/snapshot_war.py during a war (it is cheap) to avoid this next time."
             )
         if not ok:
             print("NOTE: read_maps could not run; keeping the existing maps.yaml.")

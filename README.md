@@ -20,8 +20,10 @@ python3 scripts/generate_site.py
 
 ## Adding a new war
 
-Right after capturing it (the game save only keeps the latest war, and `read_maps.py` reads the maps and the
-real battlefield layout from it), run one command:
+The maps and the real battlefield layout come from the game save, which only ever holds the current war
+(prep or battle) and is overwritten by the next war's prep as soon as a war ends. So **run
+`python3 scripts/snapshot_war.py` at some point during every war** (or schedule it): it stores the
+config in `data/snapshots/`, and `read_maps.py` finds it later. Then, whenever you capture the war:
 
 ```
 python3 scripts/add_war.py <capture.json> <slug> --season N --war N --result win|loss

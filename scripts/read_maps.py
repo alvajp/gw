@@ -2,23 +2,22 @@
 Write data/wars/<slug>.maps.yaml for a war straight from the game's local save,
 instead of typing the 6 map names by hand.
 
-The game keeps, for the CURRENT (or just-finished) guild war only, a
-zone -> boardId table in user_progression.json
-(liveEvents.liveEvents[*].components[0].config.zoneTypeConfigs). A boardId is
-the war "map"; data/maps.json knows each board's English name and whether it
-is one of the 6 tracked maps (hard +2 / easy +0.5). So run this right after
-capturing a war, before the next war starts.
+The game keeps, for the CURRENT guild war only (prep or battle phase), a zone -> boardId
+table in user_progression.json (liveEvents.liveEvents[*].components[0].config.zoneTypeConfigs),
+plus each guild's real 5x3 battlefield layout. A boardId is the war "map"; data/maps.json knows
+each board's English name and whether it is one of the 6 tracked maps (hard +2 / easy +0.5).
+
+The save is overwritten by the next war's prep as soon as a war ends, so the data comes from,
+in order: the save itself, or a snapshot taken earlier by scripts/snapshot_war.py
+(data/snapshots/). Snapshot during the war -- or schedule snapshot_war.py -- and the war can be
+added whenever you like.
 
 Usage:
   python3 scripts/read_maps.py <slug> --season 28 --war 4 --result win|loss
         [--progression PATH] [--dry-run]
 
-The yaml also gets each guild's real 5x3 battlefield layout for that war (layout_ours /
-layout_theirs): it changes from war to war and can differ between the two guilds.
-
-It checks that the war in the save actually matches data/wars/<slug>.json (the
-captured battles must fall inside the war's battle window) so it can't silently
-read the next war's boards.
+The yaml also gets each guild's layout for that war (layout_ours / layout_theirs). Only data whose
+time window matches the captured battles is used, so another war's boards can never be read by mistake.
 """
 import argparse
 import json
@@ -26,43 +25,14 @@ import os
 import re
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from snapshot_war import best_snapshot, extract_snapshots, stored_snapshots
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WARS_DIR = os.path.join(ROOT, "data", "wars")
 DEFAULT_SAVE = os.path.expanduser(
     "~/Library/Application Support/com.snowprintstudios.tacticus/user_progression.json"
 )
-SLACK_MS = 6 * 3600 * 1000
-
-
-def ms_date(s):
-    m = re.search(r"/Date\((\d+)\)/", s or "")
-    return int(m.group(1)) if m else None
-
-
-def find_war_event(save):
-    for ev in save.get("liveEvents", {}).get("liveEvents", []):
-        for comp in ev.get("components", []):
-            cfg = comp.get("config") or {}
-            if "zoneTypeConfigs" in cfg:
-                return ev, cfg["zoneTypeConfigs"], comp
-    sys.exit("No guild war zoneTypeConfigs found in the save.")
-
-
-def read_layouts(comp, our_guild):
-    """{'ours': [[zone x3] x5], 'theirs': ...}: each guild's real 5x3 battlefield
-    layout for this war (components[0].team1/team2.defendingFrontline.warZones).
-    The layout changes from war to war and can differ between the two guilds."""
-    out = {}
-    for team in ("team1", "team2"):
-        t = comp.get(team) or {}
-        names = [t.get("guildWarGuildData", {}).get(k) for k in ("name", "guildName")]
-        rows = [[z["warZoneType"] for z in row] for row in t.get("defendingFrontline", {}).get("warZones", [])]
-        if not rows:
-            continue
-        out["ours" if our_guild in names else "theirs" if any(names) else team] = rows
-    return out
-
-
 def capture_battle_span(slug):
     with open(os.path.join(WARS_DIR, slug + ".json"), encoding="utf-8") as f:
         data = json.load(f)
@@ -85,17 +55,22 @@ def main():
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
 
+    first, last = capture_battle_span(args.slug)
     with open(args.progression, encoding="utf-8") as f:
         save = json.load(f)
-    ev, zones, comp = find_war_event(save)
-
-    start, end = ms_date(ev["activeTimeSlot"]["start"]), ms_date(ev["activeTimeSlot"]["end"])
-    first, last = capture_battle_span(args.slug)
-    if not (start - SLACK_MS <= first and last <= end + SLACK_MS):
+    # the war in the save first (and keep a copy), then anything snapshotted earlier
+    from_save = extract_snapshots(save)
+    snap = best_snapshot(from_save, first) or best_snapshot(stored_snapshots(), first)
+    if not snap:
         sys.exit(
-            f"The war in the save ({ev['liveEventId']}) does not match data/wars/{args.slug}.json "
-            f"(its battles are outside the save's battle window) -- the save already moved on to another war."
+            f"No game-save data matches data/wars/{args.slug}.json: the save already moved on to another war "
+            f"({', '.join(x['liveEventId'] for x in from_save) or 'none'}) and no snapshot covers it. "
+            "Write its maps.yaml by hand. (Run scripts/snapshot_war.py during a war to avoid this.)"
         )
+    zones = {z: {"boardId": b} for z, b in snap["boards"].items()}
+    layouts = {k: v for k, v in snap["layouts"].items()}
+    ev = {"liveEventId": snap["liveEventId"]}
+    print(f"Using {snap['liveEventId']} ({snap['kind']}).")
 
     with open(os.path.join(ROOT, "data", "maps.json"), encoding="utf-8") as f:
         maps = json.load(f)["maps"]
@@ -116,7 +91,6 @@ def main():
     if len(hard) != 3 or len(easy) != 3:
         print(f"WARNING expected 3 hard + 3 easy tracked maps, got {len(hard)} + {len(easy)}", file=sys.stderr)
 
-    layouts = read_layouts(comp, "Les Joyeux Psychopathes !")
     lines = [f"season: {args.season}", f"war_number: {args.war}", f"result: {args.result}", "hard:"]
     lines += [f'  {z}: "{n}"' for z, n in hard.items()]
     lines.append("easy:")
