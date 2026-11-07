@@ -213,9 +213,9 @@ def render_player_body(r, prefix="../"):
 
 
 def render_players_index_body(rosters):
-    """One plain button per member (alphabetical), each linking to that player's roster page."""
+    """One plain button per member (highest level first), each linking to that player's roster page."""
     buttons = "".join(
         f'<a class="chip player-btn" href="joueurs/{player_slug(r["uid"])}.html">{escape(r["name"])}</a>'
-        for r in sorted(rosters, key=lambda r: r["name"].lower())
+        for r in sorted(rosters, key=lambda r: (-r["power"], r["name"].lower()))
     )
     return f'<div class="chips player-chips">{buttons}</div>'
