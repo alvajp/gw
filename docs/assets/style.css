@@ -873,6 +873,11 @@ dialog.placement-modal {
 }
 dialog.placement-modal::backdrop { background: rgba(0, 0, 0, 0.55); }
 .pl-close { position: absolute; top: 0.3rem; right: 0.5rem; z-index: 2; background: none; border: none; padding: 0 0.3rem; font-size: 1.6rem; line-height: 1; cursor: pointer; color: #fff; text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8); }
+.pl-reset {
+  position: absolute; top: 0.5rem; left: 0.6rem; z-index: 2; padding: 0.2rem 0.7rem; border-radius: 999px; font-family: inherit; font-size: 0.75rem; cursor: pointer;
+  color: #fff; background: rgba(0, 0, 0, 0.55); border: 1px solid rgba(255, 255, 255, 0.35);
+}
+.pl-reset:hover { background: rgba(0, 0, 0, 0.75); }
 .pl-board { position: relative; line-height: 0; }
 .pl-map { width: 100%; height: auto; display: block; }
 .pl-unit {
@@ -880,3 +885,5 @@ dialog.placement-modal::backdrop { background: rgba(0, 0, 0, 0.55); }
   background: var(--surface); border: 2px solid #fff; box-sizing: border-box; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.55);
 }
 .pl-def { border-color: var(--loss); }
+.pl-unit { cursor: grab; touch-action: none; user-select: none; -webkit-user-drag: none; }
+.pl-unit.dragging { cursor: grabbing; z-index: 3; box-shadow: 0 6px 14px rgba(0, 0, 0, 0.6); }
