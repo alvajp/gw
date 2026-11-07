@@ -65,6 +65,11 @@
     });
   }
 
+  // Attributes that make an attack row open the placement modal (placement.js).
+  function plAttrs(img, att, def) {
+    return img ? ' tabindex="0" data-pl-img="' + esc(img) + '" data-pl-att="' + att.join(" ") + '" data-pl-def="' + def.join(" ") + '"' : "";
+  }
+
   function openModal(tr) {
     const modal = document.getElementById("defense-modal");
     if (!modal) return;
@@ -75,6 +80,10 @@
 
     // Header: the defense itself, cloned from the row's own cells.
     const cells = tr.children;
+    const mapImg = cells[1].querySelector(".map-thumb");
+    const defIds = Array.prototype.map.call(cells[2].querySelectorAll(".unit:not(.mow)"), function (img) {
+      return (img.getAttribute("src").match(/([^\/]+)\.webp/) || [])[1];
+    });
     modal.querySelector(".dm-title").innerHTML =
       '<div class="dm-def"><span class="dm-def-player">' + cells[0].innerHTML + '</span>' +
       '<span class="dm-def-zone">' + cells[1].innerHTML + '</span>' +
@@ -87,7 +96,7 @@
     modal.querySelector(".dm-body").innerHTML = attacks.map(function (a) {
       const o = OUTCOME[a[1]] || OUTCOME.u;
       const comp = a[3].map(function (u) { return portrait(u, false); }).join("") + (a[4] ? portrait(a[4], true) : "");
-      return '<div class="dm-row">' +
+      return '<div class="dm-row"' + plAttrs(mapImg && mapImg.getAttribute("src"), a[3], defIds) + '>' +
         '<span class="dm-player">' + esc(names[a[0]] || a[0]) + '</span>' +
         '<span class="dm-comp">' + comp + '</span>' +
         '<span class="dm-result ' + o[1] + '">' + o[0] + '</span>' +
@@ -124,7 +133,8 @@
     const attacks = d.a.map(function (a) {
       const o = OUTCOME[a[1]] || OUTCOME.u;
       const comp = a[3].map(function (u) { return portrait(u, false); }).join("") + (a[4] ? portrait(a[4], true) : "");
-      return '<div class="dm-row with-line" data-line="' + a[5] + '"><span class="dm-lineno">L' + a[5] + '</span>' +
+      const line = d.l[a[5] - 1];
+      return '<div class="dm-row with-line" data-line="' + a[5] + '"' + plAttrs(d.i, a[3], line ? line[0] : []) + '><span class="dm-lineno">L' + a[5] + '</span>' +
         '<span class="dm-player">' + esc(names[a[0]] || a[0]) + '</span>' +
         '<span class="dm-comp">' + comp + '</span>' +
         '<span class="dm-result ' + o[1] + '">' + o[0] + '</span>' +

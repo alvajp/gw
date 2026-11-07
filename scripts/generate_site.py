@@ -440,6 +440,7 @@ PAGE_TEMPLATE = """<!doctype html>
 <script src="{asset_prefix}assets/defense-filter.js?v={v}"></script>
 <script src="{asset_prefix}assets/attacks-table.js?v={v}"></script>
 <script src="{asset_prefix}assets/roster.js?v={v}"></script>
+<script src="{asset_prefix}assets/placement.js?v={v}"></script>
 <script src="{asset_prefix}assets/page-transition.js?v={v}"></script>
 </body>
 </html>"""

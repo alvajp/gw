@@ -863,3 +863,20 @@ details.map-defense > summary:hover { background: var(--table-header-hover); }
   .rq { width: 100%; }
   .rupdated { margin-left: 0; width: 100%; }
 }
+
+/* Click an attack: modal with the map and both lineups on their hexes (placement.js, slots.json). */
+.attacks-table tbody tr[data-pl-img], .dm-row[data-pl-img] { cursor: pointer; }
+.attacks-table tbody tr[data-pl-img]:hover td, .dm-row[data-pl-img]:hover { filter: brightness(1.12); }
+dialog.placement-modal {
+  width: min(560px, calc(100vw - 2rem)); padding: 0; overflow: hidden;
+  border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text);
+}
+dialog.placement-modal::backdrop { background: rgba(0, 0, 0, 0.55); }
+.pl-close { position: absolute; top: 0.3rem; right: 0.5rem; z-index: 2; background: none; border: none; padding: 0 0.3rem; font-size: 1.6rem; line-height: 1; cursor: pointer; color: #fff; text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8); }
+.pl-board { position: relative; line-height: 0; }
+.pl-map { width: 100%; height: auto; display: block; }
+.pl-unit {
+  position: absolute; width: 9%; aspect-ratio: 1; transform: translate(-50%, -50%); border-radius: 50%; object-fit: cover;
+  background: var(--surface); border: 2px solid #fff; box-sizing: border-box; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.55);
+}
+.pl-def { border-color: var(--loss); }

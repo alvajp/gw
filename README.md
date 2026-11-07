@@ -9,6 +9,7 @@ Static site tracking guild war results for "Les Joyeux Psychopathes !" across mu
 - `data/maps.json` + `docs/assets/maps/` — the 15 guild war boards: boardId, English name, image, and which 6 are the tracked hard/easy maps
 - `data/units.json` + `docs/assets/units/` — real name + portrait of every character/machine of war seen in a captured defense (`scripts/sync_units.py`)
 - `data/rosters/<user_id>.json` — each member's roster from the official Tacticus API (git-ignored, `scripts/fetch_rosters.py`); rendered as the "Joueurs" pages by `scripts/rosters.py`
+- `docs/assets/slots.json` — hand-annotated hex centres (px on the 480x480 art) of the 5 numbered defender slots (`e`) and the 5 white attacker slots (`o`) of each board; used by `placement.js` (click an attack -> map with both lineups). Add an entry when a new board image is imported
 - `scripts/ranking.py` — the point formula (win/finish tiers, buffs, map bonus, unused-token count)
 - `scripts/generate_site.py` — renders `docs/` (the GitHub Pages source) from everything in `data/wars/`
 - `docs/` — generated static site, do not hand-edit
