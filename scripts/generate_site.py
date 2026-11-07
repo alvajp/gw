@@ -1697,7 +1697,7 @@ def build_attacks(result, our_idx, boards, prefix="../"):
                 pi, TIER_CODE.get(e["tier"], "u"), round(e["adj"]),
                 [idx(units, u) for u in e["att_units"]], idx(units, e["att_mow"]) if e["att_mow"] else -1,
                 [idx(units, u) for u in e["units"]], idx(units, e["mow"]) if e["mow"] else -1,
-                idx(zones, ZONE_LABELS.get(e["zone"], e["zone"])), mi,
+                idx(zones, ZONE_LABELS.get(e["zone"], e["zone"])), mi, e["att_rar"],
             ])
         rows_by_team.append(rows)
         if not rows:
@@ -1712,7 +1712,7 @@ def build_attacks(result, our_idx, boards, prefix="../"):
         tables[team] = (
             f'<div class="attacks-block" data-team="{ti}"><div class="chips attacks-chips timeline-player-chips">{pills}</div>'
             '<div class="attacks-scroll"><table class="attacks-table"><thead><tr>'
-            '<th class="a-comp">Attaque</th><th class="a-def">Contre</th>'
+            '<th class="a-comp">Attaque</th><th class="a-rar" title="Rareté max de l\'équipe : S = Silver, G = Gold, L = Légendaire, M = Mythique">Rareté</th><th class="a-def">Contre</th>'
             '<th class="a-score">Score</th><th class="a-map">Map</th>'
             '</tr></thead><tbody></tbody></table></div></div>'
         )

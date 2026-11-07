@@ -741,10 +741,11 @@ dialog.defense-modal::backdrop { background: rgba(0, 0, 0, 0.55); }
 .attacks-table td:first-child { background: none; }  /* body cells show the row's (striped) background like the other columns */
 .attacks-table th:first-child { background: var(--table-header-bg); }  /* header cell keeps the header background like the other columns */
 /* Percent widths so the table always fits its column; portraits wrap onto a second line when it is narrow. */
-.attacks-table th.a-comp { width: 33%; }
-.attacks-table th.a-def { width: 31%; }
-.attacks-table th.a-score { width: 11%; text-align: right; }
-.attacks-table th.a-map { width: 25%; }
+.attacks-table th.a-comp { width: 30%; }
+.attacks-table th.a-rar { width: 9%; text-align: center; }
+.attacks-table th.a-def { width: 28%; }
+.attacks-table th.a-score { width: 10%; text-align: right; }
+.attacks-table th.a-map { width: 23%; }
 /* Score is the result: green when the attack won, red when it failed (finish stays neutral). */
 .attacks-table td.a-score { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
 .attacks-table td.a-score.is-win { color: var(--win); }
@@ -887,3 +888,11 @@ dialog.placement-modal::backdrop { background: rgba(0, 0, 0, 0.55); }
 .pl-def { border-color: var(--loss); }
 .pl-unit { cursor: grab; touch-action: none; user-select: none; -webkit-user-drag: none; }
 .pl-unit.dragging { cursor: grabbing; z-index: 3; box-shadow: 0 6px 14px rgba(0, 0, 0, 0.6); }
+
+/* Attack rarity letter (S/G/L/M): grey / yellow / blue / orange. */
+.attacks-table td.a-rar { text-align: center; }
+.rar-tag { display: inline-block; min-width: 1.5em; padding: 0.1em 0.35em; border-radius: 4px; font-size: 0.75rem; font-weight: 700; line-height: 1.3; color: #fff; text-align: center; }
+.rar-tag.rar-S { background: #8a93a3; }
+.rar-tag.rar-G { background: #d9a514; }
+.rar-tag.rar-L { background: #3b86e0; }
+.rar-tag.rar-M { background: #ee7b1c; }

@@ -47,6 +47,7 @@
             '" data-pl-def="' + r[5].map(function (i) { return d.u[i]; }).join(" ") + '"' : "";
           return "<tr" + pl + ">" +
             '<td class="a-comp">' + comp(r[3], r[4]) + "</td>" +
+            '<td class="a-rar"><span class="rar-tag rar-' + esc(r[9]) + '">' + esc(r[9]) + "</span></td>" +
             '<td class="a-def">' + comp(r[5], r[6]) + "</td>" +
             '<td class="a-score ' + o[1] + '" title="' + o[0] + '">' + r[2] + "</td>" +
             '<td class="a-map">' + mapHtml + "</td></tr>";
