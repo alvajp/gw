@@ -16,6 +16,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 from ranking import compute_ranking
 from maps_yaml import load_maps
 from legacy_ranking import compute_legacy_ranking, load_legacy
+import rosters as rosters_mod
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WARS_DIR = os.path.join(ROOT, "data", "wars")
@@ -438,6 +439,7 @@ PAGE_TEMPLATE = """<!doctype html>
 <script src="{asset_prefix}assets/timeline-filter.js?v={v}"></script>
 <script src="{asset_prefix}assets/defense-filter.js?v={v}"></script>
 <script src="{asset_prefix}assets/attacks-table.js?v={v}"></script>
+<script src="{asset_prefix}assets/roster.js?v={v}"></script>
 <script src="{asset_prefix}assets/page-transition.js?v={v}"></script>
 </body>
 </html>"""
@@ -462,7 +464,7 @@ def render_topbar(prefix, active):
         '<nav class="topbar"><div class="topbar-inner">'
         f'<a class="brand" href="{prefix}index.html"><span class="brand-mark"></span>'
         f'<span class="brand-name">{html_escape(OUR_GUILD_LABEL)}</span></a>'
-        f'<div class="topnav">{link("ranking", "index.html", "Classement")}{link("strategy", "strategie.html", "Stratégie")}</div>'
+        f'<div class="topnav">{link("ranking", "index.html", "Classement")}{link("strategy", "strategie.html", "Stratégie")}{link("players", "joueurs.html", "Joueurs")}</div>'
         '<button type="button" id="theme-toggle" class="icon-btn" aria-label="Changer de thème" aria-pressed="false" '
         f'data-label-off="Sombre" data-label-on="Clair">{THEME_ICONS}</button>'
         '</div></nav>'
@@ -2397,6 +2399,29 @@ def render_strategy_index(all_wars):
         f.write(html)
 
 
+def render_players_pages():
+    """docs/joueurs.html (member list) + docs/joueurs/<id>.html (one roster each),
+    from the API payloads in data/rosters/ (see fetch_rosters.py). Skipped when there are none."""
+    rosters = rosters_mod.load_rosters()
+    if not rosters:
+        return
+    os.makedirs(os.path.join(DOCS_DIR, "joueurs"), exist_ok=True)
+    html = render_page(
+        nav_active="players", title="Joueurs", asset_prefix="", body=rosters_mod.render_players_index_body(rosters),
+        back_link="", title_class="hero-title", header_extra="", header_action="", v=ASSETS_VERSION,
+    )
+    with open(os.path.join(DOCS_DIR, "joueurs.html"), "w", encoding="utf-8") as f:
+        f.write(html)
+    for r in rosters:
+        html = render_page(
+            nav_active="players", title=r["name"], asset_prefix="../", body=rosters_mod.render_player_body(r, "../"),
+            back_link=back_link_html("../joueurs.html", "Joueurs"), title_class="", header_extra="", header_action="", v=ASSETS_VERSION,
+        )
+        with open(os.path.join(DOCS_DIR, "joueurs", rosters_mod.player_slug(r["uid"]) + ".html"), "w", encoding="utf-8") as f:
+            f.write(html)
+    print(f"Generated {len(rosters)} player page(s) + joueurs.html")
+
+
 def main():
     os.makedirs(os.path.join(DOCS_DIR, "wars"), exist_ok=True)
     os.makedirs(os.path.join(DOCS_DIR, "seasons"), exist_ok=True)
@@ -2442,6 +2467,7 @@ def main():
 
     render_index(seasons, active_uids)
     render_strategy_index(all_wars)
+    render_players_pages()
     for w in all_wars:
         render_war_strategy_page(w["slug"], w["result"], w["season"])
     print(f"Generated {len(all_wars)} war page(s), {len(seasons)} season page(s) + index.html into {DOCS_DIR}")

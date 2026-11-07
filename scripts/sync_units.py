@@ -23,6 +23,7 @@ from PIL import Image
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WARS_DIR = os.path.join(ROOT, "data", "wars")
+ROSTERS_DIR = os.path.join(ROOT, "data", "rosters")
 OUT_JSON = os.path.join(ROOT, "data", "units.json")
 OUT_DIR = os.path.join(ROOT, "docs", "assets", "units")
 BASE = "https://tacticusplanner.app"
@@ -54,6 +55,11 @@ def used_unit_ids():
                     heroes.update(u["unitId"] for u in d.get("units", []))
                     if d.get("machineOfWar"):
                         mows.add(d["machineOfWar"]["unitId"])
+    # every unit a player owns (data/rosters, see fetch_rosters.py); a machine of war has 3 abilities
+    for f in glob.glob(os.path.join(ROSTERS_DIR, "*.json")):
+        with open(f, encoding="utf-8") as fh:
+            for u in json.load(fh)["player"]["units"]:
+                (mows if len(u.get("abilities", [])) == 3 else heroes).add(u["id"])
     return heroes, mows
 
 

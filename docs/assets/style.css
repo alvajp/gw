@@ -791,3 +791,76 @@ header a .arrow { margin-right: 0.4rem; }
 details.map-defense > summary { transition: background 120ms ease; }
 details.map-defense > summary:hover { background: var(--table-header-hover); }
 .war-recap, details.map-defense { box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12); }
+
+/* "Joueurs": member list + per-player roster (scripts/rosters.py, roster.js). Layout after the Tacticus Planner's "Who You Own". */
+:root {
+  --r-common: #9aa3b2; --r-uncommon: #4cbf6b; --r-rare: #4a9df0; --r-epic: #a867e0; --r-legendary: #f2b134; --r-mythic: #f0506e;
+  --st-gold: #f2b134; --st-red: #f0506e; --st-blue: #4aa3ff;
+}
+:root[data-theme="light"] { --r-common: #7b8494; --r-uncommon: #2f9e4f; --r-rare: #2f7fd8; --r-epic: #8a45c9; --r-legendary: #d99a14; --r-mythic: #d6334f; --st-gold: #d99a14; }
+.players-table th:not(:first-child), .players-table td:not(:first-child) { width: 6.5em; }
+.players-table td a { color: inherit; text-decoration: none; font-weight: 500; }
+.players-table td a:hover { color: var(--accent); }
+
+.rsummary { display: flex; flex-wrap: wrap; align-items: stretch; gap: 0.6rem; margin: 0.4rem 0 1.2rem; }
+.rstat { display: flex; flex-direction: column; min-width: 5.5rem; padding: 0.5rem 0.9rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.rstat b { font-size: 1.25rem; font-variant-numeric: tabular-nums; }
+.rstat span { font-size: 0.72rem; color: var(--text-muted); }
+.rupdated { align-self: center; margin-left: auto; font-size: 0.78rem; color: var(--text-muted); }
+.rcontrols { display: flex; flex-wrap: wrap; align-items: center; gap: 0.7rem 1rem; margin-bottom: 1.2rem; }
+.rcontrols .chips { margin: 0; flex-wrap: wrap; overflow-x: visible; }
+.rq, .rorder select {
+  background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 0.4rem 0.7rem; font-family: inherit; font-size: 0.85rem;
+}
+.rq { width: 12rem; }
+.rq:focus, .rorder select:focus { outline: none; border-color: var(--accent); }
+.rorder { font-size: 0.8rem; color: var(--text-muted); display: inline-flex; align-items: center; gap: 0.4rem; }
+
+.rs { margin-bottom: 1.6rem; }
+.rs[hidden], .rc[hidden] { display: none; }
+.rs-title { display: flex; align-items: center; gap: 0.55rem; margin: 0 0 0.6rem; padding: 0.35rem 0.1rem; font-size: 0.95rem; border-bottom: 1px solid var(--border); }
+.rs-title small { margin-left: auto; font-weight: 500; color: var(--text-muted); font-size: 0.78rem; }
+.rs-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--text-muted); }
+.all-imperial .rs-dot { background: #4a9df0; }
+.all-xenos .rs-dot { background: #4cbf6b; }
+.all-chaos .rs-dot { background: #f0506e; }
+.rs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 0.6rem; }
+.rc {
+  position: relative; display: flex; flex-direction: column; align-items: center; gap: 0.2rem;
+  padding: 0.7rem 0.3rem 0.55rem; text-align: center; font-size: 0.72rem; line-height: 1.25;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12); transition: border-color 120ms ease;
+}
+.rc:hover { border-color: var(--text-muted); }
+.rc-img { width: 62px; height: 62px; border-radius: 50%; border: 3px solid var(--rc, var(--border)); background: var(--bg); object-fit: cover; box-sizing: border-box; }
+.rc-missing { display: inline-flex; align-items: center; justify-content: center; color: var(--text-muted); }
+.rc-lvl {
+  position: absolute; top: 0.35rem; left: 0.35rem; min-width: 1.35rem; padding: 0.05rem 0.3rem; border-radius: 999px;
+  background: var(--table-header-bg); border: 1px solid var(--border); font-size: 0.66rem; font-weight: 600; font-variant-numeric: tabular-nums;
+}
+.rc-stars { height: 0.95rem; font-size: 0.7rem; letter-spacing: 0.02em; white-space: nowrap; }
+.st-gold { color: var(--st-gold); } .st-red { color: var(--st-red); } .st-blue { color: var(--st-blue); } .st-wings { color: var(--r-legendary); margin-left: 0.15rem; }
+.rc-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; font-size: 0.78rem; }
+.rc-rank { color: var(--text-muted); font-size: 0.68rem; }
+.rc-abil { display: flex; gap: 0.25rem; margin-top: 0.15rem; }
+.rc-abil span {
+  display: inline-flex; align-items: center; justify-content: center; min-width: 1.35rem; height: 1.35rem; padding: 0 0.2rem; box-sizing: border-box;
+  border: 1px solid var(--border); border-radius: 999px; font-size: 0.66rem; font-variant-numeric: tabular-nums; color: var(--text);
+}
+.rc-items { display: flex; gap: 0.25rem; margin-top: 0.1rem; }
+.it {
+  display: inline-flex; align-items: center; justify-content: center; width: 1.3rem; height: 1.3rem; box-sizing: border-box;
+  border: 2px solid var(--border); border-radius: 4px; font-style: normal; font-size: 0.62rem; font-weight: 600; font-variant-numeric: tabular-nums;
+}
+.it-empty { border-style: dashed; opacity: 0.5; }
+.it-common { border-color: var(--r-common); } .it-uncommon { border-color: var(--r-uncommon); } .it-rare { border-color: var(--r-rare); }
+.it-epic { border-color: var(--r-epic); } .it-legendary { border-color: var(--r-legendary); } .it-mythic { border-color: var(--r-mythic); }
+.rar-common { --rc: var(--r-common); } .rar-uncommon { --rc: var(--r-uncommon); } .rar-rare { --rc: var(--r-rare); }
+.rar-epic { --rc: var(--r-epic); } .rar-legendary { --rc: var(--r-legendary); } .rar-mythic { --rc: var(--r-mythic); }
+.roster-empty { color: var(--text-muted); }
+@media (max-width: 480px) {
+  .rs-grid { grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 0.45rem; }
+  .rq { width: 100%; }
+  .rupdated { margin-left: 0; width: 100%; }
+}
