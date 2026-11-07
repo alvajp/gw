@@ -213,14 +213,9 @@ def render_player_body(r, prefix="../"):
 
 
 def render_players_index_body(rosters):
-    rows = ""
-    for r in rosters:
-        c = counts(r["units"])
-        upd = f'{r["updated"]:%d/%m/%Y}' if r["updated"] else "—"
-        rows += (
-            f'<tr><td><a href="joueurs/{player_slug(r["uid"])}.html">{escape(r["name"])}</a></td>'
-            f'<td>{r["power"]}</td><td>{c["units"]}</td><td>{c["mythic"]}</td><td>{c["legendary"]}</td>'
-            f'<td>{c["epic"]}</td><td>{c["mow"]}</td><td>{upd}</td></tr>'
-        )
-    head = "".join(f"<th>{h}</th>" for h in ("Joueur", "Puissance", "Persos", "Mythiques", "Légendaires", "Épiques", "Machines", "Données"))
-    return f'<div class="table-scroll"><table class="sortable players-table"><thead><tr>{head}</tr></thead><tbody>{rows}</tbody></table></div>'
+    """One plain button per member (alphabetical), each linking to that player's roster page."""
+    buttons = "".join(
+        f'<a class="chip player-btn" href="joueurs/{player_slug(r["uid"])}.html">{escape(r["name"])}</a>'
+        for r in sorted(rosters, key=lambda r: r["name"].lower())
+    )
+    return f'<div class="chips player-chips">{buttons}</div>'

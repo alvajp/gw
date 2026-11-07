@@ -798,9 +798,8 @@ details.map-defense > summary:hover { background: var(--table-header-hover); }
   --st-gold: #f2b134; --st-red: #f0506e; --st-blue: #4aa3ff;
 }
 :root[data-theme="light"] { --r-common: #7b8494; --r-uncommon: #2f9e4f; --r-rare: #2f7fd8; --r-epic: #8a45c9; --r-legendary: #d99a14; --r-mythic: #d6334f; --st-gold: #d99a14; }
-.players-table th:not(:first-child), .players-table td:not(:first-child) { width: 6.5em; }
-.players-table td a { color: inherit; text-decoration: none; font-weight: 500; }
-.players-table td a:hover { color: var(--accent); }
+.player-chips { flex-wrap: wrap; overflow-x: visible; margin-top: 0.4rem; }
+.player-btn { text-decoration: none; padding: 0.5rem 1.1rem; font-size: 0.9rem; }
 
 .rsummary { display: flex; flex-wrap: wrap; align-items: stretch; gap: 0.6rem; margin: 0.4rem 0 1.2rem; }
 .rstat { display: flex; flex-direction: column; min-width: 5.5rem; padding: 0.5rem 0.9rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); }
