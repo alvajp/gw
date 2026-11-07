@@ -63,23 +63,6 @@ def stars_html(stars):
     return out
 
 
-def lineup_rarity(units):
-    """Highest rarity code of an attacking lineup, as one letter: M (Mythique) > L (Légendaire) >
-    G (below Legendary, but a rank of Gold or higher) > S (everything else). Silver/Gold are the
-    unit RANK tiers (API rank 9-11 = Silver, 12+ = Gold or above), Legendary/Mythic the rarities.
-    `units` are the battle events' attacker units ({progressionIndex, rank}); the MoW isn't passed."""
-    best = "S"
-    for u in units:
-        rarity = rarity_stars(u.get("progressionIndex", 0))[0]
-        if rarity >= 5:
-            return "M"
-        if rarity == 4:
-            best = "L"
-        elif best == "S" and u.get("rank", 0) >= 12:
-            best = "G"
-    return best
-
-
 def rank_label(rank):
     """API rank 0 = Stone I ... 20 = Adamantine III."""
     tier = min(rank // 3, len(RANK_TIERS) - 1)

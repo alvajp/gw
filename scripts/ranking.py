@@ -8,8 +8,6 @@ history and reference_tacticus_data_structure.md for the JSON shape.
 import json
 from collections import defaultdict
 
-from rosters import lineup_rarity
-
 WIN_VALUES = {1100, 1200, 1400, 1600}
 FAIL_VALUES = {0, 200, 400, 600, 800, 1000}
 FINISH_VALUES = {250, 450, 650, 850, 1050}
@@ -271,8 +269,6 @@ def compute_ranking(json_path, maps, extra=None):
                 # (every attack that was thrown at a given defense).
                 "att_units": [u["unitId"] for u in (e.get("attacker") or {}).get("units", [])],
                 "att_mow": ((e.get("attacker") or {}).get("machineOfWar") or {}).get("unitId"),
-                # Highest rarity letter of the attacking lineup (S/G/L/M, see rosters.lineup_rarity).
-                "att_rar": lineup_rarity((e.get("attacker") or {}).get("units", [])),
                 # Who defended against this attack and with what, for the
                 # war-page "Défense" section: defender, zone, lineup (unit
                 # ids in slot order + machine of war) and the zone's buff
