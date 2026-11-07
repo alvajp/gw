@@ -200,8 +200,8 @@ def render_player_body(r, prefix="../"):
         '<div class="rcontrols">'
         '<input type="search" id="roster-q" class="rq" placeholder="Filtrer par nom" autocomplete="off" aria-label="Filtrer par nom">'
         '<label class="rorder">Tri <select id="roster-order">'
-        '<option value="faction">Faction</option><option value="rarity">Rareté</option>'
-        '<option value="level">Niveau</option><option value="name">Nom</option></select></label>'
+        '<option value="level" selected>Niveau</option><option value="faction">Faction</option>'
+        '<option value="rarity">Rareté</option><option value="name">Nom</option></select></label>'
         f'<div class="chips">{chips}</div></div>'
     )
     return (

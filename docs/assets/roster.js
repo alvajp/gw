@@ -1,5 +1,5 @@
 // Player roster page (see scripts/rosters.py): quick name filter, rarity pills and
-// ordering. Cards carry data-* attributes; "Faction" order keeps them in their
+// ordering (level by default). Cards carry data-* attributes; "Faction" order keeps them in their
 // faction sections, any other order moves the same cards into one flat grid.
 (function () {
   function init() {
@@ -55,6 +55,7 @@
       empty.hidden = shown > 0;
     }
 
+    apply(); // the page is rendered grouped by faction; apply the selected default order (level)
     input.addEventListener("input", apply);
     select.addEventListener("change", apply);
     chips.forEach(function (chip) {
