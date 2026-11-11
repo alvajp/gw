@@ -334,6 +334,11 @@
   "image": "assets/units/genesPrimus.webp",
   "mow": false
  },
+ "lostaBile": {
+  "name": "Fabius Bile",
+  "image": "assets/units/lostaBile.webp",
+  "mow": false
+ },
  "necroChronomancer": {
   "name": "Thothmek",
   "image": "assets/units/necroChronomancer.webp",

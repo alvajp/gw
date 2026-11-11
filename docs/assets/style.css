@@ -827,25 +827,34 @@ details.map-defense > summary:hover { background: var(--table-header-hover); }
 .rs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 0.6rem; }
 .rc {
   position: relative; display: flex; flex-direction: column; align-items: center; gap: 0.2rem;
-  padding: 0.7rem 0.3rem 0.55rem; text-align: center; font-size: 0.72rem; line-height: 1.25;
+  padding: 1.15rem 0.3rem 0.55rem; text-align: center; font-size: 0.72rem; line-height: 1.25;
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12); transition: border-color 120ms ease;
 }
 .rc:hover { border-color: var(--text-muted); }
-.rc-img { width: 62px; height: 62px; border-radius: 50%; border: 3px solid var(--rc, var(--border)); background: var(--bg); object-fit: cover; box-sizing: border-box; }
+/* Portrait = unit art inset in the game's rarity frame (190x247, opening ~7% / 5% from the edges); rank medal overlaps the bottom-right corner, faction crest the top-right. */
+.rc-portrait { position: relative; display: block; width: 68px; aspect-ratio: 190 / 247; }
+.rc-img { position: absolute; left: 3.9%; top: 3.4%; width: 92.1%; height: 93.1%; object-fit: cover; background: var(--bg); clip-path: polygon(8% 0, 92% 0, 100% 6%, 100% 92%, 91% 100%, 9% 100%, 0 92%, 0 6%); }
+.rc-frame { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .rc-missing { display: inline-flex; align-items: center; justify-content: center; color: var(--text-muted); }
+.rc-rank-badge { position: absolute; z-index: 3; right: -22%; bottom: -4%; width: 44%; aspect-ratio: 1; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.55)); pointer-events: none; }
+.rc-faction { position: absolute; top: 0.35rem; right: 0.35rem; width: 1.2rem; height: 1.2rem; opacity: 0.9; pointer-events: none; }
+.rs-icon { width: 1.35rem; height: 1.35rem; object-fit: contain; }
 .rc-lvl {
-  position: absolute; top: 0.35rem; left: 0.35rem; min-width: 1.35rem; padding: 0.05rem 0.3rem; border-radius: 999px;
-  background: var(--table-header-bg); border: 1px solid var(--border); font-size: 0.66rem; font-weight: 600; font-variant-numeric: tabular-nums;
+  position: absolute; left: -16%; bottom: -3%; z-index: 3; min-width: 1.05rem; padding: 0 0.22rem; box-sizing: border-box; text-align: center;
+  border-radius: 4px; background: rgba(39, 36, 36, 0.78); color: rgba(255, 255, 255, 0.72); border: none;
+  font-size: 0.58rem; font-weight: 500; font-variant-numeric: tabular-nums; line-height: 1.35;
 }
-.rc-stars { height: 0.95rem; font-size: 0.7rem; letter-spacing: 0.02em; white-space: nowrap; }
-.st-gold { color: var(--st-gold); } .st-red { color: var(--st-red); } .st-blue { color: var(--st-blue); } .st-wings { color: var(--r-legendary); margin-left: 0.15rem; }
+/* Game star icons over the top edge of the frame (planner-style): overlapping row, centred. */
+.rc-stars { position: absolute; top: -9px; left: 0; right: 0; z-index: 3; display: flex; justify-content: center; align-items: center; pointer-events: none; }
+.st-img { width: 17px; height: 17px; margin: 0 -2px; filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.6)); }
+.st-img.st-blue { width: 24px; height: auto; margin: 0 -3px; }
+.st-img.st-wings { width: 46px; height: auto; margin: 0; }
 .rc-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; font-size: 0.78rem; }
-.rc-rank { color: var(--text-muted); font-size: 0.68rem; }
 .rc-abil { display: flex; gap: 0.25rem; margin-top: 0.15rem; }
 .rc-abil span {
-  display: inline-flex; align-items: center; justify-content: center; min-width: 1.35rem; height: 1.35rem; padding: 0 0.2rem; box-sizing: border-box;
-  border: 1px solid var(--border); border-radius: 999px; font-size: 0.66rem; font-variant-numeric: tabular-nums; color: var(--text);
+  display: inline-flex; align-items: center; justify-content: center; min-width: 1.5rem; height: 1.5rem; padding: 0 0.15rem; box-sizing: border-box;
+  border: 2px solid var(--accent); border-radius: 999px; font-size: 0.72rem; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text);
 }
 .rc-items { display: flex; gap: 0.25rem; margin-top: 0.1rem; }
 .it {
@@ -853,6 +862,13 @@ details.map-defense > summary:hover { background: var(--table-header-hover); }
   border: 2px solid var(--border); border-radius: 4px; font-style: normal; font-size: 0.62rem; font-weight: 600; font-variant-numeric: tabular-nums;
 }
 .it-empty { border-style: dashed; opacity: 0.5; }
+/* Item with art: image shrunk inside the hexagonal rarity frame, level badge bottom-right. */
+.it.it-art { position: relative; width: 1.9rem; height: 1.9rem; border: none; border-radius: 0; overflow: visible; }
+.it-img { position: absolute; left: 14%; top: 14%; width: 72%; height: 72%; object-fit: contain; }
+.it-frame { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.it-lvl { position: absolute; right: -4px; bottom: -3px; z-index: 2; min-width: 0.95rem; padding: 0 0.15rem; box-sizing: border-box; text-align: center; border-radius: 3px; background: #272424; color: #fff; border: 1px solid #fff; font-size: 0.58rem; font-weight: 700; font-style: normal; line-height: 1.25; }
+.rc-items { gap: 0.4rem; }
+.rc-items .it { width: 1.9rem; height: 1.9rem; }
 .it-common { border-color: var(--r-common); } .it-uncommon { border-color: var(--r-uncommon); } .it-rare { border-color: var(--r-rare); }
 .it-epic { border-color: var(--r-epic); } .it-legendary { border-color: var(--r-legendary); } .it-mythic { border-color: var(--r-mythic); }
 .rar-common { --rc: var(--r-common); } .rar-uncommon { --rc: var(--r-uncommon); } .rar-rare { --rc: var(--r-rare); }
