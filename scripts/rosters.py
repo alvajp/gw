@@ -260,7 +260,7 @@ RAID_METAS = [
         "Machines": [_m("tyranBiovore", [60, 60, 4]), _m("deathCrawler", [1, 36, 4])]}),
     ("Neuro", {
         "Core": [_h("tyranNeurothrope", [36, 60], 11), _h("thousAhriman", [50, 60], 11), _h("thousInfernalMaster", [60, 60], 11),
-                 _h("blackPossession", [50, 50], 11), _h("blackAbaddon", [60, 60], 11)],
+                 _h("blackPossession", [60, 35], 11), _h("blackAbaddon", [60, 60], 11)],
         "Flex": [_h("thousTzaangor", [35, 35], 11), _h("bloodMephiston", [36, 60], 11)],
         "Machines": [_m("thousDaemonPrince", [60, 35, 4])]}),
     ("Battlesuit", {
