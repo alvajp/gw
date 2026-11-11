@@ -271,7 +271,7 @@ RAID_METAS = [
         "Core": [_h("admecRuststalker", [60, 60], W), _h("admecMarshall", [50, 60], 11), _h("necroOverlord", [60, 50], 11),
                  _h("votanMemnyr", [60, 60], 11), _h("admecDominus", [35, 60], 11)],
         "Flex": [_h("custoTrajann", [50, 60], 11, D3), _h("templHelbrecht", [60, 60], 11, D3), _h("tauMarksman", [50, 50], 11, D3),
-                 _h("necroSpyder", [50, 50], 11, D3)],
+                 _h("necroSpyder", [50, 50], 11, D3), _h("admecManipulus", [50, 50], 11, D3)],
         "Machines": [_m("necroReanimator", [50, 50, 4])]}),
 ]
 ROLES = ["Core", "Flex", "Machines"]

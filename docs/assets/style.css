@@ -1047,9 +1047,7 @@ dialog.method-modal { width: min(640px, calc(100vw - 2rem)); }
 .mm-table .st-img { width: 1.15rem; height: 1.15rem; margin: 0 -1px; filter: none; }
 .mm-table .st-img.st-blue { width: 1.6rem; height: auto; margin: 0 -2px; }
 .mm-table .st-img.st-wings { width: 2.4rem; height: auto; margin: 0; }
-.mm-badge { display: inline-flex; align-items: center; padding: 0 0.15rem 2px; border-bottom: 2px solid transparent; vertical-align: middle; }
-.mm-badge.ok { border-bottom-color: var(--win); }
-.mm-badge.ko { border-bottom-color: var(--loss); }
+.mm-badge { display: inline-flex; align-items: center; padding: 0 0.15rem; vertical-align: middle; }
 .mm-req { display: inline-flex; align-items: center; margin-left: 0.5rem; opacity: 0.55; transform-origin: left center; vertical-align: middle; }
 .mm-req::before { content: "/"; margin-right: 0.4rem; color: var(--text-muted); }
 .mm-req .mm-rank { width: 1.15rem; height: 1.15rem; object-fit: contain; }
