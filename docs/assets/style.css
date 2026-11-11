@@ -553,7 +553,7 @@ ul { line-height: 1.8; }
 }
 
 /* War-page "Défense" (see render_defense_section in generate_site.py). */
-#defense-wrap h3 { margin: 1.4rem 0 0.5rem; font-size: 1rem; }
+#defense-wrap h3, .adv-expand h3 { margin: 1.4rem 0 0.5rem; font-size: 1rem; }
 .defense-table th.zone, .defense-table td.zone { width: 11em; text-align: left; }
 .defense-table th.comp, .defense-table td.comp { width: 16.5em; text-align: left; overflow: visible; }
 .defense-table td { vertical-align: middle; }
@@ -1052,8 +1052,10 @@ dialog.method-modal { width: min(640px, calc(100vw - 2rem)); }
 /* Dialog title on the players list: meta name, player name and "Voir le roster" share one baseline. */
 .meta-modal h3 .mm-title { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0.2rem 0.7rem; }
 .meta-modal .mm-who { margin-left: 0; font-size: 1rem; font-weight: 600; color: var(--text-muted); }
-.mm-roster-btn { padding: 0.4rem 1.1rem; font-size: 0.8rem; font-weight: 700; color: #1a1205; text-decoration: none; background: var(--accent); border: 1px solid var(--accent); border-radius: 999px; transition: filter 120ms ease; }
-.mm-roster-btn:hover { filter: brightness(1.1); }
+/* same look as the war pages' "Stratégie" button: squared, the guild yellow, a 1px edge and an arrow */
+.mm-roster-btn { display: inline-flex; align-items: center; padding: 0.4rem 1rem; font-size: 0.85rem; font-weight: 700; line-height: 1.2; color: #1a1c23; text-decoration: none; white-space: nowrap; background: var(--team-us); border-radius: 3px; box-shadow: 0 0 0 1px var(--team-us); transition: transform 120ms ease, box-shadow 120ms ease; }
+.mm-roster-btn:hover { transform: translateY(-1px); box-shadow: 0 0 0 2px var(--team-us); }
+.mm-roster-btn .arrow { margin-left: 0.5rem; }
 
 /* Meta dialogs: every unit row has the height needed for the relic icon, whether or not the unit has a relic. */
 .mm-table tbody tr:not(.mm-role) > td { height: 1.9rem; vertical-align: middle; }
@@ -1457,3 +1459,31 @@ body[data-page="home"] h1.hero-title { margin-top: 5rem; font-size: 3.4rem; text
 .mteam-title { font-size: 0.95rem; font-weight: 700; }
 .mcell-head .mrole-pct { margin: 0; }
 .mtable tbody tr[data-meta]:hover > td:first-child, .mtable tbody tr[data-meta]:focus-visible > td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+
+/* Boss landing: one line per boss (the boss, then its primes); every line has the same columns. */
+.boss-cards { display: flex; flex-direction: column; gap: 0.8rem; }
+.boss-group { display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: 0.8rem; }
+
+/* War pages: the opponent's table and defences fold into a "Voir l'adversaire" expand. */
+details.adv-expand { margin: 0 0 2rem; }
+details.adv-expand > summary { display: flex; align-items: center; gap: 0.7rem; padding: 0.7rem 1rem; cursor: pointer; list-style: none; font-weight: 600; background: var(--table-header-bg); border: 1px solid var(--border); border-radius: var(--radius); transition: background 120ms ease; }
+details.adv-expand > summary::-webkit-details-marker { display: none; }
+details.adv-expand > summary::before { content: "▸"; color: var(--text-muted); }
+details.adv-expand[open] > summary::before { content: "▾"; }
+details.adv-expand > summary:hover { background: var(--table-header-hover); }
+details.adv-expand > h2:first-of-type { margin-top: 1.6rem; }
+
+
+/* The War and Raid insignias link to the War and Raid pages. */
+a.insignia { color: inherit; text-decoration: none; transition: border-color 120ms ease, transform 120ms ease; }
+a.insignia:hover, a.insignia:focus-visible { border-color: var(--accent); transform: translateY(-1px); }
+
+/* Column heads that are links (season / war / boss columns): hovering a cell of the column lights up its head, like the Joueurs list. */
+thead th[data-href] { cursor: pointer; }
+thead th.col-hover { color: var(--text); background: color-mix(in srgb, var(--accent) 18%, var(--table-header-bg)); box-shadow: inset 0 -2px 0 var(--accent); }
+
+/* Player names in every table: plain at rest; on a row's "opens the player" zone (row-link.js sets .opens-player) they take the Joueurs list's pill:
+   filled, rounded, border not visible. */
+.table-scroll .player-btn, .table-scroll .player-btn:hover, .table-scroll .player-btn:focus-visible { background: transparent; border-color: transparent; }
+.table-scroll tbody tr.opens-player .player-btn, .table-scroll tbody tr:focus-visible .player-btn { background: var(--surface-hover); }
+tbody tr[data-active="false"] .player-btn { color: var(--text-muted); }

@@ -293,6 +293,8 @@ RAID_METAS = [
                  _h("necroSpyder", [50, 50], 11, D3, relic=(NETHER_CASKET, 1)), _h("admecManipulus", [50, 50], 11, D3)],
         "Machines": [_m("necroReanimator", [50, 60, 4]), _m("tyranBiovore", [60, 60, 4])]}),
 ]
+ARROW_RIGHT = ('<svg class="arrow" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" '
+               'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>')
 ROLES = ["Core", "Flex", "Machines"]
 # Unit whose portrait symbolises each meta
 META_ICON = {"Lavistodes": "custoBladeChampion", "Neuro": "tyranNeurothrope", "Battlesuit": "tauCrisis", "Méchas": "admecRuststalker"}
@@ -525,12 +527,10 @@ def method_html():
         u = {"id": "custoBladeChampion", "progressionIndex": idx, "xpLevel": lvl, "rank": rank, "abilities": [{"level": a} for a in ab]}
         rows += f'<tr><td>{escape(label)}</td><td class="mm-pct">{round(100 * unit_completion(u, full))}%</td></tr>'
     return (
-        '<div class="mm-method"><p><b>Chaque unité = la moyenne de 3 blocs (un tiers chacun)</b> : étoiles (fragments et orbes dépensés), '
-        'niveau (XP dépensée et énergie dépensée pour farmer les objets de rang, moitié chacun) et capacités (or et jetons dépensés). '
-        'Pour chacun, on regarde la part du coût total déjà payée, jusqu\'à l\'exigence de la meta ; atteindre l\'exigence = 100&nbsp;%.</p>'
-        '<p>Si une relique est requise, elle compte pour <b>10&nbsp;%</b> (niveau actuel / niveau requis) et les trois blocs pour 30&nbsp;% chacun.</p>'
-        '<p>Le % de Core, Flex et MOW est la moyenne de ses unités (une unité absente = 0&nbsp;%). '
-        'Machines de guerre : étoiles (elles déterminent la capacité mythique) et capacités seulement.</p>'
+        '<div class="mm-method"><p>Le pourcentage est construit avec <b>3 critères équivalents</b> : étoiles (fragments et orbes), '
+        'niveau (XP et énergie) et capacités (or et jetons). On compare ensuite l\'état actuel versus l\'exigence de la méta. '
+        'Le calcul est fait avec les vraies données du jeu.</p>'
+        '<p>Si une relique est requise, elle compte pour <b>10&nbsp;%</b> et les trois autres critères pour 30&nbsp;% chacun.</p>'
         f'<table class="mm-ex"><thead><tr><th>Exemple (exigence Adamantine 2 · 60/60 · skulled)</th><th>%</th></tr></thead><tbody>{rows}</tbody></table></div>'
     )
 
@@ -568,7 +568,7 @@ def _meta_modal(idx, team, roles, owned, names, prefix, who=None, href=None):
         f'<dialog class="meta-modal" id="meta-{idx}"><button type="button" class="mm-close" aria-label="Fermer">×</button>'
         f'<h3>{_meta_icon(team, prefix)}<span class="mm-title">{escape(team)}'
         + (f'<small class="mm-who">{escape(who)}</small>' if who else "")
-        + (f'<a class="mm-roster-btn" href="{href}">Voir le roster</a>' if href else "")
+        + (f'<a class="mm-roster-btn" href="{href}">Voir le roster{ARROW_RIGHT}</a>' if href else "")
         + '</span></h3>'
         '<div class="mm-scroll"><table class="mm-table"><thead><tr><th>Unité</th><th>Capacités</th>'
         f'<th>Rang</th><th>Étoiles</th><th>Relique</th><th>% {METHOD_BTN}</th></tr></thead><tbody>{body}</tbody></table></div></dialog>'
@@ -617,8 +617,8 @@ def _insignia(kind, label, info, prefix):
     below bronze."""
     if not info:
         why = "Pas encore classé"
-        return (f'<div class="insignia"><span class="ins-medal tier-none">–</span>'
-                f'<span class="ins-text"><b>{label}</b><small>{why}</small></span></div>')
+        return (f'<a class="insignia" href="{prefix}{kind}.html"><span class="ins-medal tier-none">–</span>'
+                f'<span class="ins-text"><b>{label}</b><small>{why}</small></span></a>')
     rank = info["rank"]
     tier = rank if rank <= 3 else "silver" if rank <= 20 else "bronze"  # 1-3 Onslaught colours, 4-20 silver grey, 21+ bronze
     medal = (f'<span class="ins-frame tier-{tier}"><span class="ins-core"><b>{rank}</b></span>'
@@ -632,7 +632,7 @@ def _insignia(kind, label, info, prefix):
         plural = "s" if info["seasons"] > 1 else ""
         lines = f'<small class="ins-rank">Rang {rank} sur {info["of"]}</small><small>{info["seasons"]} saison{plural}</small>'
         tip = "Classement général de guerre, parmi les membres actuels"
-    return f'<div class="insignia" title="{tip}">{medal}<span class="ins-text"><b>{label}</b>{lines}</span></div>'
+    return f'<a class="insignia" href="{prefix}{kind}.html" title="{tip}">{medal}<span class="ins-text"><b>{label}</b>{lines}</span></a>'
 
 
 def render_insignias(war, prefix="../", raid=None, extra="", raid_known=False):
@@ -640,8 +640,8 @@ def render_insignias(war, prefix="../", raid=None, extra="", raid_known=False):
     per war among the current members) and in the raid ranking (average of the per-season rankings; a placeholder X while
     there is no raid data)."""
     raid_html = (_insignia("raid", "Raid", raid, prefix) if raid_known else
-                 '<div class="insignia" title="Classement de raid : bientôt"><span class="ins-medal tier-none">X</span>'
-                 '<span class="ins-text"><b>Raid</b><small>À venir</small></span></div>')
+                 f'<a class="insignia" href="{prefix}raid.html" title="Classement de raid : bientôt"><span class="ins-medal tier-none">X</span>'
+                 '<span class="ins-text"><b>Raid</b><small>À venir</small></span></a>')
     return f'<div class="insignias">{_insignia("war", "War", war, prefix)}{raid_html}{extra}</div>'
 
 

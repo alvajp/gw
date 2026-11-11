@@ -201,6 +201,15 @@ def player_row_attrs(uid, prefix):
     return f' data-href="{prefix}joueurs/{slug}.html" tabindex="0"' if slug else ""
 
 
+def name_cell(uid, name, prefix):
+    """The player's name in a table: the same pill as the Joueurs list (fill and rounded corners, no visible border) leading to
+    their page; plain text for people without a page (adversaries, former members)."""
+    slug = PLAYER_SLUGS.get(uid)
+    if not slug:
+        return f"<td>{html_escape(name)}</td>"
+    return f'<td><a class="chip player-btn" href="{prefix}joueurs/{slug}.html">{html_escape(name)}</a></td>'
+
+
 def render_table(rows, hard_cols, easy_cols):
     headers = ["Joueur"] + [label for _, label in COLS]
     headers += [name for _, name in hard_cols] + [name for _, name in easy_cols]
@@ -227,7 +236,7 @@ def render_table(rows, hard_cols, easy_cols):
 
     body_rows = []
     for rank, (pname, ps, breakdown, uid) in enumerate(computed, 1):
-        cells = [f'<td class="rk">{rank}</td>', f"<td>{html_escape(pname)}</td>"]
+        cells = [f'<td class="rk">{rank}</td>', name_cell(uid, pname, "../")]
         for key, _label in COLS:
             if key in breakdown:
                 val = breakdown[key]
@@ -305,7 +314,7 @@ def render_history_table(wars_subset):
 
     thead_cells = ['<th class="rk">#</th>', "<th>Joueur</th>"]
     for w in wars_subset:
-        thead_cells.append(f'<th>{html_escape(header_labels[w["slug"]])}</th>')
+        thead_cells.append(f'<th data-href="../wars/{w["slug"]}.html">{html_escape(header_labels[w["slug"]])}</th>')  # a click in the column opens the war
     thead_cells.append("<th>Moyenne</th>")
     thead = "".join(thead_cells)
 
@@ -327,7 +336,7 @@ def render_history_table(wars_subset):
 
     body_rows = []
     for rank, uid in enumerate(sorted(history, key=lambda u: -totals[u]), 1):
-        cells = [f'<td class="rk">{rank}</td>', f"<td>{html_escape(display_names[uid])}</td>"]
+        cells = [f'<td class="rk">{rank}</td>', name_cell(uid, display_names[uid], "../")]
         for w in wars_subset:
             val = war_values[w["slug"]].get(uid)
             if val is None:
@@ -1355,12 +1364,15 @@ def _defense_modal_html(rows_events, players, prefix):
     )
 
 
-def render_defense_table(rows, players, boards, prefix):
+def render_defense_table(rows, players, boards, prefix, top=None):
+    """top keeps only the first `top` rows (no expand button)."""
     if not rows:
         return ""
     avgs = [r["avg"] for r in rows]
     lo, hi = min(avgs), max(avgs)
     body = []
+    if top:
+        rows = sorted(rows, key=lambda r: (-r["n"], r["avg"]))[:top]
     # Most tokens spent against it first (the hardest nut to crack), then the
     # lower mean score.
     for i, r in enumerate(sorted(rows, key=lambda r: (-r["n"], r["avg"]))):
@@ -1402,23 +1414,22 @@ def render_defense_table(rows, players, boards, prefix):
     return table
 
 
-def render_defense_section(result, our_idx, boards, prefix="../"):
-    """War-page "Défense": every defensive team that held at least once (the
-    attacker failed at least one attack against it), most tokens spent against
-    it first, with its map image, portraits (real names on hover) and how it
-    held (see compute_defense_teams). Only the first DEFENSE_VISIBLE_ROWS per
-    guild show; defense-filter.js expands the rest."""
+def render_defense_section(result, our_idx, boards, prefix="../", ours=True):
+    """War-page "Meilleures défenses": the DEFENSE_VISIBLE_ROWS defensive teams of one guild that held best -- the attacker
+    failed at least once against them -- most tokens spent against it first, with its map image, portraits (real names on
+    hover) and how it held (see compute_defense_teams). ours=True: our guild's table under its own heading; ours=False: the
+    opponents' tables, no heading (they sit in the "Voir l'adversaire" expand)."""
     rows = [r for r in compute_defense_teams(result, our_idx) if r["fails"] >= 1]
-    if not rows:
-        return ""
-    parts = ['<div id="defense-wrap"><h2>Défense</h2>']
+    parts = []
     for team in sorted(result["guilds"], key=lambda t: (t != our_idx, t)):
-        name = OUR_GUILD_LABEL if team == our_idx else result["guilds"][team]["name"]
-        table = render_defense_table([r for r in rows if r["team"] == team], result["players"], boards, prefix)
+        if (team == our_idx) != ours:
+            continue
+        table = render_defense_table([r for r in rows if r["team"] == team], result["players"], boards, prefix, top=DEFENSE_VISIBLE_ROWS)
         if table:
-            parts.append(f'<div class="defense-block"><h3>{html_escape(name)}</h3>{table}</div>')
-    parts.append("</div>")
-    return "".join(parts)
+            parts.append(f'<div class="defense-block">{table}</div>')
+    if not parts:
+        return ""
+    return '<div id="defense-wrap"><h2>Meilleures défenses</h2>' + "".join(parts) + "</div>" if ours else "".join(parts)
 
 
 BUFF_ORDER = ["MS", "AP", "AA", "AR", "FP", "LP"]
@@ -1988,9 +1999,8 @@ def render_war_page(slug, result, season, outcome=None, active_uids=frozenset(),
     # and a hand-supplemented war drops its battle_events, see ranking.py),
     # so the section is simply left empty for those.
     display_names = {uid: p.get("displayName", uid) for uid, p in result["players"].items()}
-    body += render_war_chronologie_section(result, our_idx, display_names)
-
     body += "<h2>Détail</h2>" + render_table(our_rows, hard_cols, easy_cols)
+    body += render_war_chronologie_section(result, our_idx, display_names)
 
     other_tables = []
     for team_idx in sorted(guilds):
@@ -1999,10 +2009,14 @@ def render_war_page(slug, result, season, outcome=None, active_uids=frozenset(),
         rows = guild_rows(result, team_idx)
         other_tables.append(render_table(rows, hard_cols, easy_cols))
 
-    if other_tables:
-        body += "<h2>Adversaires</h2>" + "".join(other_tables)
-
     body += render_defense_section(result, our_idx, result.get("boards") or {})
+    # the opponent's table and best defences stay folded away, at the bottom
+    their_defense = render_defense_section(result, our_idx, result.get("boards") or {}, ours=False)
+    if other_tables or their_defense:
+        body += ('<details class="adv-expand"><summary>Voir l\'adversaire</summary>'
+                 + ("<h2>Adversaires</h2>" + "".join(other_tables) if other_tables else "")
+                 + (f'<div class="adv-defense"><h2>Meilleures défenses</h2>{their_defense}</div>' if their_defense else "")
+                 + "</details>")
     has_strategy = any(e.get("defender") for e in result["battle_events"])
     if has_strategy:
         # the Défense rows open the shared modal; it needs its names/portraits blob
@@ -2145,7 +2159,7 @@ def render_season_average_table(season_numbers, season_stats, display_names, ave
     recently recorded war, without needing a server round-trip."""
     thead_cells = ['<th class="rk">#</th>', "<th>Joueur</th>"]
     for season in season_numbers:
-        thead_cells.append(f"<th>Saison {season}</th>")
+        thead_cells.append(f'<th data-href="seasons/{season}.html">Saison {season}</th>')  # a click in the column opens the season (row-link.js)
     thead_cells.append("<th>Moyenne</th>")
     thead = "".join(thead_cells)
 
@@ -2169,7 +2183,7 @@ def render_season_average_table(season_numbers, season_stats, display_names, ave
 
     body_rows = []
     for rank, uid in enumerate(sorted(season_stats, key=lambda u: -averages[u]), 1):
-        cells = [f'<td class="rk">{rank}</td>', f"<td>{html_escape(display_names[uid])}</td>"]
+        cells = [f'<td class="rk">{rank}</td>', name_cell(uid, display_names[uid], "")]
         for season in season_numbers:
             val = season_values[season].get(uid)
             if val is None:
@@ -2627,7 +2641,7 @@ def render_raid_pages(all_wars):
     for n in season_order:
         vals = [p["score"] for u, p in seasons[n]["players"].items() if u in members]
         bounds[n] = (min(vals), max(vals)) if vals else (0, 0)
-    head = ["<th>#</th>", "<th>Joueur</th>", "<th>Rang moyen</th>", "<th>Saisons</th>"] + [f"<th>S{n}</th>" for n in season_order]
+    head = ["<th>#</th>", "<th>Joueur</th>", "<th>Rang moyen</th>", "<th>Saisons</th>"] + [f'<th data-href="raid/{n}.html">S{n}</th>' for n in season_order]
     rows = []
     for uid, info in sorted(ranking.items(), key=lambda kv: kv[1]["rank"]):
         cells = [f'<td>{info["rank"]}</td>',
@@ -2659,7 +2673,7 @@ def render_raid_pages(all_wars):
         for k in keys:
             slot = slots[k]
             label = slot["name"].split(" (")[0]
-            head.append(f'<th title="{html_escape(slot["name"])}"><img class="rb-ico" src="../assets/{slot["art"]}" alt=""><span>{html_escape(label)}</span></th>')
+            head.append(f'<th data-href="../boss/{k}.html" title="{html_escape(slot["name"])}"><img class="rb-ico" src="../assets/{slot["art"]}" alt=""><span>{html_escape(label)}</span></th>')
         rows = []
         for uid, p in sorted(data["players"].items(), key=lambda kv: kv[1]["rank"]):
             name = html_escape(names.get(uid, "Ancien membre"))
@@ -2698,16 +2712,18 @@ def render_boss_pages(all_wars):
     os.makedirs(os.path.join(DOCS_DIR, "boss"), exist_ok=True)
 
     # --- landing: the podium card of every boss (each card opens the boss page) ---------------------------------------------------------------------------
-    cards = ""
+    cards = ""  # one line per boss: the boss, then its primes (sub-bosses) on the same line
     for slot in slots:
+        if " (" not in slot["name"]:
+            cards += ("</div>" if cards else "") + '<div class="boss-group">'
         field = sorted(relative.get(slot["key"], {}).items(), key=lambda kv: -kv[1][0])[:3]
         rows = "".join(
             f'<li><span class="bp-rank">{i}</span><span class="bp-name">{html_escape(names[u])}</span><span class="bp-val">{_fmt_rel(v[0])}</span></li>'
             for i, (u, v) in enumerate(field, 1)
         ) or '<li class="bp-none">Pas encore d\'attaque</li>'
         cards += (f'<a class="boss-card" href="boss/{slot["key"]}.html"><span class="boss-card-head"><img src="assets/{slot["art"]}" alt="">'
-                  f'<b>{html_escape(slot["name"])}</b></span><ol>{rows}</ol></a>')
-    body = f'<div class="boss-cards">{cards}</div>' + BOSS_EXPLAIN
+                  f'<b>{html_escape(slot["name"].split(" (")[0])}</b></span><ol>{rows}</ol></a>')  # a prime sits on its boss's line: no need to name the boss
+    body = f'<div class="boss-cards">{cards}</div></div>' + BOSS_EXPLAIN
     html = render_page(nav_active="boss", title="Boss", asset_prefix="", body=body, back_link=back_link_html("raid.html", "Raid"), title_class="hero-title",
                        header_extra="", header_action="", v=ASSETS_VERSION)
     with open(os.path.join(DOCS_DIR, "boss.html"), "w", encoding="utf-8") as f:
@@ -2722,7 +2738,7 @@ def render_boss_pages(all_wars):
         for n in played:
             vals = [seasons[n]["players"][u]["by_key"][key][0] for u in members if u in seasons[n]["players"] and key in seasons[n]["players"][u]["by_key"]]
             bounds[n] = (min(vals), max(vals)) if vals else (0, 0)
-        head = ["<th>#</th>", "<th>Joueur</th>", "<th>Relatif</th>", "<th>Attaques</th>"] + [f"<th>S{n}</th>" for n in played]
+        head = ["<th>#</th>", "<th>Joueur</th>", "<th>Relatif</th>", "<th>Attaques</th>"] + [f'<th data-href="../raid/{n}.html">S{n}</th>' for n in played]
         values = [v[0] for _, v in field]
         lo, hi = (min(values), max(values)) if values else (0, 0)
         rows = []
