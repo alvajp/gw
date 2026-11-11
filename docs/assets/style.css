@@ -1555,3 +1555,13 @@ th.rk, td.rk { text-align: center; padding-left: 0.45em; padding-right: 0.45em; 
 .table-scroll table th.rk + th, .table-scroll table td.rk + td { position: sticky; left: 3rem; z-index: 2; background: var(--table-bg); }
 .table-scroll table thead th.rk + th { background: var(--table-header-bg); z-index: 4; }
 .table-scroll table tbody tr:nth-child(even) td.rk + td { background-color: var(--table-row-alt); }
+
+/* Home: the three cards sit at the bottom of the screen (sticky), the wallpaper above them. */
+body[data-page="home"] { display: flex; flex-direction: column; min-height: 100vh; }
+body[data-page="home"] main { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; padding-bottom: 0; }
+body[data-page="home"] .home-cards { position: sticky; bottom: 0; margin: 2rem 0 0; padding-bottom: 2rem; }
+body[data-page="home"] > header, body[data-page="home"] > main { width: 100%; box-sizing: border-box; }
+
+/* Pages without a second menu row (Accueil, Joueurs) keep an empty one of the same height, so the content never shifts when the section changes. */
+.topsub-empty { border-top-color: transparent; }
+.topsub-empty .topsub-inner { visibility: hidden; }

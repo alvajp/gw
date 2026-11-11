@@ -222,14 +222,14 @@ def raid_seasons():
 
 
 def raid_ranking(members):
-    """uid -> {rank, of, avg_season_rank, seasons, avg_rel} for the current members: the members ordered by their average
-    season rank (see raid_seasons), ties by the average relative damage. The guild average is taken over the whole season."""
+    """uid -> {rank, of, avg_season_rank, seasons, avg_rel} for the current members: the members ordered by their Score, the mean of
+    their season scores (relative damage cut by the lost tokens, see raid_seasons), ties by the average season rank. The guild average is taken over the whole season."""
     per_player = defaultdict(list)  # uid -> [(season rank, season score)]
     for season, data in raid_seasons().items():
         for uid, p in data["players"].items():
             if uid in members:
                 per_player[uid].append((p["rank"], p["score"]))
     rows = [(uid, sum(r for r, _ in v) / len(v), sum(sc for _, sc in v) / len(v), len(v)) for uid, v in per_player.items() if len(v) >= MIN_SEASONS]
-    rows.sort(key=lambda r: (r[1], -r[2]))
+    rows.sort(key=lambda r: (-r[2], r[1]))  # by the Score (mean of the season scores, lost tokens included), ties by the average season rank
     return {uid: {"rank": i, "of": len(rows), "avg_season_rank": round(m, 1), "seasons": n, "avg_rel": round(100 * rel_, 1)}
             for i, (uid, m, rel_, n) in enumerate(rows, 1)}

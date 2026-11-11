@@ -473,6 +473,8 @@ def render_topbar(prefix, active, sub=None):
             items += '<span class="topsub-sep" aria-hidden="true"></span>'
             items += "".join(link(href, label, key == cur) for key, href, label in seasons)
         sub_html = f'<div class="topsub"><div class="topsub-inner">{items}</div></div>'
+    else:  # no second row for this section: an empty one keeps the topbar (and so the page content) at the same height
+        sub_html = '<div class="topsub topsub-empty" aria-hidden="true"><div class="topsub-inner"></div></div>'
     return (
         '<nav class="topbar"><div class="topbar-inner">'
         f'<a class="brand" href="{prefix}index.html"><span class="brand-mark"></span>'
