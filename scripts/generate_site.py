@@ -442,6 +442,7 @@ PAGE_TEMPLATE = """<!doctype html>
 <script src="{asset_prefix}assets/roster.js?v={v}"></script>
 <script src="{asset_prefix}assets/placement.js?v={v}"></script>
 <script src="{asset_prefix}assets/metas.js?v={v}"></script>
+<script src="{asset_prefix}assets/opp-filter.js?v={v}"></script>
 <script src="{asset_prefix}assets/page-transition.js?v={v}"></script>
 </body>
 </html>"""
@@ -1624,6 +1625,9 @@ def render_opponent_map(all_wars, prefix=""):
     if not guild_names:
         return '<div id="opp-map-wrap"></div>', [], {}
 
+    uniq = list(dict.fromkeys(guild_names))
+    default_guild = "Bloody Rose" if "Bloody Rose" in uniq else uniq[0]
+
     def chip(side, opp_name, war_tag, zone, d, players, m):
         name = players.get(d["uid"], {}).get("displayName", d["uid"])
         zlabel = ZONE_LABELS.get(zone, zone)
@@ -1636,16 +1640,16 @@ def render_opponent_map(all_wars, prefix=""):
         }
         attr = html_escape(json.dumps(payload, separators=(",", ":"), ensure_ascii=False)).replace(chr(34), "&quot;")
         fails = sum(1 for e in d["events"] if e["fail"])
+        hidden = "" if opp_name == default_guild else " hidden"
         return (
-            f'<button type="button" class="map-def" data-def="{attr}">'
+            f'<button type="button" class="map-def" data-g="{html_escape(opp_name)}"{hidden} data-def="{attr}">'
             f'<span class="map-def-name">{html_escape(name)}</span>'
             f'<small>{html_escape(context)} · {zlabel}</small>'
             f'<small>{len(d["events"])} att. · {fails} échec{"s" if fails > 1 else ""}</small></button>'
         )
 
-    uniq = list(dict.fromkeys(guild_names))
     sides = []
-    for side, heading in (("us", OUR_GUILD_LABEL), ("them", ", ".join(uniq))):
+    for side, heading in (("us", OUR_GUILD_LABEL), ("them", default_guild)):
         tiles = []
         for board, m in MAPS_DB.items():
             entries = sorted(tiles_by_board[side].get(board, []), key=lambda x: -len(x[3]["events"]))
@@ -1656,9 +1660,18 @@ def render_opponent_map(all_wars, prefix=""):
                 f'<div class="map-tile-defs">{chips}</div></div>'
             )
         sides.append(
-            f'<div class="battlefield-side side-{len(sides)}"><h3>{html_escape(heading)}</h3><div class="battlefield-grid">{"".join(tiles)}</div></div>'
+            f'<div class="battlefield-side side-{len(sides)}"><h3{" id=opp-heading" if side == "them" else ""}>{html_escape(heading)}</h3><div class="battlefield-grid">{"".join(tiles)}</div></div>'
         )
-    html = f'<div id="opp-map-wrap"><div class="battlefield">{"".join(sides)}</div></div>'
+    ordered = sorted(uniq, key=lambda g: (g != default_guild, uniq.index(g)))  # default guild first
+    picker = (
+        '<div class="opp-filter"><span class="opp-filter-label">Sélectionner</span><div class="chips">'
+        + "".join(
+            f'<button type="button" class="chip{" active" if g == default_guild else ""}" data-g="{html_escape(g)}">{html_escape(g)}</button>'
+            for g in ordered
+        )
+        + "</div></div>"
+    )
+    html = f'<div id="opp-map-wrap">{picker}<div class="battlefield">{"".join(sides)}</div></div>'
     return html, events_all, players_all
 
 

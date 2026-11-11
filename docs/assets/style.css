@@ -1060,7 +1060,13 @@ dialog.method-modal { width: min(640px, calc(100vw - 2rem)); }
 
 /* Player page: the whole meta row of the table opens that meta's dialog. */
 .mtable tbody tr[data-meta] { cursor: pointer; }
-.mtable tbody tr[data-meta]:hover > *, .mtable tbody tr[data-meta]:focus-visible > * { background: var(--table-header-bg); }
+/* same hover as the players list: accent tint + accent bar on the left */
+.mtable tbody tr[data-meta]:hover > *, .mtable tbody tr[data-meta]:focus-visible > * { background: color-mix(in srgb, var(--accent) 9%, var(--table-header-bg)); }
+.mtable tbody tr[data-meta]:hover > .mteam-name, .mtable tbody tr[data-meta]:focus-visible > .mteam-name { box-shadow: inset 3px 0 0 var(--accent); }
+@media (max-width: 640px) {
+  .mtable tbody tr[data-meta]:hover { box-shadow: inset 3px 0 0 var(--accent); }
+  .mtable tbody tr[data-meta]:hover > .mteam-name { box-shadow: none; }
+}
 .mtable tbody tr[data-meta]:focus-visible { outline: 1px solid var(--accent); outline-offset: -1px; }
 
 /* Players list: column heads sort the rows; the small arrow on the right says so (down = best first, up = reversed). */
@@ -1073,5 +1079,14 @@ dialog.method-modal { width: min(640px, calc(100vw - 2rem)); }
 
 /* Players list: a clearly visible row hover (the whole row is clickable): accent tint, accent bar on the left, highlighted name. */
 .pg-row:hover { background: color-mix(in srgb, var(--accent) 9%, var(--table-header-bg)); box-shadow: inset 3px 0 0 var(--accent); }
-.pg-row:hover .player-btn { border-color: var(--accent); color: var(--text); }
+.pg-row:hover .player-btn { color: var(--text); }
 @media (max-width: 760px) { .pg-row:hover { background: color-mix(in srgb, var(--accent) 9%, var(--surface)); } }
+
+/* Players list: no border around the player names. */
+.pg-row .player-btn, .pg-row:hover .player-btn { border-color: transparent; }
+
+/* Strategy page: guild chips above the opponents' map. */
+.opp-filter { display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap; margin: 0.2rem 0 1rem; }
+.opp-filter-label { font-size: 0.78rem; font-weight: 600; color: var(--text-muted); }
+.opp-filter .chips { margin: 0; flex-wrap: wrap; overflow-x: visible; }
+.map-def[hidden] { display: none; }
