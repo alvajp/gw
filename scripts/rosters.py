@@ -274,7 +274,7 @@ RAID_METAS = [
     ("Lavistodes", {
         "Core": [_h("emperExultant", [60, 36], W), _h("custoBladeChampion", [60, 60], W), _h("custoTrajann", [50, 60], 13),
                  _h("orksWarboss", [60, 60], 13, relic=(KILLCHOPPA, 1)), _h("custoVexilusPraetor", [60, 50], 13), _h("custoAtlacoya", [60, 36], 11)],
-        "Flex": [_h("bloodDante", [50, 60], 11), _h("worldKharn", [60, 60], 13), _h("admecDominus", [50, 60], 13),
+        "Flex": [_h("bloodDante", [36, 60], 11), _h("worldKharn", [60, 60], 13), _h("admecDominus", [50, 60], 13),
                  _h("worldExecutions", [60, 60], 13), _h("adeptCanoness", [50, 60], 11)],
         "Machines": [_m("tyranBiovore", [60, 60, 4]), _m("deathCrawler", [1, 36, 4])]}),
     ("Neuro", {
@@ -612,18 +612,17 @@ def render_raid_metas(units, prefix="../"):
 
 def _insignia(kind, label, info, prefix):
     """One insignia. War: `info` = {rank, of, avg, wars}; raid: {rank, of, avg_season_rank, seasons, avg_rel} (None = not ranked).
-    The top three get the game's August 2026 avatar frame (the plate says WAR or RAID) around a coloured disc with their rank:
-    orange 1st (mythic), teal 2nd (legendary), gold 3rd (epic), the Onslaught badge colours; the others a plain white medal."""
+    Everybody ranked gets the game's August 2026 avatar frame (the plate says WAR or RAID) around a disc with their rank:
+    orange 1st (mythic), teal 2nd (legendary), gold 3rd (epic), the Onslaught badge colours; 4th to 20th silver grey, 21st and
+    below bronze."""
     if not info:
         why = "Pas encore classé"
         return (f'<div class="insignia"><span class="ins-medal tier-none">–</span>'
                 f'<span class="ins-text"><b>{label}</b><small>{why}</small></span></div>')
     rank = info["rank"]
-    if rank <= 3:
-        medal = (f'<span class="ins-frame tier-{rank}"><span class="ins-core"><b>{rank}</b></span>'
-                 f'<img class="ins-frame-img" src="{prefix}assets/ui/avatar_frame_{kind}.png" alt=""></span>')
-    else:
-        medal = f'<span class="ins-medal tier-plain">{rank}</span>'
+    tier = rank if rank <= 3 else "silver" if rank <= 20 else "bronze"  # 1-3 Onslaught colours, 4-20 silver grey, 21+ bronze
+    medal = (f'<span class="ins-frame tier-{tier}"><span class="ins-core"><b>{rank}</b></span>'
+             f'<img class="ins-frame-img" src="{prefix}assets/ui/avatar_frame_{kind}.png" alt=""></span>')
     if kind == "raid":
         plural = "s" if info["seasons"] > 1 else ""
         lines = f'<small>Rang {rank} sur {info["of"]}</small><small>{info["seasons"]} saison{plural}</small>'

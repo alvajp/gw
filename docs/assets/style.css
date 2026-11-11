@@ -1239,3 +1239,6 @@ body[data-page="strategy"][data-bg="war-for-armageddon"]::before {
 .rc-items .it, .rc-items .it.it-art { width: 1.5rem; height: 1.5rem; }
 .rc-items .it-lvl { font-size: 0.5rem; min-width: 0.8rem; right: -3px; bottom: -3px; }
 @media (max-width: 480px) { .rs-grid { grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 0.35rem; } }
+.ins-frame.tier-silver .ins-core { background: radial-gradient(circle at 35% 25%, #eef0f4, #aab2bf 62%, #7d8696); }   /* ranks 4-20 */
+.ins-frame.tier-silver .ins-core b { color: #20242c; text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5); }
+.ins-frame.tier-bronze .ins-core { background: radial-gradient(circle at 35% 25%, #f1c08e, #c98544 62%, #8f5420); }     /* ranks 21-30 */
