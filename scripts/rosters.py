@@ -10,6 +10,7 @@ API's progressionIndex and rank exactly as the planner does.
 """
 import glob
 import json
+import math
 import os
 from datetime import datetime
 from html import escape
@@ -233,19 +234,28 @@ def render_resources(inv, prefix="../"):
 A2, W = 19, 14
 
 
-def _h(uid, ab, stars):
-    return (uid, {"ab": ab, "stars": stars, "rank": A2})
+D3 = 17  # Diamond III (level cap 50)
+
+
+def _h(uid, ab, stars, rank=A2):
+    """Hero requirement; the level needed is the cap of the rank (A2 -> 60, Diamond 3 -> 50)."""
+    return (uid, {"ab": ab, "stars": stars, "rank": rank, "level": 60 if rank >= A2 else 50})
+
+
+# Machines of war: the mythic ability level follows the machine's stars (level 1-3 = 1-3 blue stars, level 4 = skulled).
+MYTHIC_ABILITY_STARS = {1: 11, 2: 12, 3: 13, 4: 14}
 
 
 def _m(uid, ab):
-    return (uid, {"ab": ab})
+    """ab = [ability 1, ability 2, mythic ability level] -> abilities + the stars that mythic ability level corresponds to."""
+    return (uid, {"ab": ab[:2], "stars": MYTHIC_ABILITY_STARS[ab[2]], "mow": True})
 
 
 RAID_METAS = [
     ("Lavistodes", {
         "Core": [_h("emperExultant", [60, 36], W), _h("custoBladeChampion", [60, 60], W), _h("custoTrajann", [50, 60], 13),
                  _h("orksWarboss", [60, 60], 13), _h("custoVexilusPraetor", [60, 50], 13), _h("custoAtlacoya", [60, 36], 11)],
-        "Flex": [_h("bloodDante", [50, 60], 11), _h("worldKharn", [60, 60], 13), _h("admecDominus", [60, 60], 13),
+        "Flex": [_h("bloodDante", [50, 60], 11), _h("worldKharn", [60, 60], 13), _h("admecDominus", [50, 60], 13),
                  _h("worldExecutions", [60, 60], 13), _h("adeptCanoness", [50, 60], 11)],
         "Machines": [_m("tyranBiovore", [60, 60, 4]), _m("deathCrawler", [1, 36, 4])]}),
     ("Neuro", {
@@ -260,9 +270,9 @@ RAID_METAS = [
     ("Méchas", {
         "Core": [_h("admecRuststalker", [60, 60], W), _h("admecMarshall", [50, 60], 11), _h("necroOverlord", [60, 50], 11),
                  _h("votanMemnyr", [60, 60], 11), _h("admecDominus", [35, 60], 11)],
-        "Flex": [_h("custoTrajann", [50, 60], 11), _h("templHelbrecht", [60, 60], 11), _h("tauMarksman", [50, 60], 11),
-                 _h("necroSpyder", [60, 60], 11)],
-        "Machines": [_m("necroReanimator", [50, 60, 4])]}),
+        "Flex": [_h("custoTrajann", [50, 60], 11, D3), _h("templHelbrecht", [60, 60], 11, D3), _h("tauMarksman", [50, 50], 11, D3),
+                 _h("necroSpyder", [50, 50], 11, D3)],
+        "Machines": [_m("necroReanimator", [50, 50, 4])]}),
 ]
 ROLES = ["Core", "Flex", "Machines"]
 # Unit whose portrait symbolises each meta
@@ -283,27 +293,79 @@ def _levels(u, n):
     return (lv + [0] * n)[:n]
 
 
+_COSTS = None
+
+
+def _costs():
+    """Cumulative game costs from data/progression_costs.json (see fetch_progression_costs.py)."""
+    global _COSTS
+    if _COSTS is None:
+        with open(os.path.join(ROOT, "data", "progression_costs.json"), encoding="utf-8") as f:
+            _COSTS = json.load(f)
+    return _COSTS
+
+
+def _frac(cum, i):
+    """Share of the total cost already paid at cumulative index i (clamped)."""
+    return cum[min(max(i, 0), len(cum) - 1)] / cum[-1]
+
+
+def _xp_frac(level):
+    return _frac(_costs()["xp_cum"][:60], level - 1)  # up to level 60
+
+
+def _ability_frac(level, mow=False):
+    """Heroes: half gold, half badges; machines of war: gold only."""
+    c = _costs()
+    if mow:
+        return _frac(c["mow_ability_gold_cum"], level - 1)
+    return 0.5 * _frac(c["ability_gold_cum"], level - 1) + 0.5 * _frac(c["ability_token_cum"], level - 1)
+
+
+def _star_frac(idx):
+    return _frac(_costs()["star_cum"], idx + 1)
+
+
+def _rank_frac(unit_id, rank):
+    """Share of the energy needed to farm the rank-up items, up to API rank `rank` (A2 = 19 = the current cap)."""
+    table = _costs()["rank_energy_cum"]
+    cum = table.get(unit_id) or next(iter(table.values()))
+    return min(cum[min(max(rank, 0), 19)] / cum[19], 1.0)
+
+
+def _star_index(stars):
+    """Lowest progression index showing at least `stars` stars."""
+    return next(i for i in range(20) if rarity_stars(i)[1] >= stars)
+
+
 def unit_completion(u, req):
-    """0..1 completion of one unit against its requirement: mean of stars / rank / abilities ratios (each capped at 1);
-    machines only count abilities; a missing unit is 0; a unit without a defined requirement is 1 once owned."""
+    """0..1 completion of one unit against its requirement. Each criterion is measured by the real resources it costs:
+    stars = shards + orbs (mythic = 5x), level = XP, rank = energy to farm the rank-up items, abilities = gold + badges
+    (mythic = 5x). The player's state is capped at the requirement, the criteria's cost shares are averaged (equal
+    weights), then divided by the same average for the requirement itself, so meeting the requirement is exactly 100 %.
+    No smoothing: the % is the plain share of resources already spent. Machines of war: stars (which set the mythic ability) + ability levels (gold), no level or rank. Absent unit = 0;
+    a unit with no requirement is 1 once owned."""
     if u is None:
         return 0.0
     if req is None:
         return 1.0
-    parts = []
-    if "stars" in req:
-        parts.append(min(rarity_stars(u["progressionIndex"])[1] / req["stars"], 1))
-    if "rank" in req:
-        parts.append(min(max(u["rank"], 0) / req["rank"], 1))
     need = req["ab"]
     have = _levels(u, len(need))
-    parts.append(sum(min(h / n, 1) for h, n in zip(have, need)) / len(need))
-    return sum(parts) / len(parts)
+    ri = _star_index(req["stars"])
+    stars_now, stars_req = _star_frac(min(u["progressionIndex"], ri)), _star_frac(ri)
+    if req.get("mow"):  # machine of war: stars (they set the mythic ability) + ability levels, no level / rank
+        mine = [stars_now, sum(_ability_frac(min(h, n), True) for h, n in zip(have, need)) / len(need)]
+        target = [stars_req, sum(_ability_frac(n, True) for n in need) / len(need)]
+    else:  # hero
+        mine = [stars_now, _xp_frac(min(max(u["xpLevel"], 1), req["level"])), _rank_frac(u["id"], min(u["rank"], req["rank"])),
+                sum(_ability_frac(min(h, n)) for h, n in zip(have, need)) / len(need)]
+        target = [stars_req, _xp_frac(req["level"]), _rank_frac(u["id"], req["rank"]), sum(_ability_frac(n) for n in need) / len(need)]
+    return min(1.0, (sum(mine) / len(mine)) / (sum(target) / len(target)))
 
 
 def stars_label(stars):
     if stars >= 14:
-        return "orange"
+        return "skulled"
     if stars >= 11:
         n = stars - 10
         return f"{n} bleue{'s' if n > 1 else ''}"
@@ -336,45 +398,127 @@ def _meta_icon(team, prefix):
     return ""
 
 
-def _meta_modal(idx, team, roles, owned, names, prefix):
-    """Per-meta methodology dialog: the requirement of every unit next to what this player has, and its completion."""
+def rank_badge(rank, prefix):
+    """The game's rank medal (assets/ui/rank_1..21.png = API rank 0..20) with its name as tooltip."""
+    return f'<img class="mm-rank" src="{prefix}assets/ui/rank_{min(max(rank, 0), 20) + 1}.png" alt="{rank_label(rank)}" title="{rank_label(rank)}">'
+
+
+def stars_badge(stars, prefix):
+    """The game's star icons for a star count (or "aucune")."""
+    if stars <= 0:
+        return '<span class="mm-none">aucune</span>'
+    return f'<span class="mm-stars" title="{stars_label(stars)}">{stars_html(stars, prefix)}</span>'
+
+
+def _pair(have_html, need_html, ok):
+    """Player value (coloured underline: green when the requirement is met) followed by the required value, smaller."""
+    return f'<span class="mm-badge {"ok" if ok else "ko"}">{have_html}</span><span class="mm-req">{need_html}</span>'
+
+
+def _req_cells(req, prefix):
+    """Requirement-only cells (no player data): abilities, rank, stars."""
+    ab = " / ".join(f'<span class="mm-have">{n}</span>' for n in req["ab"])
+    if "rank" in req:
+        return ab, f'<span class="mm-badge">{rank_badge(req["rank"], prefix)}</span>', f'<span class="mm-badge">{stars_badge(req["stars"], prefix)}</span>'
+    if req.get("mow"):
+        return ab, "—", f'<span class="mm-badge">{stars_badge(req["stars"], prefix)}</span>'
+    return ab, "—", "—"
+
+
+# Worked examples for the method block: (label, progression index, level, API rank, ability levels), judged against the maximum requirement.
+METHOD_EXAMPLES = [
+    ("Adamantine 2 · 60/60 · skulled", 19, 60, 19, [60, 60]),
+    ("Adamantine 2 · 60/60 · 3 étoiles bleues", 18, 60, 19, [60, 60]),
+    ("Adamantine 2 · 36/36 · skulled", 19, 60, 19, [36, 36]),
+    ("Diamant 3 · 50/50 · 1 étoile bleue", 15, 50, 17, [50, 50]),
+    ("Gold 1 · 35/35 · 3 étoiles rouges", 11, 35, 12, [35, 35]),
+]
+
+
+METHOD_BTN = '<button type="button" class="mm-method-btn" data-meta="method-modal">Méthodologie</button>'
+
+
+def method_modal():
+    """One shared dialog per page holding the method text (opened from the "Méthodologie" button of any meta dialog)."""
+    return ('<dialog class="meta-modal method-modal" id="method-modal"><button type="button" class="mm-close" aria-label="Fermer">×</button>'
+            f'<h3>Méthodologie</h3>{method_html()}</dialog>')
+
+
+def method_html():
+    """Short explanation of the completion % plus a table of worked examples (computed with unit_completion itself)."""
+    full = {"ab": [60, 60], "stars": 14, "rank": A2, "level": 60}
+    rows = ""
+    for label, idx, lvl, rank, ab in METHOD_EXAMPLES:
+        u = {"id": "custoBladeChampion", "progressionIndex": idx, "xpLevel": lvl, "rank": rank, "abilities": [{"level": a} for a in ab]}
+        rows += f'<tr><td>{escape(label)}</td><td class="mm-pct">{round(100 * unit_completion(u, full))}%</td></tr>'
+    return (
+        '<div class="mm-method"><p><b>Chaque unité = la moyenne de 4 critères (25 % chacun)</b> : étoiles (fragments et orbes dépensés), '
+        'niveau (XP dépensée), rang (énergie dépensée pour farmer les objets de rang) et capacités (or et jetons dépensés). '
+        'Pour chacun, on regarde la part du coût total déjà payée, jusqu\'à l\'exigence de la meta ; atteindre l\'exigence = 100&nbsp;%.</p>'
+        '<p>Le % de Core, Flex et MOW est la moyenne de ses unités (une unité absente = 0&nbsp;%). '
+        'Machines de guerre : étoiles (elles déterminent la capacité mythique) et capacités seulement.</p>'
+        f'<table class="mm-ex"><thead><tr><th>Exemple (exigence Adamantine 2 · 60/60 · skulled)</th><th>%</th></tr></thead><tbody>{rows}</tbody></table></div>'
+    )
+
+
+def _meta_modal(idx, team, roles, owned, names, prefix, who=None):
+    """Per-meta dialog. With `owned` (a player's units by id): every unit's requirement next to what this player has,
+    plus its completion. With owned=None (the players list): the requirements alone."""
+    generic = owned is None
     body = ""
     for role in ROLES:
         entries = roles.get(role)
         if not entries:
             continue
-        pct = round(100 * sum(unit_completion(owned.get(uid), req) for uid, req in entries) / len(entries))
-        body += f'<tr class="mm-role"><th colspan="5">{ROLE_SHORT[role] if role == "Machines" else role}<span>{pct}%</span></th></tr>'
+        label = ROLE_SHORT[role] if role == "Machines" else role
+        if generic:
+            body += f'<tr class="mm-role"><th>{label}</th><th></th><th></th><th></th><th></th></tr>'
+        else:
+            pct = round(100 * sum(unit_completion(owned.get(uid), req) for uid, req in entries) / len(entries))
+            body += f'<tr class="mm-role"><th>{label}</th><th></th><th></th><th></th><th class="mm-pct">{pct}%</th></tr>'
         for uid, req in entries:
-            u = owned.get(uid)
             name = escape(names.get(uid, uid))
-            if req is None:
-                cells = f'<td colspan="3" class="mm-undef">Exigences non définies — {"possédé" if u else "non possédé"}</td>'
-            elif u is None:
+            if generic:
+                ab, rank, stars = _req_cells(req, prefix)
+                body += f'<tr><td class="mm-unit">{name}</td><td>{ab}</td><td>{rank}</td><td>{stars}</td><td></td></tr>'
+                continue
+            u = owned.get(uid)
+            if u is None:
                 cells = '<td colspan="3" class="mm-undef">Non possédé</td>'
             else:
                 need = req["ab"]
                 have = _levels(u, len(need))
                 ab = " / ".join(f'<span class="mm-have {"ok" if h >= n else "ko"}">{h}</span><small>{n}</small>' for h, n in zip(have, need))
                 if "rank" in req:
-                    rank = f'<span class="mm-have {"ok" if u["rank"] >= req["rank"] else "ko"}">{rank_label(u["rank"])}</span><small>{rank_label(req["rank"])}</small>'
+                    rank = _pair(rank_badge(u["rank"], prefix), rank_badge(req["rank"], prefix), u["rank"] >= req["rank"])
                     st = rarity_stars(u["progressionIndex"])[1]
-                    stars = f'<span class="mm-have {"ok" if st >= req["stars"] else "ko"}">{stars_label(st)}</span><small>{stars_label(req["stars"])}</small>'
+                    stars = _pair(stars_badge(st, prefix), stars_badge(req["stars"], prefix), st >= req["stars"])
+                elif req.get("mow"):  # machine: no rank, the stars show its mythic ability
+                    rank = "—"
+                    st = rarity_stars(u["progressionIndex"])[1]
+                    stars = _pair(stars_badge(st, prefix), stars_badge(req["stars"], prefix), st >= req["stars"])
                 else:
                     rank = stars = "—"
                 cells = f"<td>{ab}</td><td>{rank}</td><td>{stars}</td>"
             pc = round(100 * unit_completion(u, req))
-            body += f'<tr><td class="mm-unit">{escape(names.get(uid, uid))}</td>{cells}<td class="mm-pct">{pc}%</td></tr>'
+            body += f'<tr><td class="mm-unit">{name}</td>{cells}<td class="mm-pct">{pc}%</td></tr>'
     return (
         f'<dialog class="meta-modal" id="meta-{idx}"><button type="button" class="mm-close" aria-label="Fermer">×</button>'
-        f'<h3>{_meta_icon(team, prefix)}{escape(team)} — méthodologie</h3>'
-        '<p class="mm-method">Chaque unité vaut la moyenne de trois critères : <b>capacités</b>, <b>rang</b> (Adamantine II, ce qui implique le niveau 60) '
-        'et <b>étoiles</b>. Chaque critère est comparé à l\'exigence (plafonné à 100&nbsp;%) ; pour les capacités, on moyenne les niveaux requis. '
-        'Les machines de guerre ne comptent que les capacités (3<sup>e</sup> capacité cachée comprise). Une unité absente vaut 0&nbsp;%. '
-        'Le % de Core / Flex / MOW est la moyenne de ses unités.</p>'
-        '<div class="mm-scroll"><table class="mm-table"><thead><tr><th>Unité</th><th>Capacités <small>(joueur / requis)</small></th>'
-        f'<th>Rang</th><th>Étoiles</th><th>%</th></tr></thead><tbody>{body}</tbody></table></div></dialog>'
+        f'<h3>{_meta_icon(team, prefix)}{escape(team)}{f" <small class=mm-who>{escape(who)}</small>" if who else ""}</h3>'
+        +
+        '<div class="mm-scroll"><table class="mm-table"><thead><tr><th>Unité</th><th>Capacités</th>'
+        f'<th>Rang</th><th>Étoiles</th><th>{"" if generic else "% "}{METHOD_BTN}</th></tr></thead><tbody>{body}</tbody></table></div></dialog>'
     )
+
+
+def meta_pcts(owned, roles):
+    """[(role, completion %)] for the roles this meta has."""
+    return [(role, round(100 * sum(unit_completion(owned.get(uid), req) for uid, req in roles[role]) / len(roles[role])))
+            for role in ROLES if roles.get(role)]
+
+
+def _pct_html(pcts):
+    return "".join(f'<span class="mpct"><small>{ROLE_SHORT[r]}</small><b>{v}%</b></span>' for r, v in pcts)
 
 
 def render_raid_metas(units, prefix="../"):
@@ -385,11 +529,7 @@ def render_raid_metas(units, prefix="../"):
     names = _unit_names()
     badges, rows, modals = "", "", ""
     for idx, (team, roles) in enumerate(RAID_METAS):
-        pcts = "".join(
-            f'<span class="mpct"><small>{ROLE_SHORT[role]}</small>'
-            f'<b>{round(100 * sum(unit_completion(owned.get(uid), req) for uid, req in roles[role]) / len(roles[role]))}%</b></span>'
-            for role in ROLES if roles.get(role)
-        )
+        pcts = _pct_html(meta_pcts(owned, roles))
         badges += (f'<div class="mbadge" role="button" tabindex="0" data-meta="meta-{idx}" title="Voir la méthodologie">{_meta_icon(team, prefix)}'
                    f'<div class="mbadge-body"><span class="mbadge-name">{escape(team)}</span><div class="mpcts">{pcts}</div></div></div>')
         cells = ""
@@ -397,11 +537,12 @@ def render_raid_metas(units, prefix="../"):
             ids = [uid for uid, _ in roles.get(role, [])]
             inner = "".join(_mini_unit(i, owned.get(i), names, prefix) for i in ids) or '<span class="mnone">—</span>'
             cells += f'<td data-label="{role}"><div class="munits">{inner}</div></td>'
-        rows += f'<tr><th scope="row" class="mteam-name" data-meta="meta-{idx}">{escape(team)}</th>{cells}</tr>'
+        rows += (f'<tr role="button" tabindex="0" data-meta="meta-{idx}" title="Voir le détail de {escape(team)}">'
+                 f'<th scope="row" class="mteam-name">{escape(team)}</th>{cells}</tr>')
         modals += _meta_modal(idx, team, roles, owned, names, prefix)
     head = "".join(f"<th>{role}</th>" for role in ROLES)
     return (f'<div class="rmetas"><div class="mbadges">{badges}</div>'
-            f'<table class="mtable"><thead><tr><th>Meta</th>{head}</tr></thead><tbody>{rows}</tbody></table>{modals}</div>')
+            f'<table class="mtable"><thead><tr><th>Meta</th>{head}</tr></thead><tbody>{rows}</tbody></table>{modals}{method_modal()}</div>')
 
 
 def render_player_body(r, prefix="../"):
@@ -464,10 +605,46 @@ def render_player_body(r, prefix="../"):
     )
 
 
-def render_players_index_body(rosters):
-    """One plain button per member (highest level first), each linking to that player's roster page."""
-    buttons = "".join(
-        f'<a class="chip player-btn" href="joueurs/{player_slug(r["uid"])}.html">{escape(r["name"])}</a>'
-        for r in sorted(rosters, key=lambda r: (-r["power"], r["name"].lower()))
+def _pct_class(v):
+    return "v-hi" if v >= 90 else "v-mid" if v >= 70 else "v-lo"
+
+
+def _pct_slots(owned, roles):
+    """Three fixed Core / Flex / MOW slots (so columns line up across metas); a missing role shows a dash."""
+    got = dict(meta_pcts(owned, roles))
+    return "".join(
+        f'<span class="pg-v {_pct_class(got[r])}" data-r="{ROLE_SHORT[r]}">{got[r]}%</span>' if r in got
+        else f'<span class="pg-v v-none" data-r="{ROLE_SHORT[r]}">—</span>'
+        for r in ROLES
     )
-    return f'<div class="chips player-chips">{buttons}</div>'
+
+
+def render_players_index_body(rosters):
+    """Players list as a grid (not a real table, so each name stays a primary button): one row per member, highest level
+    first, with the member's completion for every raid meta in columns (Core / Flex / MOW); clicking a column head sorts the players by that meta; clicking a
+    meta's percentages opens that player's dialog."""
+    names = _unit_names()
+    labels = "".join(f'<span>{ROLE_SHORT[r]}</span>' for r in ROLES)
+    metas = list(enumerate(RAID_METAS))
+    head = '<div class="pg-head"><span></span>' + "".join(
+        f'<div class="pg-meta-col"><div class="mbadge pg-meta" role="button" tabindex="0" data-sort="{i}" title="Trier par {escape(team)}">'
+        f'{_meta_icon(team, "")}<span class="mbadge-name">{escape(team)}</span><span class="pg-arrow" aria-hidden="true">▼</span></div>'
+        f'<div class="pg-sub">{labels}</div></div>'
+        for i, (team, _) in metas
+    ) + "</div>"
+    rows, player_modals = "", ""
+    for pi, r in enumerate(sorted(rosters, key=lambda r: (-r["power"], r["name"].lower()))):
+        owned = {u["id"]: u for u in r["units"]}
+        cells = "".join(
+            f'<div class="pg-cell" role="button" tabindex="0" data-col="{i}" data-meta="meta-{pi}-{i}" data-label="{escape(team)}" '
+            f'title="Voir le détail de {escape(r["name"])} pour {escape(team)}">{_pct_slots(owned, roles)}</div>'
+            for i, (team, roles) in metas
+        )
+        avgs = "".join(
+            f' data-m{i}="{sum(v for _, v in meta_pcts(owned, roles)) / len(meta_pcts(owned, roles)):.2f}"' for i, (team, roles) in metas
+        )  # sort key per meta: mean of its Core / Flex / MOW %
+        rows += (f'<div class="pg-row" data-i="{pi}"{avgs}><a class="chip player-btn" href="joueurs/{player_slug(r["uid"])}.html">{escape(r["name"])}</a>'
+                 f'{cells}</div>')
+        # this player's own dialog for every meta (their values next to the requirements)
+        player_modals += "".join(_meta_modal(f"{pi}-{i}", team, roles, owned, names, "", who=r["name"]) for i, (team, roles) in metas)
+    return f'<div class="pgrid">{head}{rows}</div>{player_modals}{method_modal()}'

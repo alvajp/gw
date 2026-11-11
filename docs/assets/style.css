@@ -837,7 +837,7 @@ details.map-defense > summary:hover { background: var(--table-header-hover); }
 .rc-img { position: absolute; left: 3.9%; top: 3.4%; width: 92.1%; height: 93.1%; object-fit: cover; background: var(--bg); clip-path: polygon(8% 0, 92% 0, 100% 6%, 100% 92%, 91% 100%, 9% 100%, 0 92%, 0 6%); }
 .rc-frame { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .rc-missing { display: inline-flex; align-items: center; justify-content: center; color: var(--text-muted); }
-.rc-rank-badge { position: absolute; z-index: 3; right: -22%; bottom: -4%; width: 44%; aspect-ratio: 1; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.55)); pointer-events: none; }
+.rc-rank-badge { position: absolute; z-index: 3; right: -22%; bottom: -4%; width: 44%; aspect-ratio: 1; object-fit: contain; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.55)); pointer-events: none; }
 .rc-faction { position: absolute; top: 0.35rem; right: 0.35rem; width: 1.2rem; height: 1.2rem; opacity: 0.9; pointer-events: none; }
 .rs-icon { width: 1.35rem; height: 1.35rem; object-fit: contain; }
 .rc-lvl {
@@ -962,25 +962,116 @@ dialog.placement-modal::backdrop { background: rgba(0, 0, 0, 0.55); }
 /* Raid meta methodology dialog. */
 .mbadge:hover, .mteam-name[data-meta]:hover { border-color: var(--accent); }
 .mteam-name[data-meta] { cursor: pointer; }
-dialog.meta-modal { width: min(760px, calc(100vw - 2rem)); max-height: calc(100vh - 3rem); padding: 1.1rem 1.2rem 1.2rem; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); }
+dialog.meta-modal { width: min(1040px, calc(100vw - 2rem)); max-height: calc(100vh - 2rem); padding: 1.1rem 1.2rem 1.2rem; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); }
 dialog.meta-modal::backdrop { background: rgba(0, 0, 0, 0.6); }
 .meta-modal h3 { display: flex; align-items: center; gap: 0.6rem; margin: 0 2rem 0.6rem 0; font-size: 1.05rem; }
 .meta-modal h3 .meta-ico { width: 1.9rem; height: 1.9rem; }
 .mm-close { position: absolute; top: 0.6rem; right: 0.8rem; background: none; border: none; color: var(--text-muted); font-size: 1.5rem; line-height: 1; cursor: pointer; }
 .mm-close:hover { color: var(--text); }
-.mm-method { font-size: 0.8rem; color: var(--text-muted); line-height: 1.45; margin: 0 0 0.8rem; }
-.mm-scroll { overflow: auto; max-height: calc(100vh - 14rem); }
-.mm-table { width: 100%; font-size: 0.82rem; border-collapse: collapse; }
-.mm-table th, .mm-table td { padding: 0.35rem 0.5rem; border-left: none; border-right: none; text-align: left; white-space: nowrap; width: auto; position: static; cursor: default; }
+.mm-scroll { overflow: auto; max-height: calc(100vh - 8rem); }
+.mm-table { width: 100%; font-size: 0.92rem; border-collapse: collapse; }
+.mm-table th, .mm-table td { padding: 0.45rem 0.7rem; border-left: none; border-right: none; text-align: left; white-space: nowrap; width: auto; position: static; cursor: default; }
 .mm-table thead th { font-size: 0.68rem; color: var(--text-muted); background: var(--table-header-bg); }
 .mm-table thead th small { font-weight: 400; }
 .mm-table tbody td { border-top: 1px solid var(--border); background: none; }
 .mm-role th { padding-top: 0.8rem; font-size: 0.8rem; background: none; border-top: 1px solid var(--border); }
-.mm-role th span { float: right; font-variant-numeric: tabular-nums; }
 .mm-unit { font-weight: 600; }
 .mm-have { font-weight: 700; font-variant-numeric: tabular-nums; }
 .mm-have.ok { color: var(--win); } .mm-have.ko { color: var(--loss); }
 .mm-table small { margin-left: 0.25rem; color: var(--text-muted); font-size: 0.7rem; }
 .mm-undef { color: var(--text-muted); font-style: italic; }
-.mm-pct { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+.mm-role th.mm-pct, .mm-pct { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
 @media (max-width: 640px) { .mm-table th, .mm-table td { padding: 0.3rem 0.35rem; white-space: normal; } }
+
+/* Players list: grid with one row per member (primary button) and raid-meta completion columns (Core / Flex / MOW). */
+.pgrid { display: flex; flex-direction: column; margin-top: 0.6rem; }
+.pg-head, .pg-row { display: grid; grid-template-columns: minmax(8.5rem, 12rem) repeat(4, minmax(0, 1fr)); align-items: center; column-gap: 0.4rem; }
+.pg-head { align-items: end; padding: 0 0 0.5rem; border-bottom: 1px solid var(--border); }
+.pg-meta-col { display: flex; flex-direction: column; align-items: stretch; gap: 0.45rem; padding: 0 0.3rem; }
+.pg-meta { position: relative; justify-content: center; box-sizing: border-box; width: 100%; min-height: 3rem; padding: 0.3rem 2.9rem; }
+.pg-meta .meta-ico { position: absolute; left: 0.35rem; top: 50%; transform: translateY(-50%); }
+.pg-meta .mbadge-name { text-align: center; }
+.pg-meta:hover { background: var(--table-header-bg); }
+.pg-sub, .pg-cell { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.3rem; width: 100%; text-align: center; }
+.pg-sub span { font-size: 0.64rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-muted); }
+.pg-row { padding: 0; border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent); transition: background 120ms ease; }
+.pg-row:hover { background: var(--table-header-bg); }
+.pg-row .player-btn { justify-self: start; margin: 0.3rem 0 0.3rem 0.2rem; padding: 0.4rem 1rem; font-size: 0.88rem; }
+.pg-cell { align-self: stretch; align-content: center; padding: 0.4rem 0.55rem; box-sizing: border-box; }  /* fills the whole row height so the hover box covers the padding too */
+.pg-v { justify-self: stretch; text-align: center; padding: 0.15rem 0.3rem; border-radius: 6px; font-size: 0.8rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.pg-v.v-hi { color: var(--win); background: color-mix(in srgb, var(--win) 13%, transparent); }
+.pg-v.v-mid { color: #e0a43a; background: color-mix(in srgb, #e0a43a 13%, transparent); }
+.pg-v.v-lo { color: var(--loss); background: color-mix(in srgb, var(--loss) 13%, transparent); }
+.pg-v.v-none { color: var(--text-muted); font-weight: 400; }
+@media (max-width: 760px) {
+  .pg-head { display: none; }
+  .pgrid { gap: 0.6rem; }
+  .pg-row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.6rem 0.8rem; padding: 0.7rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+  .pg-row:hover { background: var(--surface); }
+  .pg-row .player-btn { grid-column: 1 / -1; margin-left: 0; }
+  .pg-cell { padding: 0.3rem 0.4rem; gap: 0.2rem; }
+  .pg-cell::before { content: attr(data-label); grid-column: 1 / -1; text-align: left; font-size: 0.68rem; font-weight: 600; color: var(--text-muted); }
+  .pg-v { min-width: 0; width: 100%; box-sizing: border-box; padding: 0.15rem 0.1rem; }
+  .pg-v::after { content: attr(data-r); display: block; font-size: 0.55rem; font-weight: 500; opacity: 0.75; }
+}
+
+/* Method block in the meta dialogs: short explanation + worked examples. */
+.mm-method { margin: 0 0 0.9rem; font-size: 0.85rem; line-height: 1.5; color: var(--text-muted); }
+.mm-method p { margin: 0 0 0.5rem; }
+.mm-method b { color: var(--text); }
+.mm-ex { width: auto; margin-top: 0.3rem; border-collapse: collapse; font-size: 0.82rem; }
+.mm-ex th, .mm-ex td { padding: 0.28rem 0.7rem; border-left: none; border-right: none; text-align: left; white-space: nowrap; width: auto; position: static; cursor: default; }
+.mm-ex thead th { font-size: 0.68rem; color: var(--text-muted); background: var(--table-header-bg); }
+.mm-ex tbody td { border-top: 1px solid var(--border); background: none; color: var(--text); }
+.mm-ex .mm-pct { text-align: right; }
+@media (max-width: 640px) { .mm-ex th, .mm-ex td { white-space: normal; } }
+
+.mm-method-btn { margin-left: 0.4rem; padding: 0.15rem 0.6rem; font: inherit; font-size: 0.68rem; font-weight: 600; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 999px; cursor: pointer; }
+.mm-method-btn:hover { border-color: var(--accent); }
+dialog.method-modal { width: min(640px, calc(100vw - 2rem)); }
+
+/* Players list: a meta's three percentages are one click target (opens that meta's dialog). */
+.pg-cell[data-meta] { cursor: pointer; border-radius: 8px; transition: background 120ms ease, box-shadow 120ms ease; }
+.pg-cell[data-meta]:hover, .pg-cell[data-meta]:focus-visible { background: color-mix(in srgb, var(--accent) 14%, transparent); box-shadow: inset 0 0 0 1px var(--accent); outline: none; }
+.pg-meta.is-hover { border-color: var(--accent); background: var(--table-header-bg); }
+.meta-modal .mm-who { margin-left: 0.4rem; font-size: 0.8rem; font-weight: 500; color: var(--text-muted); }
+
+/* Players list: the whole row opens the player (the name's link stretches over the row); the meta cells stay on top and keep their own click. */
+.pg-row { position: relative; cursor: pointer; }
+.pg-row .player-btn::after { content: ""; position: absolute; inset: 0; }
+.pg-row .pg-cell { position: relative; z-index: 1; }
+
+/* Meta dialogs: rank medals and star icons instead of text. */
+.mm-rank { width: 1.45rem; height: 1.45rem; object-fit: contain; vertical-align: middle; }
+.mm-stars { display: inline-flex; align-items: center; vertical-align: middle; }
+.mm-table .st-img { width: 1.15rem; height: 1.15rem; margin: 0 -1px; filter: none; }
+.mm-table .st-img.st-blue { width: 1.6rem; height: auto; margin: 0 -2px; }
+.mm-table .st-img.st-wings { width: 2.4rem; height: auto; margin: 0; }
+.mm-badge { display: inline-flex; align-items: center; padding: 0 0.15rem 2px; border-bottom: 2px solid transparent; vertical-align: middle; }
+.mm-badge.ok { border-bottom-color: var(--win); }
+.mm-badge.ko { border-bottom-color: var(--loss); }
+.mm-req { display: inline-flex; align-items: center; margin-left: 0.5rem; opacity: 0.55; transform-origin: left center; vertical-align: middle; }
+.mm-req::before { content: "/"; margin-right: 0.4rem; color: var(--text-muted); }
+.mm-req .mm-rank { width: 1.15rem; height: 1.15rem; object-fit: contain; }
+.mm-req .st-img { width: 0.95rem; height: 0.95rem; }
+.mm-req .st-img.st-blue { width: 1.3rem; height: auto; }
+.mm-req .st-img.st-wings { width: 2rem; height: auto; }
+.mm-none { color: var(--text-muted); font-size: 0.78rem; }
+
+/* Player page: the whole meta row of the table opens that meta's dialog. */
+.mtable tbody tr[data-meta] { cursor: pointer; }
+.mtable tbody tr[data-meta]:hover > *, .mtable tbody tr[data-meta]:focus-visible > * { background: var(--table-header-bg); }
+.mtable tbody tr[data-meta]:focus-visible { outline: 1px solid var(--accent); outline-offset: -1px; }
+
+/* Players list: column heads sort the rows; the small arrow on the right says so (down = best first, up = reversed). */
+.pg-meta { cursor: pointer; user-select: none; }
+.pg-arrow { position: absolute; right: 0.8rem; top: 50%; transform: translateY(-50%); font-size: 0.55rem; color: var(--text-muted); transition: color 120ms ease, transform 160ms ease; }
+.pg-meta:hover .pg-arrow { color: var(--text); }
+.pg-meta[data-dir] .pg-arrow { color: var(--accent); }
+.pg-meta[data-dir="asc"] .pg-arrow { transform: translateY(-50%) rotate(180deg); }
+.pg-meta[data-dir] { border-color: var(--accent); }
+
+/* Players list: a clearly visible row hover (the whole row is clickable): accent tint, accent bar on the left, highlighted name. */
+.pg-row:hover { background: color-mix(in srgb, var(--accent) 9%, var(--table-header-bg)); box-shadow: inset 3px 0 0 var(--accent); }
+.pg-row:hover .player-btn { border-color: var(--accent); color: var(--text); }
+@media (max-width: 760px) { .pg-row:hover { background: color-mix(in srgb, var(--accent) 9%, var(--surface)); } }
