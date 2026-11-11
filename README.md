@@ -68,7 +68,7 @@ Two rows, dark theme only. First row: Raid, War, Joueurs. The second row appears
 
 ### Medals
 
-Each player page shows medals built with the Onslaught badge art (`docs/assets/ui/onslaught_*.png`, boss portraits in `docs/assets/bosses/`), `scripts/medals.py`: the three members with the best all-time relative damage on each raid boss and sub-boss (every season from 97 on and every difficulty; the same relative damage as the raid ranking, see below) (orange / teal / gold for 1st / 2nd / 3rd), in two lines (bosses, then primes) next to the War and Raid insignias. Every medal is shown on every page, greyed out when not earned. The raid history comes from `python3 scripts/fetch_raid.py` (guild key, `"Guild": {"api_key": ...}` in `keys.json`; raw data in the git-ignored `data/raid/`); the daily workflow fetches it too and publishes nothing if it fails.
+Each player page shows medals built with the Onslaught badge art (`docs/assets/ui/onslaught_*.png`, boss portraits in `docs/assets/bosses/`), `scripts/medals.py`: the five members with the best all-time relative damage on each raid boss and sub-boss (every season from 97 on and every difficulty; the same relative damage as the raid ranking, see below) (orange / teal / gold / grey / brown for 1st to 5th; the grey and brown frames are the gold one recoloured), in two lines (bosses, then primes) next to the War and Raid insignias. Every medal is shown on every page, greyed out when not earned. The raid history comes from `python3 scripts/fetch_raid.py` (guild key, `"Guild": {"api_key": ...}` in `keys.json`; raw data in the git-ignored `data/raid/`); the daily workflow fetches it too and publishes nothing if it fails.
 
 ### Raid ranking
 

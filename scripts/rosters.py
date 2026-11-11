@@ -650,9 +650,9 @@ def _fmt_damage(n):
 
 
 def _medal(kind, caption, sub, earned, tier, prefix, art=None, text=None, href=None):
-    """One medal: Onslaught frame (mythic / legendary / epic by rank, "challenge" for the thresholds), the boss portrait or a
+    """One medal: Onslaught frame (mythic / legendary / epic / silver / bronze by rank 1-5, "challenge" for the thresholds), the boss portrait or a
     text inside, greyed out when not earned. Its name and figure appear in a tooltip when the mouse rests on it; a boss medal links to that boss's page."""
-    frame = "challenge" if kind == "challenge" else {1: "mythic", 2: "legendary", 3: "epic"}.get(tier, "mythic")
+    frame = "challenge" if kind == "challenge" else {1: "mythic", 2: "legendary", 3: "epic", 4: "silver", 5: "bronze"}.get(tier, "mythic")
     art_html = f'<img class="medal-art" src="{prefix}assets/{art}" alt="" loading="lazy">' if art else ""
     text_html = f'<b class="medal-txt">{text}</b>' if text else ""
     tag, attrs = ("a", f' href="{href}"') if href else ("div", ' tabindex="0"')

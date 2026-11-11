@@ -1,7 +1,7 @@
 """
 Medals shown on the player pages (Onslaught badge art) and the raid ranking:
   * best all-time relative damage per raid boss and sub-boss (every season and difficulty, the % above the guild average, no bombs,
-    finishes or one-shots) -> top 3 members (orange / teal / gold = Onslaught mythic / legendary / epic frames), from the raid
+    finishes or one-shots) -> top 5 members (orange / teal / gold / grey / brown = Onslaught mythic / legendary / epic frames, then the epic frame recoloured), from the raid
     history in data/raid/ (fetch_raid.py, guild key, seasons 97 to the latest);
   * median guild-war battle score >= 1600 (1600 is the score cap, so "above 1600" can never happen) and
   * guild-war reliability > 90 % ((wins + finishes) / all tokens), both with the Onslaught "challenge" frame.
@@ -54,6 +54,7 @@ def slots():
     return out
 
 
+MEDAL_RANKS = 5  # boss medals go to the top 5 members of each boss
 MEDIAN_THRESHOLD = 1600
 RELIABILITY_THRESHOLD = 0.90
 
@@ -133,8 +134,8 @@ def boss_relative(members=None):
 
 
 def compute(scores, win_rate, members=None):
-    """uid -> {"bosses": {medal key: {"rank": 1-3 | None, "rel": mean relative damage, "n": attacks, "position", "of"}}, "median",
-    "reliability"}; `scores` = uid -> battle scores, `win_rate` = uid -> reliability (0-1). A boss medal goes to the three members
+    """uid -> {"bosses": {medal key: {"rank": 1-5 | None, "rel": mean relative damage, "n": attacks, "position", "of"}}, "median",
+    "reliability"}; `scores` = uid -> battle scores, `win_rate` = uid -> reliability (0-1). A boss medal goes to the five members
     with the best all-time relative damage on that boss (equal figures share a rank); position / field are kept for everybody."""
     relative = boss_relative(members)
     out = {}
@@ -146,7 +147,7 @@ def compute(scores, win_rate, members=None):
             field = relative.get(key, {})
             mine = field.get(uid)
             position = 1 + sum(1 for v in field.values() if v[0] > mine[0]) if mine else None
-            bosses[key] = {"rank": position if position and position <= 3 else None, "rel": mine[0] if mine else None,
+            bosses[key] = {"rank": position if position and position <= MEDAL_RANKS else None, "rel": mine[0] if mine else None,
                            "n": mine[1] if mine else 0, "position": position, "of": len(field)}
         out[uid] = {
             "bosses": bosses,
