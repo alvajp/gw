@@ -1103,3 +1103,20 @@ dialog.method-modal { width: min(640px, calc(100vw - 2rem)); }
 .mu-relic small { margin-left: 0; font-size: 0.6rem; color: var(--text-muted); }
 .mu-relic small::before { content: "/"; margin-right: 0.1rem; }
 .mu-missing .mu-relic { opacity: 0.55; }
+
+/* Relic cell in the meta dialogs: "player level / required level". */
+.mm-table .mm-relic-need::before { content: "/"; margin-right: 0.3rem; }
+.mm-table .mm-relic-need { margin-left: 0.3rem; }
+
+/* Meta table (player page): only the relic's level, in plain text colour (the requirement is in the tooltip and the dialog). */
+.mu-relic-lvl { font-size: 0.72rem; font-weight: 600; color: var(--text); }
+
+/* Dialog title on the players list: meta name, player name and "Voir le roster" share one baseline. */
+.meta-modal h3 .mm-title { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0.2rem 0.7rem; }
+.meta-modal .mm-who { margin-left: 0; font-size: 1rem; font-weight: 600; color: var(--text-muted); }
+.mm-roster-btn { padding: 0.4rem 1.1rem; font-size: 0.8rem; font-weight: 700; color: #1a1205; text-decoration: none; background: var(--accent); border: 1px solid var(--accent); border-radius: 999px; transition: filter 120ms ease; }
+.mm-roster-btn:hover { filter: brightness(1.1); }
+:root[data-theme="light"] .mm-roster-btn { color: #fff; }
+
+/* Meta dialogs: every unit row has the height needed for the relic icon, whether or not the unit has a relic. */
+.mm-table tbody tr:not(.mm-role) > td { height: 1.9rem; vertical-align: middle; }

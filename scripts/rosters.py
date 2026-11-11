@@ -358,6 +358,11 @@ def _star_index(stars):
 RELIC_WEIGHT = 0.10  # share of a unit's completion given to its relic when the requirement has one
 
 
+def has_relic(u, relic_id):
+    """True when the relic is equipped on this unit."""
+    return any(it["id"] == relic_id for it in (u or {}).get("items", []))
+
+
 def relic_level(u, relic_id):
     """Level of the relic equipped on this unit (0 when it is not equipped)."""
     return next((it["level"] for it in (u or {}).get("items", []) if it["id"] == relic_id), 0)
@@ -423,10 +428,11 @@ def _mini_relic(req, owned, prefix):
     if not relic:
         return ""
     rid, need = relic
-    have = relic_level(owned, rid) if owned else 0
-    cls = "ok" if have >= need else "ko"
+    if not has_relic(owned, rid):  # not carried by the unit: nothing shown
+        return ""
+    have = relic_level(owned, rid)
     return (f'<span class="mu-relic" title="{escape(RELIC_NAMES.get(rid, rid))} : niveau {have} sur {need}">{relic_icon(rid, prefix)}'
-            f'<span class="mm-have {cls}">{have}</span><small>{need}</small></span>')
+            f'<span class="mu-relic-lvl">{have}</span></span>')
 
 
 def _mini_unit(uid, owned, names, prefix, req=None):
@@ -484,8 +490,10 @@ def _relic_cell(req, u, prefix):
     if not relic:
         return "—"
     rid, need = relic
+    if not has_relic(u, rid):  # not carried: just the icon, no "level / required"
+        return relic_icon(rid, prefix)
     have = relic_level(u, rid)
-    return f'{relic_icon(rid, prefix)}<span class="mm-have {"ok" if have >= need else "ko"}">{have}</span><small>{need}</small>'
+    return f'{relic_icon(rid, prefix)}<span class="mm-have {"ok" if have >= need else "ko"}">{have}</span><small class="mm-relic-need">{need}</small>'
 
 
 # Worked examples for the method block: (label, progression index, level, API rank, ability levels), judged against the maximum requirement.
@@ -525,17 +533,17 @@ def method_html():
     )
 
 
-def _meta_modal(idx, team, roles, owned, names, prefix, who=None):
+def _meta_modal(idx, team, roles, owned, names, prefix, who=None, href=None):
     """Per-meta dialog for one player (`owned` = their units by id): every unit's requirement next to what they have, the
-    relic, and the unit's completion; `who` (the player's name) goes next to the meta's name."""
+    relic, and the unit's completion; `who` (the player's name) goes next to the meta's name, with a "Voir le roster" button
+    to their page (`href`) when given (players list)."""
     body = ""
     for role in ROLES:
         entries = roles.get(role)
         if not entries:
             continue
         label = ROLE_SHORT[role] if role == "Machines" else role
-        pct = round(100 * sum(unit_completion(owned.get(uid), req) for uid, req in entries) / len(entries))
-        body += f'<tr class="mm-role"><th>{label}</th><th></th><th></th><th></th><th></th><th class="mm-pct">{pct}%</th></tr>'
+        body += f'<tr class="mm-role"><th>{label}</th><th></th><th></th><th></th><th></th><th></th></tr>'
         for uid, req in entries:
             name = escape(names.get(uid, uid))
             u = owned.get(uid)
@@ -556,7 +564,10 @@ def _meta_modal(idx, team, roles, owned, names, prefix, who=None):
             body += f'<tr><td class="mm-unit">{name}</td>{cells}<td class="mm-pct">{pc}%</td></tr>'
     return (
         f'<dialog class="meta-modal" id="meta-{idx}"><button type="button" class="mm-close" aria-label="Fermer">×</button>'
-        f'<h3>{_meta_icon(team, prefix)}{escape(team)}{f" <small class=mm-who>{escape(who)}</small>" if who else ""}</h3>'
+        f'<h3>{_meta_icon(team, prefix)}<span class="mm-title">{escape(team)}'
+        + (f'<small class="mm-who">{escape(who)}</small>' if who else "")
+        + (f'<a class="mm-roster-btn" href="{href}">Voir le roster</a>' if href else "")
+        + '</span></h3>'
         '<div class="mm-scroll"><table class="mm-table"><thead><tr><th>Unité</th><th>Capacités</th>'
         f'<th>Rang</th><th>Étoiles</th><th>Relique</th><th>% {METHOD_BTN}</th></tr></thead><tbody>{body}</tbody></table></div></dialog>'
     )
@@ -696,5 +707,5 @@ def render_players_index_body(rosters):
         rows += (f'<div class="pg-row" data-i="{pi}"{avgs}><a class="chip player-btn" href="joueurs/{player_slug(r["uid"])}.html">{escape(r["name"])}</a>'
                  f'{cells}</div>')
         # this player's own dialog for every meta (their values next to the requirements)
-        player_modals += "".join(_meta_modal(f"{pi}-{i}", team, roles, owned, names, "", who=r["name"]) for i, (team, roles) in metas)
+        player_modals += "".join(_meta_modal(f"{pi}-{i}", team, roles, owned, names, "", who=r["name"], href=f'joueurs/{player_slug(r["uid"])}.html') for i, (team, roles) in metas)
     return f'<div class="pgrid">{head}{rows}</div>{player_modals}{method_modal()}'
