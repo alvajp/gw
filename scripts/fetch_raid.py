@@ -12,12 +12,13 @@ import time
 import urllib.error
 import urllib.request
 
+from medals import FIRST_SEASON  # the history kept starts there (the API answers for any past season)
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT_DIR = os.path.join(ROOT, "data", "raid")
 KEYS = os.path.expanduser("~/.config/tacticus-guildwar/keys.json")
 BASE = "https://api.tacticusgame.com/api/v1/"
 UA = "tacticus-guildwar-tracker (personal guild stats site)"
-FIRST_SEASON = 82   # the history kept for the medals starts here (the API answers for any past season)
 
 
 def call(path, key, attempts=3):

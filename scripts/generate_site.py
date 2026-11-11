@@ -229,7 +229,7 @@ def player_row_attrs(uid, prefix):
 def render_table(rows, hard_cols, easy_cols):
     headers = ["Joueur"] + [label for _, label in COLS]
     headers += [name for _, name in hard_cols] + [name for _, name in easy_cols]
-    thead = "".join(f"<th>{html_escape(h)}</th>" for h in headers)
+    thead = '<th class="rk">#</th>' + "".join(f"<th>{html_escape(h)}</th>" for h in headers)
 
     # First pass: compute the rounded pts/réussites/buffs/map values for every
     # row so the gradient's low/high bounds are known before rendering cells.
@@ -251,8 +251,8 @@ def render_table(rows, hard_cols, easy_cols):
     } if computed else {}
 
     body_rows = []
-    for pname, ps, breakdown, uid in computed:
-        cells = [f"<td>{html_escape(pname)}</td>"]
+    for rank, (pname, ps, breakdown, uid) in enumerate(computed, 1):
+        cells = [f'<td class="rk">{rank}</td>', f"<td>{html_escape(pname)}</td>"]
         for key, _label in COLS:
             if key in breakdown:
                 val = breakdown[key]
@@ -331,7 +331,7 @@ def render_history_table(wars_subset):
             history[uid][w["slug"]] = ps["pts"]
             display_names[uid] = result["players"].get(uid, {}).get("displayName", uid)
 
-    thead_cells = ["<th>Joueur</th>"]
+    thead_cells = ['<th class="rk">#</th>', "<th>Joueur</th>"]
     for w in wars_subset:
         thead_cells.append(f'<th>{html_escape(header_labels[w["slug"]])}</th>')
     thead_cells.append("<th>Moyenne</th>")
@@ -354,8 +354,8 @@ def render_history_table(wars_subset):
         war_bounds[w["slug"]] = (min(vals.values()), max(vals.values())) if vals else (0, 0)
 
     body_rows = []
-    for uid in sorted(history, key=lambda u: -totals[u]):
-        cells = [f"<td>{html_escape(display_names[uid])}</td>"]
+    for rank, uid in enumerate(sorted(history, key=lambda u: -totals[u]), 1):
+        cells = [f'<td class="rk">{rank}</td>', f"<td>{html_escape(display_names[uid])}</td>"]
         for w in wars_subset:
             val = war_values[w["slug"]].get(uid)
             if val is None:
@@ -2056,7 +2056,7 @@ def render_season_average_table(season_numbers, season_stats, display_names, ave
     tagged data-uid/data-active so the "Joueurs actifs seulement" header
     toggle (active-toggle.js) can hide anyone not on the roster in the most
     recently recorded war, without needing a server round-trip."""
-    thead_cells = ["<th>Joueur</th>"]
+    thead_cells = ['<th class="rk">#</th>', "<th>Joueur</th>"]
     for season in season_numbers:
         thead_cells.append(f"<th>Saison {season}</th>")
     thead_cells.append("<th>Moyenne</th>")
@@ -2081,8 +2081,8 @@ def render_season_average_table(season_numbers, season_stats, display_names, ave
         season_bounds[season] = (min(vals.values()), max(vals.values())) if vals else (0, 0)
 
     body_rows = []
-    for uid in sorted(season_stats, key=lambda u: -averages[u]):
-        cells = [f"<td>{html_escape(display_names[uid])}</td>"]
+    for rank, uid in enumerate(sorted(season_stats, key=lambda u: -averages[u]), 1):
+        cells = [f'<td class="rk">{rank}</td>', f"<td>{html_escape(display_names[uid])}</td>"]
         for season in season_numbers:
             val = season_values[season].get(uid)
             if val is None:

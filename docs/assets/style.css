@@ -1343,3 +1343,11 @@ tr[data-href]:hover > td:first-child, tr[data-href]:focus-visible > td:first-chi
 tr[data-href]:focus-visible { outline: none; }
 .dm-row[data-pl-img]:hover { filter: none; background: color-mix(in srgb, var(--accent) 9%, var(--table-header-bg)); box-shadow: inset 3px 0 0 var(--accent); }
 .defense-table tbody tr[data-attacks]:hover td, .attacks-table tbody tr[data-pl-img]:hover td { filter: none; }
+
+/* GvG tables: a narrow "#" column first; the player column (second) is the sticky one, and the former-member grey follows the name. */
+th.rk, td.rk { width: 2.6em; min-width: 2.6em; text-align: right; padding-right: 0.7em; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+th.rk + th, td.rk + td { position: sticky; left: 2.6em; z-index: 1; text-align: left; width: 10em; background: var(--table-bg); }
+th.rk + th { background: var(--table-header-bg); z-index: 2; }
+tbody tr:nth-child(even) td.rk + td { background-color: var(--table-row-alt); }
+tbody tr[data-active="false"] td.rk + td { color: var(--text-muted); }
+tbody tr[data-active="false"] td.rk:first-child { color: var(--text-muted); }

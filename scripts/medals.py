@@ -2,7 +2,7 @@
 Medals shown on the player pages (Onslaught badge art) and the raid ranking:
   * best all-time relative damage per raid boss and sub-boss (every season and difficulty, the % above the guild average, no bombs,
     finishes or one-shots) -> top 3 members (orange / teal / gold = Onslaught mythic / legendary / epic frames), from the raid
-    history in data/raid/ (fetch_raid.py, guild key, seasons 82 to the latest);
+    history in data/raid/ (fetch_raid.py, guild key, seasons 97 to the latest);
   * median guild-war battle score >= 1600 (1600 is the score cap, so "above 1600" can never happen) and
   * guild-war reliability > 90 % ((wins + finishes) / all tokens), both with the Onslaught "challenge" frame.
 Every medal is shown on every page; the ones a player did not earn are greyed out.
@@ -15,6 +15,7 @@ from collections import defaultdict
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RAID_DIR = os.path.join(ROOT, "data", "raid")
+FIRST_SEASON = 97  # the raid history kept for the medals, the ranking and the Raid / Boss pages starts here
 
 # raid boss (API type, display name, [(sub-boss unitId, our unit id or art name, display name)]); the order is the order of the
 # medals: each boss followed by its sub-bosses. Sub-boss art = the unit portrait (docs/assets/units) or docs/assets/bosses/<name>.
@@ -59,9 +60,8 @@ RELIABILITY_THRESHOLD = 0.90
 
 def load_raid_entries():
     entries = []
-    for path in sorted(glob.glob(os.path.join(RAID_DIR, "season-*.json"))):
-        with open(path, encoding="utf-8") as f:
-            entries.extend(json.load(f).get("entries", []))
+    for _, season_entries in sorted(season_files().items()):
+        entries.extend(season_entries)
     return entries
 
 
@@ -75,10 +75,44 @@ def _medal_key(e):
     return None
 
 
+ONE_SHOT_SHARE = 0.30  # a boss / sub-boss where at least this share of the attacks are one-shots counts them (see one_shot_keys)
+
+
+def _is_one_shot(e):
+    """A kill from full HP in a single attack (its damage is the boss's whole HP, a real figure, unlike a finishing blow's)."""
+    return e.get("remainingHp", 1) == 0 and e.get("damageDealt", 0) >= e.get("maxHp", 1 << 60)
+
+
+_ONE_SHOT_KEYS = None
+
+
+def one_shot_keys():
+    """Medal keys of the bosses / sub-bosses where one-shots are the usual outcome (at least ONE_SHOT_SHARE of their attacks over
+    the whole history, e.g. Thaddeus). Leaving the kills out there would keep only the failed attempts and rank the players on
+    how badly they missed; counting a one-shot at the boss's full HP, which is above the average damage, ranks them on how often
+    they kill. Finishing blows (a kill after earlier damage) never count: their damage is only what was left of the boss."""
+    global _ONE_SHOT_KEYS
+    if _ONE_SHOT_KEYS is None:
+        total, shots = defaultdict(int), defaultdict(int)
+        for entries in season_files().values():
+            for e in entries:
+                key = _medal_key(e)
+                if key is None or e.get("damageType") == "Bomb":
+                    continue
+                total[key] += 1
+                shots[key] += _is_one_shot(e)
+        _ONE_SHOT_KEYS = {k for k, n in total.items() if shots[k] / n >= ONE_SHOT_SHARE}
+    return _ONE_SHOT_KEYS
+
+
 def _valid(e):
-    """A regular attack that counts: no bomb and no finish or one-shot (both leave the boss at 0 HP, so their damage is only what
-    was left of it and understates the hit)."""
-    return _medal_key(e) is not None and e.get("damageType") != "Bomb" and e.get("remainingHp", 1) > 0
+    """A regular attack that counts: no bomb, and no finishing blow; a one-shot only on the bosses where it is the usual outcome."""
+    key = _medal_key(e)
+    if key is None or e.get("damageType") == "Bomb":
+        return False
+    if e.get("remainingHp", 1) > 0:
+        return True
+    return _is_one_shot(e) and key in one_shot_keys()
 
 
 def boss_relative(members=None):
@@ -143,6 +177,8 @@ def season_files():
     out = {}
     for path in sorted(glob.glob(os.path.join(RAID_DIR, "season-*.json"))):
         n = int(os.path.basename(path).split("-")[1].split(".")[0])
+        if n < FIRST_SEASON:  # older files left on disk are ignored
+            continue
         with open(path, encoding="utf-8") as f:
             out[n] = json.load(f).get("entries", [])
     return out
