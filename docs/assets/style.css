@@ -903,3 +903,84 @@ dialog.placement-modal::backdrop { background: rgba(0, 0, 0, 0.55); }
 .pl-def { border-color: var(--loss); }
 .pl-unit { cursor: grab; touch-action: none; user-select: none; -webkit-user-drag: none; }
 .pl-unit.dragging { cursor: grabbing; z-index: 3; box-shadow: 0 6px 14px rgba(0, 0, 0, 0.6); }
+
+/* Player resources strip (orbs, XP books, requisition orders). */
+.rres { display: flex; flex-wrap: wrap; gap: 0.6rem; margin: -0.4rem 0 1.2rem; }
+.rres-group { display: flex; flex-direction: column; gap: 0.3rem; padding: 0.5rem 0.8rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.rres-title { font-size: 0.68rem; color: var(--text-muted); }
+.rres-items { display: flex; gap: 0.8rem; }
+.res { display: inline-flex; align-items: center; gap: 0.3rem; font-variant-numeric: tabular-nums; }
+.res b { font-size: 0.95rem; }
+.res-ico { width: 1.7rem; height: 1.7rem; object-fit: contain; }
+.res-orb { position: relative; display: inline-block; width: 1.7rem; height: 1.7rem; }
+.res-orb .res-glow { position: absolute; inset: -22%; width: 144%; height: 144%; object-fit: contain; }
+.res-orb .res-ico { position: relative; width: 100%; height: 100%; }
+
+/* Raid metas table at the top of a player page: one row per meta, columns Core / Flex / Machines (stacked cards on phones). */
+.rmetas { margin: 0.4rem 0 1.4rem; overflow-x: auto; }
+.mbadges { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-bottom: 0.8rem; }
+.mbadge { cursor: pointer; display: flex; align-items: center; gap: 0.6rem; padding: 0.45rem 0.8rem 0.45rem 0.5rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.meta-ico { width: 2.3rem; height: 2.3rem; border-radius: 50%; object-fit: cover; border: 2px solid var(--accent); background: var(--bg); }
+.mbadge-body { display: flex; flex-direction: column; gap: 0.15rem; }
+.mbadge-name { font-size: 0.85rem; font-weight: 600; }
+.mpcts { display: flex; gap: 0.7rem; }
+.mpct { display: inline-flex; align-items: baseline; gap: 0.25rem; font-variant-numeric: tabular-nums; }
+.mpct small { font-size: 0.62rem; color: var(--text-muted); }
+.mpct b { font-size: 0.8rem; }
+.mtable { width: 100%; border-collapse: separate; border-spacing: 0; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); table-layout: auto; }
+.mtable th, .mtable td { padding: 0.6rem 0.8rem; border-left: none; border-right: none; text-align: left; vertical-align: top; white-space: normal; width: auto; }
+.mtable thead th { font-size: 0.7rem; font-weight: 600; color: var(--text-muted); background: var(--table-header-bg); position: static; cursor: default; }
+.mtable thead th:hover { background: var(--table-header-bg); }
+.mtable tbody tr + tr > * { border-top: 1px solid var(--border); }
+.mtable tbody th, .mtable tbody td:first-child { position: static; background: none; }
+.mteam-name { font-size: 0.9rem; white-space: nowrap; padding-top: 1.05rem; }
+.munits { display: flex; flex-wrap: wrap; gap: 0.35rem 0.9rem; padding-top: 0.45rem; }
+.mnone { color: var(--text-muted); padding-top: 0.4rem; }
+@media (max-width: 640px) {
+  .mtable, .mtable tbody, .mtable tr, .mtable th, .mtable td { display: block; width: 100%; box-sizing: border-box; }
+  .mtable thead { display: none; }
+  .mtable { background: none; border: none; }
+  .mtable tbody tr { margin-bottom: 0.7rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+  .mtable tbody tr + tr > * { border-top: none; }
+  .mteam-name { padding: 0.7rem 0.8rem 0.2rem; }
+  .mtable td { padding: 0.2rem 0.8rem 0.5rem; }
+  .mtable td[data-label]::before { content: attr(data-label); display: block; font-size: 0.68rem; font-weight: 600; color: var(--text-muted); }
+  .mtable td:has(.mnone) { display: none; }
+}
+.mu { display: flex; flex-direction: column; align-items: center; gap: 0.15rem; width: 3.1rem; }
+.mu .rc-portrait { width: 2.9rem; }
+.mu .rc-lvl { display: none; }
+.mu .rc-stars { top: -6px; }
+.mu .st-img { width: 0.75rem; height: 0.75rem; margin: 0 -1px; }
+.mu .st-img.st-blue { width: 1rem; height: auto; margin: 0 -2px; }
+.mu .st-img.st-wings { width: 2rem; }
+.mu .rc-rank-badge { width: 46%; right: -20%; }
+.mu-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.62rem; line-height: 1.2; text-align: center; }
+.mu-missing .rc-portrait { filter: grayscale(1); opacity: 0.32; }
+.mu-missing .mu-name { color: var(--text-muted); opacity: 0.7; }
+
+/* Raid meta methodology dialog. */
+.mbadge:hover, .mteam-name[data-meta]:hover { border-color: var(--accent); }
+.mteam-name[data-meta] { cursor: pointer; }
+dialog.meta-modal { width: min(760px, calc(100vw - 2rem)); max-height: calc(100vh - 3rem); padding: 1.1rem 1.2rem 1.2rem; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); }
+dialog.meta-modal::backdrop { background: rgba(0, 0, 0, 0.6); }
+.meta-modal h3 { display: flex; align-items: center; gap: 0.6rem; margin: 0 2rem 0.6rem 0; font-size: 1.05rem; }
+.meta-modal h3 .meta-ico { width: 1.9rem; height: 1.9rem; }
+.mm-close { position: absolute; top: 0.6rem; right: 0.8rem; background: none; border: none; color: var(--text-muted); font-size: 1.5rem; line-height: 1; cursor: pointer; }
+.mm-close:hover { color: var(--text); }
+.mm-method { font-size: 0.8rem; color: var(--text-muted); line-height: 1.45; margin: 0 0 0.8rem; }
+.mm-scroll { overflow: auto; max-height: calc(100vh - 14rem); }
+.mm-table { width: 100%; font-size: 0.82rem; border-collapse: collapse; }
+.mm-table th, .mm-table td { padding: 0.35rem 0.5rem; border-left: none; border-right: none; text-align: left; white-space: nowrap; width: auto; position: static; cursor: default; }
+.mm-table thead th { font-size: 0.68rem; color: var(--text-muted); background: var(--table-header-bg); }
+.mm-table thead th small { font-weight: 400; }
+.mm-table tbody td { border-top: 1px solid var(--border); background: none; }
+.mm-role th { padding-top: 0.8rem; font-size: 0.8rem; background: none; border-top: 1px solid var(--border); }
+.mm-role th span { float: right; font-variant-numeric: tabular-nums; }
+.mm-unit { font-weight: 600; }
+.mm-have { font-weight: 700; font-variant-numeric: tabular-nums; }
+.mm-have.ok { color: var(--win); } .mm-have.ko { color: var(--loss); }
+.mm-table small { margin-left: 0.25rem; color: var(--text-muted); font-size: 0.7rem; }
+.mm-undef { color: var(--text-muted); font-style: italic; }
+.mm-pct { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+@media (max-width: 640px) { .mm-table th, .mm-table td { padding: 0.3rem 0.35rem; white-space: normal; } }
