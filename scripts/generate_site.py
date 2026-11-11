@@ -216,6 +216,16 @@ def html_escape(s):
 GRADIENT_COLS = ("pts", "reussites", "buffs_pts", "map_pts")
 
 
+PLAYER_SLUGS = {}  # uid -> roster page slug of every current member (filled in main); only members have a page to open
+
+
+def player_row_attrs(uid, prefix):
+    """Attributes that make a table row open the player's page (row-link.js): the same whole-row click as the Joueurs list.
+    Rows of players without a page (adversaries, former members) stay plain."""
+    slug = PLAYER_SLUGS.get(uid)
+    return f' data-href="{prefix}joueurs/{slug}.html" tabindex="0"' if slug else ""
+
+
 def render_table(rows, hard_cols, easy_cols):
     headers = ["Joueur"] + [label for _, label in COLS]
     headers += [name for _, name in hard_cols] + [name for _, name in easy_cols]
@@ -224,7 +234,7 @@ def render_table(rows, hard_cols, easy_cols):
     # First pass: compute the rounded pts/réussites/buffs/map values for every
     # row so the gradient's low/high bounds are known before rendering cells.
     computed = []
-    for pname, ps in rows:
+    for pname, ps, uid in rows:
         reussites, buffs_pts, map_pts = compute_pts_breakdown(ps, hard_cols, easy_cols)
         reussites_i, buffs_pts_i, map_pts_i = round_breakdown(ps["pts"], [reussites, buffs_pts, map_pts])
         breakdown = {
@@ -233,15 +243,15 @@ def render_table(rows, hard_cols, easy_cols):
             "buffs_pts": buffs_pts_i,
             "map_pts": map_pts_i,
         }
-        computed.append((pname, ps, breakdown))
+        computed.append((pname, ps, breakdown, uid))
 
     bounds = {
-        key: (min(b[key] for _, _, b in computed), max(b[key] for _, _, b in computed))
+        key: (min(b[key] for _, _, b, _ in computed), max(b[key] for _, _, b, _ in computed))
         for key in GRADIENT_COLS
     } if computed else {}
 
     body_rows = []
-    for pname, ps, breakdown in computed:
+    for pname, ps, breakdown, uid in computed:
         cells = [f"<td>{html_escape(pname)}</td>"]
         for key, _label in COLS:
             if key in breakdown:
@@ -254,7 +264,7 @@ def render_table(rows, hard_cols, easy_cols):
             cells.append(f"<td>{ps.get(f'hard{i}', 0)}</td>")
         for i in range(1, len(easy_cols) + 1):
             cells.append(f"<td>{ps.get(f'easy{i}', 0)}</td>")
-        body_rows.append("<tr>" + "".join(cells) + "</tr>")
+        body_rows.append(f"<tr{player_row_attrs(uid, '../')}>" + "".join(cells) + "</tr>")
 
     return f"""<div class="table-scroll"><table class="sortable">
   <thead><tr>{thead}</tr></thead>
@@ -354,7 +364,7 @@ def render_history_table(wars_subset):
                 lo, hi = war_bounds[w["slug"]]
                 cells.append(f"<td{value_to_bg(val, lo, hi)}>{val}</td>")
         cells.append(f"<td{value_to_bg(rounded_avg[uid], avg_lo, avg_hi)}>{rounded_avg[uid]}</td>")
-        body_rows.append("<tr>" + "".join(cells) + "</tr>")
+        body_rows.append(f"<tr{player_row_attrs(uid, '../')}>" + "".join(cells) + "</tr>")
 
     return f"""<div class="table-scroll"><table class="sortable">
   <thead><tr>{thead}</tr></thead>
@@ -445,6 +455,7 @@ PAGE_TEMPLATE = """<!doctype html>
 <script src="{asset_prefix}assets/metas.js?v={v}"></script>
 <script src="{asset_prefix}assets/opp-filter.js?v={v}"></script>
 <script src="{asset_prefix}assets/chip-scroll.js?v={v}"></script>
+<script src="{asset_prefix}assets/row-link.js?v={v}"></script>
 <script src="{asset_prefix}assets/page-transition.js?v={v}"></script>
 </body>
 </html>"""
@@ -511,7 +522,7 @@ def guild_rows(result, team_idx):
     players = result["players"]
     player_stats = result["player_stats"]
     rows = [
-        (players.get(uid, {}).get("displayName", uid), ps)
+        (players.get(uid, {}).get("displayName", uid), ps, uid)
         for uid, ps in player_stats.items() if ps["team"] == team_idx
     ]
     rows.sort(key=lambda x: -x[1]["pts"])
@@ -2081,7 +2092,7 @@ def render_season_average_table(season_numbers, season_stats, display_names, ave
                 cells.append(f"<td{value_to_bg(val, lo, hi)}>{val}</td>")
         cells.append(f"<td{value_to_bg(rounded_avg[uid], avg_lo, avg_hi)}>{rounded_avg[uid]}</td>")
         is_active = "true" if uid in active_uids else "false"
-        body_rows.append(f'<tr data-uid="{uid}" data-active="{is_active}">' + "".join(cells) + "</tr>")
+        body_rows.append(f'<tr data-uid="{uid}" data-active="{is_active}"{player_row_attrs(uid, "")}>' + "".join(cells) + "</tr>")
 
     return f"""<div class="table-scroll"><table class="sortable">
   <thead><tr>{thead}</tr></thead>
@@ -2499,7 +2510,7 @@ def render_raid_pages(all_wars):
             else:
                 lo, hi = bounds[n]
                 cells.append(f'<td{value_to_bg(p["score"], lo, hi)} title="Rang {p["rank"]} sur {seasons[n]["field"]} · {p["n"]} attaques">{_fmt_rel(p["score"])}</td>')
-        rows.append("<tr>" + "".join(cells) + "</tr>")
+        rows.append(f'<tr{player_row_attrs(uid, "")}>' + "".join(cells) + "</tr>")
     body = (RAID_EXPLAIN + chips + f'<div class="table-scroll"><table class="sortable raid-table"><thead><tr>{"".join(head)}</tr></thead>'
             f'<tbody>{"".join(rows)}</tbody></table></div>')
     html = render_page(nav_active="raid", title="Raid", asset_prefix="", body=body, back_link="", title_class="hero-title",
@@ -2533,7 +2544,7 @@ def render_raid_pages(all_wars):
                 else:
                     lo, hi = bb[k]
                     cells.append(f'<td{value_to_bg(v[0], lo, hi)} title="{v[1]} attaque{"s" if v[1] > 1 else ""}">{_fmt_rel(v[0])}</td>')
-            rows.append("<tr>" + "".join(cells) + "</tr>")
+            rows.append(f'<tr{player_row_attrs(uid, "../")}>' + "".join(cells) + "</tr>")
         body = (RAID_EXPLAIN + f'<div class="table-scroll"><table class="sortable raid-table"><thead><tr>{"".join(head)}</tr></thead>'
                 f'<tbody>{"".join(rows)}</tbody></table></div>')
         html = render_page(nav_active="raid", title=f"Raid · saison {n}", asset_prefix="../", body=body,
@@ -2544,7 +2555,7 @@ def render_raid_pages(all_wars):
 
 
 def render_boss_pages(all_wars):
-    """docs/boss.html (a chip per boss / sub-boss: icon + name, and the podium of each) and docs/boss/<key>.html (the members
+    """docs/boss.html (a podium card per boss / sub-boss, each opening that boss's page) and docs/boss/<key>.html (the members
     ranked on their all-time relative damage against that boss, one column per season it was fought)."""
     rosters = rosters_mod.load_rosters()
     if not rosters or not medals_mod.season_files():
@@ -2556,15 +2567,7 @@ def render_boss_pages(all_wars):
     slots = medals_mod.slots()
     os.makedirs(os.path.join(DOCS_DIR, "boss"), exist_ok=True)
 
-    def chips(prefix, active=None):
-        out = ""
-        for slot in slots:
-            cls = "chip boss-chip" + (" active" if slot["key"] == active else "")
-            out += (f'<a class="{cls}" href="{prefix}boss/{slot["key"]}.html"><img src="{prefix}assets/{slot["art"]}" alt="">'
-                    f'<span>{html_escape(slot["name"].split(" (")[0])}</span></a>')
-        return f'<div class="chips boss-chips">{out}</div>'
-
-    # --- landing: chips + the podium of every boss ---------------------------------------------------------------------------
+    # --- landing: the podium card of every boss (each card opens the boss page) ---------------------------------------------------------------------------
     cards = ""
     for slot in slots:
         field = sorted(relative.get(slot["key"], {}).items(), key=lambda kv: -kv[1][0])[:3]
@@ -2574,7 +2577,7 @@ def render_boss_pages(all_wars):
         ) or '<li class="bp-none">Pas encore d\'attaque</li>'
         cards += (f'<a class="boss-card" href="boss/{slot["key"]}.html"><span class="boss-card-head"><img src="assets/{slot["art"]}" alt="">'
                   f'<b>{html_escape(slot["name"])}</b></span><ol>{rows}</ol></a>')
-    body = (BOSS_EXPLAIN + chips("") + f'<div class="boss-cards">{cards}</div>')
+    body = BOSS_EXPLAIN + f'<div class="boss-cards">{cards}</div>'
     html = render_page(nav_active="boss", title="Boss", asset_prefix="", body=body, back_link="", title_class="hero-title",
                        header_extra="", header_action="", v=ASSETS_VERSION)
     with open(os.path.join(DOCS_DIR, "boss.html"), "w", encoding="utf-8") as f:
@@ -2605,7 +2608,7 @@ def render_boss_pages(all_wars):
                 else:
                     blo, bhi = bounds[n]
                     cells.append(f'<td{value_to_bg(v[0], blo, bhi)} title="{v[1]} attaque{"s" if v[1] > 1 else ""}">{_fmt_rel(v[0])}</td>')
-            rows.append("<tr>" + "".join(cells) + "</tr>")
+            rows.append(f'<tr{player_row_attrs(uid, "../")}>' + "".join(cells) + "</tr>")
         table = (f'<div class="table-scroll"><table class="sortable raid-table"><thead><tr>{"".join(head)}</tr></thead>'
                  f'<tbody>{"".join(rows)}</tbody></table></div>') if rows else '<p class="raid-explain">Aucun membre n\'a encore attaqué ce boss.</p>'
         body = table
@@ -2675,6 +2678,7 @@ def main():
     os.makedirs(os.path.join(DOCS_DIR, "assets"), exist_ok=True)
 
     all_wars = load_wars()
+    PLAYER_SLUGS.update({r["uid"]: rosters_mod.player_slug(r["uid"]) for r in rosters_mod.load_rosters()})
 
     active_uids = frozenset()
     if all_wars:
