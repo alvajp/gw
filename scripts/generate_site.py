@@ -2643,7 +2643,7 @@ def render_raid_pages(all_wars):
     for n in season_order:
         vals = [p["score"] for u, p in seasons[n]["players"].items() if u in members]
         bounds[n] = (min(vals), max(vals)) if vals else (0, 0)
-    head = ["<th>#</th>", "<th>Joueur</th>", "<th>Saisons</th>", '<th title="Jetons non joués sous les 27 de chaque saison terminée">Jetons perdus</th>',
+    head = ['<th class="rk">#</th>', "<th>Joueur</th>", "<th>Saisons</th>", '<th title="Jetons non joués sous les 27 de chaque saison terminée">Jetons perdus</th>',
             '<th title="Moyenne des scores de toutes les saisons">Score</th>'] + [f'<th data-href="raid/{n}.html">S{n}</th>' for n in season_order]
     avg_vals = [i["avg_rel"] for i in ranking.values()]
     avg_lo, avg_hi = (min(avg_vals), max(avg_vals)) if avg_vals else (0, 0)
@@ -2676,7 +2676,7 @@ def render_raid_pages(all_wars):
         bb = {k: (lambda v: (min(v), max(v)) if v else (0, 0))([p["by_key"][k][0] for p in data["players"].values() if k in p["by_key"]]) for k in keys}
         s_lo = min((p["score"] for p in data["players"].values()), default=0)
         s_hi = max((p["score"] for p in data["players"].values()), default=0)
-        head = ["<th>#</th>", "<th>Joueur</th>", "<th>Score</th>", '<th title="Jetons non joués sous les 27 de la saison">Jetons perdus</th>']
+        head = ['<th class="rk">#</th>', "<th>Joueur</th>", "<th>Score</th>", '<th title="Jetons non joués sous les 27 de la saison">Jetons perdus</th>']
         for k in keys:
             slot = slots[k]
             label = slot["name"].split(" (")[0]
@@ -2688,7 +2688,7 @@ def render_raid_pages(all_wars):
                    else f'<span class="chip player-btn ex-pill" title="Ne fait plus partie de la guilde">{name}</span>')
             lost = "–" if p["lost"] is None else p["lost"]  # a season in progress has no lost tokens yet
             raw_note = f' · avant jetons perdus : {_fmt_rel(p["raw"])}' if p["lost"] else ""
-            cells = [f'<td>{p["rank"]}</td>', f"<td>{who}</td>",
+            cells = [f'<td class="rk">{p["rank"]}</td>', f"<td>{who}</td>",
                      f'<td{value_to_bg(p["score"], s_lo, s_hi)} title="{p["n"]} attaques · {p["tokens"]} jetons{raw_note}">{_fmt_rel(p["score"])}</td>',
                      f"<td>{lost}</td>"]
             for k in keys:
@@ -2748,13 +2748,13 @@ def render_boss_pages(all_wars):
         for n in played:
             vals = [seasons[n]["players"][u]["by_key"][key][0] for u in members if u in seasons[n]["players"] and key in seasons[n]["players"][u]["by_key"]]
             bounds[n] = (min(vals), max(vals)) if vals else (0, 0)
-        head = ["<th>#</th>", "<th>Joueur</th>", "<th>Relatif</th>", "<th>Attaques</th>"] + [f'<th data-href="../raid/{n}.html">S{n}</th>' for n in played]
+        head = ['<th class="rk">#</th>', "<th>Joueur</th>", "<th>Relatif</th>", "<th>Attaques</th>"] + [f'<th data-href="../raid/{n}.html">S{n}</th>' for n in played]
         values = [v[0] for _, v in field]
         lo, hi = (min(values), max(values)) if values else (0, 0)
         rows = []
         for uid, (rel, n_att) in field:
             rank = 1 + sum(1 for _, v in field if v[0] > rel)
-            cells = [f"<td>{rank}</td>",
+            cells = [f'<td class="rk">{rank}</td>',
                      f'<td><a class="chip player-btn" href="../joueurs/{rosters_mod.player_slug(uid)}.html">{html_escape(names[uid])}</a></td>',
                      f'<td{value_to_bg(rel, lo, hi)}>{_fmt_rel(rel)}</td>', f"<td>{n_att}</td>"]
             for n in played:

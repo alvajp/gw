@@ -1173,13 +1173,13 @@ body[data-page="players"]::before { background-image: linear-gradient(to bottom,
 .raid-explain { max-width: 62rem; margin: 0.2rem 0 1rem; font-size: 0.85rem; line-height: 1.5; color: var(--text-muted); }
 .raid-table th, .raid-table td { white-space: nowrap; }
 .raid-table td { font-variant-numeric: tabular-nums; }
-.raid-table .player-btn { padding: 0.2rem 0.8rem; font-size: 0.82rem; text-decoration: none; }
+.raid-table .player-btn { text-decoration: none; }  /* same pill size as the War tables */
 .raid-go { margin-left: 0.3rem; font-size: 0.8rem; text-decoration: none; color: var(--accent); }
 .rb-ico { display: block; width: 2.2rem; height: 2.2rem; margin: 0 auto 0.15rem; object-fit: cover; border-radius: 6px; }
 .raid-table th span { display: block; max-width: 5.5rem; font-size: 0.66rem; line-height: 1.15; white-space: normal; text-align: center; }
 .ex-member { color: var(--text-muted); font-size: 0.82rem; }
 .raid-table { table-layout: auto; width: max-content; min-width: 100%; }
-.raid-table th, .raid-table td { width: auto; overflow: visible; text-overflow: clip; border-left: none; border-right: none; text-align: left; padding: 0.45rem 0.7rem; }
+.raid-table th, .raid-table td { width: auto; overflow: visible; text-overflow: clip; border-left: none; border-right: none; text-align: left; padding: 0.5rem 0.7rem; }
 .raid-table th:first-child, .raid-table td:first-child { position: static; background: none; }
 .raid-table thead th { position: static; background: var(--table-header-bg); }
 .raid-table td:not(:nth-child(2)) { text-align: right; }
@@ -1542,3 +1542,6 @@ tbody tr[data-active="false"] .player-btn { color: var(--text-muted); }
 td.rk .tb-badge { display: inline-block; width: 1.15rem; vertical-align: middle; margin: -0.25rem 0; }
 td.rk .tb-badge .ins-core b { font-size: 0.52rem; }
 td.rk .tb-badge .ins-core b .rn { height: 0.78em; }
+/* The # column is centred, so the laurels and the numbers share one vertical axis. */
+th.rk, td.rk { text-align: center; padding-left: 0.45em; padding-right: 0.45em; }
+.table-scroll table th.rk, .table-scroll table td.rk { text-align: center; padding-left: 0.45em; padding-right: 0.45em; }
