@@ -43,7 +43,10 @@ def main():
         sys.exit('No "Guild" api_key in keys.json')
     os.makedirs(OUT_DIR, exist_ok=True)
     try:
-        latest = max(call("guild", key)["guild"]["guildRaidSeasons"])
+        guild = call("guild", key)
+        with open(os.path.join(OUT_DIR, "guild.json"), "w", encoding="utf-8") as f:  # members' roles (leader / officer ...)
+            json.dump(guild, f, ensure_ascii=False)
+        latest = max(guild["guild"]["guildRaidSeasons"])
         for season in range(FIRST_SEASON, latest + 1):
             data = call(f"guildRaid/{season}", key)
             with open(os.path.join(OUT_DIR, f"season-{season}.json"), "w", encoding="utf-8") as f:

@@ -122,6 +122,19 @@ def compute(scores, win_rate, members=None):
     return out
 
 
+ROLE_LABELS = {"LEADER": "Chef", "COLEADER": "Co-chef", "CO_LEADER": "Co-chef", "CO-LEADER": "Co-chef", "OFFICER": "Officier"}
+
+
+def guild_roles():
+    """uid -> role label ("Chef", "Co-chef", "Officier") from data/raid/guild.json (fetch_raid.py); ordinary members are left out."""
+    path = os.path.join(RAID_DIR, "guild.json")
+    if not os.path.exists(path):
+        return {}
+    with open(path, encoding="utf-8") as f:
+        members = json.load(f).get("guild", {}).get("members", [])
+    return {m["userId"]: ROLE_LABELS[m["role"].upper()] for m in members if m.get("role", "").upper() in ROLE_LABELS}
+
+
 MIN_ATTACKS = 1   # no threshold: any player with a counted attack in a season is ranked for it
 MIN_SEASONS = 1   # ... and any player with a ranked season is ranked overall
 

@@ -649,15 +649,16 @@ def _fmt_damage(n):
     return f"{n / 1_000_000:.2f}".replace(".", ",") + " M"
 
 
-def _medal(kind, caption, sub, earned, tier, prefix, art=None, text=None):
+def _medal(kind, caption, sub, earned, tier, prefix, art=None, text=None, href=None):
     """One medal: Onslaught frame (mythic / legendary / epic by rank, "challenge" for the thresholds), the boss portrait or a
-    text inside, greyed out when not earned. Its name and figure appear in a tooltip when the mouse rests on it."""
+    text inside, greyed out when not earned. Its name and figure appear in a tooltip when the mouse rests on it; a boss medal links to that boss's page."""
     frame = "challenge" if kind == "challenge" else {1: "mythic", 2: "legendary", 3: "epic"}.get(tier, "mythic")
     art_html = f'<img class="medal-art" src="{prefix}assets/{art}" alt="" loading="lazy">' if art else ""
     text_html = f'<b class="medal-txt">{text}</b>' if text else ""
-    return (f'<div class="medal-item {"earned" if earned else "grey"}" tabindex="0">'
+    tag, attrs = ("a", f' href="{href}"') if href else ("div", ' tabindex="0"')
+    return (f'<{tag} class="medal-item {"earned" if earned else "grey"}"{attrs}>'
             f'<span class="medal medal-{kind}">{art_html}<img class="medal-frame" src="{prefix}assets/ui/onslaught_{frame}.png" alt="" loading="lazy">{text_html}</span>'
-            f'<span class="medal-tip"><b>{escape(caption)}</b><small>{escape(sub)}</small></span></div>')
+            f'<span class="medal-tip"><b>{escape(caption)}</b><small>{escape(sub)}</small></span></{tag}>')
 
 
 def render_medals(m, prefix="../"):
@@ -681,7 +682,8 @@ def render_medals(m, prefix="../"):
             sub = f"{'1er' if pos == 1 else f'{pos}e'} sur {b['of']} · {rel} ({b['n']} attaque{'s' if b['n'] > 1 else ''})"
         else:
             sub = "pas d'attaque"
-        items.append(_medal("boss", f"{slot['name']} · relatif", sub, bool(rank), rank or 0, prefix, art=slot["art"]))
+        items.append(_medal("boss", f"{slot['name']} · relatif", sub, bool(rank), rank or 0, prefix, art=slot["art"],
+                            href=f"{prefix}boss/{slot['key']}.html"))
     return '<div class="medals">' + "".join(items) + "</div>"
 
 

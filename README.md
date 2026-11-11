@@ -69,3 +69,7 @@ Each player page shows medals built with the Onslaught badge art (`docs/assets/u
 ### Raid ranking
 
 The Raid insignia (`scripts/medals.py`, `raid_ranking`) works season by season on the raid history (seasons 82 on). Bombs, finishing blows and one-shots are left out; every other attack (one token) is compared with the guild's average hit on the same boss or sub-boss and difficulty tier that season, which gives the relative damage per token (% above the guild average). A player's season score is the mean over their attacks (no minimum), everybody who played the season is ranked on it (former members included), and the insignia shows the member's rank by the average of those season ranks (no minimum number of seasons). The guild average is taken over the whole season.
+
+### Raid and Boss tabs
+
+`raid.html` ranks the members on the raid ranking above, one column per season (relative damage, % above the guild average), with a chip per season leading to `raid/<season>.html` (everybody who played the season, one column per boss). `boss.html` has a chip (icon + name) for every boss and sub-boss and the podium of each; `boss/<key>.html` ranks the members on their all-time relative damage against that boss, one column per season it was fought. Both read `data/raid/` through `scripts/medals.py`.
