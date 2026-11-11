@@ -1,4 +1,4 @@
-# Refreshes the players' rosters every day at noon (Paris, winter time) from the official Tacticus API, rebuilds the site
+# Refreshes the players' rosters and the guild raid history every day at noon (Paris, winter time) from the official Tacticus API, rebuilds the site
 # and publishes it. The API keys live in the repository SECRET "ROSTER_KEYS" (the content of keys.json): they are written to
 # a temporary file on the runner, used by fetch_rosters.py, then deleted. They never appear in the repo, the logs or the site.
 # Only rosters are refreshed here; war captures and unit portraits stay manual (they come from the local game files).
@@ -40,8 +40,13 @@ jobs:
             if python3 scripts/fetch_rosters.py --strict; then ok=1; break; fi
             echo "Attempt $attempt failed, retrying in 60 s"; sleep 60
           done
+          raid_ok=0
+          for attempt in 1 2 3; do
+            if python3 scripts/fetch_raid.py; then raid_ok=1; break; fi
+            echo "Raid attempt $attempt failed, retrying in 60 s"; sleep 60
+          done
           rm -f ~/.config/tacticus-guildwar/keys.json
-          test "$ok" = 1   # never publish a partial member list
+          test "$ok" = 1 && test "$raid_ok" = 1   # never publish a partial member list or medals without the raid history
 
       - name: Rebuild the site
         run: python3 scripts/generate_site.py

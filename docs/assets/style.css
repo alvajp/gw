@@ -1120,3 +1120,122 @@ dialog.method-modal { width: min(640px, calc(100vw - 2rem)); }
 
 /* Meta dialogs: every unit row has the height needed for the relic icon, whether or not the unit has a relic. */
 .mm-table tbody tr:not(.mm-role) > td { height: 1.9rem; vertical-align: middle; }
+
+/* Insignias at the top of a player page (guild war rank; raid to come). */
+.insignias { display: flex; flex-wrap: wrap; gap: 0.8rem; margin: 0.4rem 0 1rem; }
+.insignia { display: flex; align-items: center; gap: 0.9rem; padding: 0.7rem 1.2rem 0.7rem 0.8rem; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; }
+.ins-medal { display: inline-flex; align-items: center; justify-content: center; width: 3.2rem; height: 3.2rem; border-radius: 50%; font-size: 1.4rem; font-weight: 800; font-variant-numeric: tabular-nums; color: #1a1205; box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.35), 0 2px 6px rgba(0, 0, 0, 0.35); }
+.ins-medal.tier-gold { background: radial-gradient(circle at 30% 25%, #ffe08a, #e0a82e); }
+.ins-medal.tier-silver { background: radial-gradient(circle at 30% 25%, #f3f5f8, #aab2bf); }
+.ins-medal.tier-bronze { background: radial-gradient(circle at 30% 25%, #f1c08e, #b9773a); }
+.ins-medal.tier-plain { background: #fff; color: #1a1d23; box-shadow: inset 0 0 0 3px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.35); }
+.ins-medal.tier-none { background: var(--table-header-bg); color: var(--text-muted); box-shadow: inset 0 0 0 2px var(--border); }
+.ins-text { display: flex; flex-direction: column; gap: 0.1rem; }
+.ins-text b { font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); }
+.ins-text small { font-size: 0.82rem; color: var(--text); }
+.ins-text small + small { color: var(--text-muted); font-size: 0.76rem; }
+
+/* Joueurs pages: an event banner of the game behind the page (fixed, faded into the page colour so the content stays readable). */
+body[data-page="players"]::before {
+  content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background-size: cover; background-position: center top; background-repeat: no-repeat;
+}
+body[data-page="players"]::before { background-image: linear-gradient(to bottom, color-mix(in srgb, var(--bg) 55%, transparent), var(--bg) 78%), url("bg/spacevista.webp"); }
+
+/* Players list: a panel behind the rows (starting at the first player) so the figures stay readable over the page background. */
+.pg-rows { padding: 0.4rem 1.1rem 0.5rem; background: color-mix(in srgb, var(--bg) 86%, transparent); border: 1px solid var(--border); border-radius: var(--radius); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.pg-head { margin-bottom: 0.6rem; padding: 0 1.1rem 0.5rem; }
+@media (max-width: 760px) { .pg-rows { padding: 0.4rem; background: none; border: none; backdrop-filter: none; -webkit-backdrop-filter: none; } .pg-head { padding: 0 0 0.5rem; } }
+.pg-head { border-bottom: none; }
+.pg-head { margin-bottom: 0.15rem; padding-bottom: 0.1rem; }
+.pg-head .pg-sub { margin-top: -0.2rem; }
+
+/* Phones: the player page goes from the metas summary (badges) straight to the roster; the detailed metas table stays desktop-only. */
+@media (max-width: 640px) { .rmetas .mtable { display: none; } }
+
+/* Backgrounds by ranking: top 2 of the guild war (and later of the raid) get their event banner, the others the space vista above. */
+body[data-page="players"][data-bg="war-for-armageddon"]::before { background-image: linear-gradient(to bottom, color-mix(in srgb, var(--bg) 55%, transparent), var(--bg) 78%), url("bg/war-for-armageddon.webp"); }
+body[data-page="players"][data-bg="skull-harvest"]::before { background-image: linear-gradient(to bottom, color-mix(in srgb, var(--bg) 55%, transparent), var(--bg) 78%), url("bg/skull-harvest.webp"); }
+body[data-page="players"][data-bg="armageddon"]::before { background-image: linear-gradient(to bottom, color-mix(in srgb, var(--bg) 55%, transparent), var(--bg) 78%), url("bg/armageddon.webp"); }
+body[data-page="players"][data-bg="war-amongst-the-stars"]::before { background-image: linear-gradient(to bottom, color-mix(in srgb, var(--bg) 55%, transparent), var(--bg) 78%), url("bg/war-amongst-the-stars.webp"); }
+
+/* Top-3 insignia: the August 2026 avatar frame around a coloured disc with the rank (Onslaught badge colours). */
+.ins-frame { position: relative; flex: 0 0 auto; display: block; width: 7rem; aspect-ratio: 208 / 220; }
+.ins-core { position: absolute; left: 14.2%; top: 10.2%; width: 71.6%; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; border-radius: 50%; }
+.ins-core b { font-size: 2.7rem; font-weight: 900; line-height: 1; font-variant-numeric: tabular-nums; color: #fff; text-shadow: 0 2px 0 rgba(0, 0, 0, 0.35), 0 0 8px rgba(0, 0, 0, 0.35); }
+.ins-core b::before { content: "#"; font-size: 1.25rem; font-weight: 800; margin-right: 0.08rem; opacity: 0.85; vertical-align: 0.55em; }
+.ins-frame-img { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.45)); }
+.ins-frame.tier-1 .ins-core { background: radial-gradient(circle at 35% 25%, #ffb13a, #ff5a12 62%, #d92f00); }          /* mythic (orange) */
+.ins-frame.tier-2 .ins-core { background: radial-gradient(circle at 35% 25%, #9cf0dc, #2fb7a3 62%, #17806f); }          /* legendary (teal) */
+.ins-frame.tier-3 .ins-core { background: radial-gradient(circle at 35% 25%, #fff08a, #f2c21c 62%, #c18d00); }          /* epic (gold) */
+.ins-frame.tier-3 .ins-core b { color: #4a2c0e; text-shadow: 0 1px 0 rgba(255, 255, 255, 0.45); }
+
+/* Insignia frame, smaller (4 rem). */
+.ins-frame { width: 4rem; }
+.ins-core b { font-size: 1.55rem; }
+.ins-core b::before { font-size: 0.75rem; margin-right: 0.05rem; }
+
+/* From the first row of the roster down, the page colour takes over (full width, faded in over the first row) so the banner doesn't sit behind the characters. */
+.roster-zone { position: relative; isolation: isolate; }
+.roster-zone::before {
+  content: ""; position: absolute; z-index: -1; pointer-events: none;
+  left: 50%; width: 100vw; transform: translateX(-50%); top: 0; bottom: -6rem;
+  background: linear-gradient(to bottom, transparent 0, color-mix(in srgb, var(--bg) 70%, transparent) 2rem, var(--bg) 4rem);
+}
+
+/* The faded roster background must never sit over the blocks above it (stats, resources): they stay on top. */
+.rsummary, .rres, .rmetas, .insignias { position: relative; z-index: 1; }
+
+/* Strategy page: War for Armageddon behind the page, faded into the page colour. */
+body[data-page="strategy"][data-bg="war-for-armageddon"]::before {
+  content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background-size: cover; background-position: center top; background-repeat: no-repeat;
+  background-image: linear-gradient(to bottom, color-mix(in srgb, var(--bg) 55%, transparent), var(--bg) 78%), url("bg/war-for-armageddon.webp");
+}
+
+/* Medals: small Onslaught frames on the same line as the War and Raid insignias, no panel; greyed when not earned; name and
+   figure in a tooltip when the mouse rests on a medal. */
+.insignias { align-items: center; }
+.medals { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem 0.5rem; }
+.medal-item { position: relative; display: flex; cursor: default; outline: none; }
+.medal-item.grey .medal { filter: grayscale(1); opacity: 0.4; }
+.medal { position: relative; display: block; height: 3rem; }
+.medal-boss { aspect-ratio: 150 / 197; }
+.medal-challenge { aspect-ratio: 156 / 293; height: 3.5rem; }
+.medal-frame { position: absolute; inset: 0; width: 100%; height: 100%; }
+.medal-art { position: absolute; left: 12%; top: 4%; height: 76%; width: 76%; object-fit: cover; clip-path: polygon(50% 0, 100% 19%, 100% 80%, 50% 100%, 0 80%, 0 19%); }
+.medal-txt { position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%); text-align: center; font-size: 0.55rem; font-weight: 800; color: #fff; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8); font-variant-numeric: tabular-nums; }
+.medal-tip { position: absolute; left: 50%; bottom: calc(100% + 0.45rem); transform: translateX(-50%); z-index: 20; display: flex; flex-direction: column; gap: 0.1rem; padding: 0.4rem 0.65rem; white-space: nowrap; text-align: center; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5); opacity: 0; pointer-events: none; transition: opacity 120ms ease; }
+.medal-tip b { font-size: 0.78rem; }
+.medal-tip small { font-size: 0.72rem; color: var(--text-muted); }
+.medal-item:hover .medal-tip, .medal-item:focus .medal-tip { opacity: 1; transition-delay: 0.25s; }
+/* 31 medals: they fill the band to the right of the insignias and wrap inside it, instead of dropping under them. */
+.medals { flex: 1 1 22rem; min-width: 0; }
+
+/* Metas: the table carries the icon and the completion % of each row (desktop); phones keep the badge summary instead. */
+@media (min-width: 641px) { .mbadges { display: none; } }
+.mteam-name { display: table-cell; }
+.mteam-name .meta-ico { display: block; margin: 0 0 0.4rem; width: 2.6rem; height: 2.6rem; }
+.mteam-name span { display: block; font-size: 0.9rem; font-weight: 600; }
+.mrole-pct { display: inline-block; min-width: 3rem; margin: 0.1rem 0 0.35rem; padding: 0.15rem 0.5rem; text-align: center; border-radius: 6px; font-size: 0.8rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.mrole-pct.v-hi { color: var(--win); background: color-mix(in srgb, var(--win) 13%, transparent); }
+.mrole-pct.v-mid { color: #e0a43a; background: color-mix(in srgb, #e0a43a 13%, transparent); }
+.mrole-pct.v-lo { color: var(--loss); background: color-mix(in srgb, var(--loss) 13%, transparent); }
+
+/* Roster cards, smaller. */
+.rs-grid { grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); gap: 0.45rem; }
+.rc { padding: 0.95rem 0.2rem 0.4rem; gap: 0.15rem; }
+.rc .rc-portrait { width: 54px; }
+.rc .rc-lvl { font-size: 0.5rem; min-width: 0.9rem; }
+.rc .st-img { width: 13px; height: 13px; }
+.rc .st-img.st-blue { width: 19px; }
+.rc .st-img.st-wings { width: 36px; }
+.rc .rc-stars { top: -7px; }
+.rc .rc-rank-badge { width: 42%; }
+.rc .rc-faction { width: 0.95rem; height: 0.95rem; top: 0.25rem; right: 0.25rem; }
+.rc-name { font-size: 0.68rem; }
+.rc-abil span { min-width: 1.25rem; height: 1.25rem; font-size: 0.62rem; border-width: 1.5px; }
+.rc-items { gap: 0.25rem; }
+.rc-items .it, .rc-items .it.it-art { width: 1.5rem; height: 1.5rem; }
+.rc-items .it-lvl { font-size: 0.5rem; min-width: 0.8rem; right: -3px; bottom: -3px; }
+@media (max-width: 480px) { .rs-grid { grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 0.35rem; } }

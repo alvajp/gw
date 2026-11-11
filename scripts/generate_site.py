@@ -17,6 +17,7 @@ from ranking import compute_ranking
 from maps_yaml import load_maps
 from legacy_ranking import compute_legacy_ranking, load_legacy
 import rosters as rosters_mod
+import medals as medals_mod
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WARS_DIR = os.path.join(ROOT, "data", "wars")
@@ -427,7 +428,7 @@ PAGE_TEMPLATE = """<!doctype html>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230d1014'/%3E%3Cpath d='M16 6l8 10-8 10-8-10z' fill='%23f2b134'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="{asset_prefix}assets/style.css?v={v}">
 </head>
-<body>
+<body data-page="{page}" data-bg="{bg}">
 {topbar}
 <header><div class="breadcrumb" id="breadcrumb">{back_link}</div><div id="title-row"><h1 id="page-title" class="{title_class}">{title}</h1><div id="header-action">{header_action}</div></div><div id="header-extra">{header_extra}</div></header>
 <main>
@@ -443,6 +444,7 @@ PAGE_TEMPLATE = """<!doctype html>
 <script src="{asset_prefix}assets/placement.js?v={v}"></script>
 <script src="{asset_prefix}assets/metas.js?v={v}"></script>
 <script src="{asset_prefix}assets/opp-filter.js?v={v}"></script>
+<script src="{asset_prefix}assets/chip-scroll.js?v={v}"></script>
 <script src="{asset_prefix}assets/page-transition.js?v={v}"></script>
 </body>
 </html>"""
@@ -477,6 +479,8 @@ def render_topbar(prefix, active):
 def render_page(nav_active="ranking", **kw):
     """PAGE_TEMPLATE.format with the top bar (needs asset_prefix) filled in."""
     kw["topbar"] = render_topbar(kw["asset_prefix"], nav_active)
+    kw["page"] = nav_active
+    kw.setdefault("bg", "")  # Joueurs pages: which event banner (0-3) sits behind the page, see style.css
     return PAGE_TEMPLATE.format(**kw)
 
 
@@ -2408,13 +2412,38 @@ def render_strategy_index(all_wars):
     body += _defense_modal_html(by_map_events + opp_events, {**by_map_players, **opp_players}, "")
     html = render_page(
         nav_active="strategy", title="Stratégie", asset_prefix="", body=body, back_link=back_link_html("index.html", "Classement général"),
-        title_class="hero-title", header_extra="", header_action="", v=ASSETS_VERSION,
+        title_class="hero-title", header_extra="", header_action="", v=ASSETS_VERSION, bg="war-for-armageddon",
     )
     with open(os.path.join(DOCS_DIR, "strategie.html"), "w", encoding="utf-8") as f:
         f.write(html)
 
 
-def render_players_pages():
+def player_background(war, raid):
+    """Event banner behind a player's page: the top two of the guild war ranking and (once the raid ranking exists) of the
+    raid ranking get their own art, everyone else the default space vista. War takes priority."""
+    by_war = {1: "war-for-armageddon", 2: "skull-harvest"}
+    by_raid = {1: "armageddon", 2: "war-amongst-the-stars"}
+    return by_war.get((war or {}).get("rank")) or by_raid.get((raid or {}).get("rank")) or ""
+
+
+def compute_medals(seasons):
+    """uid -> the data behind the medals (see medals.py): median battle score, reliability and raid boss podiums."""
+    all_wars_flat = [w for ws in seasons.values() for w in ws]
+    _, scores = compute_score_distributions(all_wars_flat)
+    win_rate = compute_season_averages(seasons)[5]
+    members = {r["uid"] for r in rosters_mod.load_rosters()}
+    return medals_mod.compute(scores, win_rate, members)
+
+
+def compute_war_rank(seasons, active_uids):
+    """uid -> {rank, of, avg, wars} for the current members (players of the latest war), ranked by their overall average
+    points per war: the same order as the general ranking table on the index page."""
+    _, display_names, _, war_counts, averages, *_ = compute_season_averages(seasons)
+    members = sorted((u for u in averages if u in active_uids), key=lambda u: (-averages[u], display_names.get(u, "").lower()))
+    return {u: {"rank": i, "of": len(members), "avg": round_pts(averages[u]), "wars": war_counts.get(u, 0)} for i, u in enumerate(members, 1)}
+
+
+def render_players_pages(war_rank=None, raid_rank=None, medals=None):
     """docs/joueurs.html (member list) + docs/joueurs/<id>.html (one roster each),
     from the API payloads in data/rosters/ (see fetch_rosters.py). Skipped when there are none."""
     rosters = rosters_mod.load_rosters()
@@ -2423,25 +2452,24 @@ def render_players_pages():
     os.makedirs(os.path.join(DOCS_DIR, "joueurs"), exist_ok=True)
     html = render_page(
         nav_active="players", title="Joueurs", asset_prefix="", body=rosters_mod.render_players_index_body(rosters),
-        back_link="", title_class="hero-title", header_extra="", header_action="", v=ASSETS_VERSION,
+        back_link="", title_class="hero-title", header_extra="", header_action="", v=ASSETS_VERSION, bg="0",
     )
     with open(os.path.join(DOCS_DIR, "joueurs.html"), "w", encoding="utf-8") as f:
         f.write(html)
     for r in rosters:
         html = render_page(
-            nav_active="players", title=r["name"], asset_prefix="../", body=rosters_mod.render_player_body(r, "../"),
+            nav_active="players", title=r["name"], asset_prefix="../", body=rosters_mod.render_player_body(r, "../", war=(war_rank or {}).get(r["uid"]), medals=(medals or {}).get(r["uid"]),
+                                                raid=(raid_rank or {}).get(r["uid"]), raid_known=bool(raid_rank)),
             back_link=back_link_html("../joueurs.html", "Joueurs"), title_class="", header_extra="", header_action="", v=ASSETS_VERSION,
+            bg=player_background((war_rank or {}).get(r["uid"]), (raid_rank or {}).get(r["uid"])),
         )
         with open(os.path.join(DOCS_DIR, "joueurs", rosters_mod.player_slug(r["uid"]) + ".html"), "w", encoding="utf-8") as f:
             f.write(html)
     print(f"Generated {len(rosters)} player page(s) + joueurs.html")
 
 
-def main():
-    os.makedirs(os.path.join(DOCS_DIR, "wars"), exist_ok=True)
-    os.makedirs(os.path.join(DOCS_DIR, "seasons"), exist_ok=True)
-    os.makedirs(os.path.join(DOCS_DIR, "assets"), exist_ok=True)
-
+def load_wars():
+    """Every captured and legacy war with its computed ranking, in chronological order."""
     all_wars = []
     for slug, json_path, maps, extra in discover_wars():
         result = compute_ranking(json_path, maps, extra)
@@ -2462,6 +2490,15 @@ def main():
         all_wars.append({"slug": slug, "result": result, "season": season, "war_number": war_number, "outcome": outcome})
 
     all_wars.sort(key=lambda w: (w["season"], w["result"]["war_start"]))
+    return all_wars
+
+
+def main():
+    os.makedirs(os.path.join(DOCS_DIR, "wars"), exist_ok=True)
+    os.makedirs(os.path.join(DOCS_DIR, "seasons"), exist_ok=True)
+    os.makedirs(os.path.join(DOCS_DIR, "assets"), exist_ok=True)
+
+    all_wars = load_wars()
 
     active_uids = frozenset()
     if all_wars:
@@ -2482,7 +2519,8 @@ def main():
 
     render_index(seasons, active_uids)
     render_strategy_index(all_wars)
-    render_players_pages()
+    members = {r["uid"] for r in rosters_mod.load_rosters()}
+    render_players_pages(compute_war_rank(seasons, active_uids), raid_rank=medals_mod.raid_ranking(members), medals=compute_medals(seasons))
     for w in all_wars:
         render_war_strategy_page(w["slug"], w["result"], w["season"])
     print(f"Generated {len(all_wars)} war page(s), {len(seasons)} season page(s) + index.html into {DOCS_DIR}")

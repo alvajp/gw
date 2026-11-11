@@ -61,3 +61,11 @@ Each player page opens with the raid metas (Lavistodes, Neuro, Battlesuit, Méch
 ### Strategy page
 
 `strategie.html` has guild chips (Bloody Rose by default) that filter the "Contre les meilleurs" map; the guilds are the `COMBINED_OPPONENTS` of `generate_site.py`.
+
+### Medals
+
+Each player page shows medals built with the Onslaught badge art (`docs/assets/ui/onslaught_*.png`, boss portraits in `docs/assets/bosses/`), `scripts/medals.py`: the three biggest single hits (bombs excluded, every raid season from 82 on, current members only) on each raid boss (orange / teal / gold for 1st / 2nd / 3rd), a median guild-war battle score of 1600 or more (1600 is the cap), and a guild-war reliability above 90 %. Every medal is shown on every page, greyed out when not earned. The raid history comes from `python3 scripts/fetch_raid.py` (guild key, `"Guild": {"api_key": ...}` in `keys.json`; raw data in the git-ignored `data/raid/`); the daily workflow fetches it too and publishes nothing if it fails.
+
+### Raid ranking
+
+The Raid insignia (`scripts/medals.py`, `raid_ranking`) works season by season on the raid history (seasons 82 on). Bombs, finishing blows and one-shots are left out; every other attack (one token) is compared with the guild's average hit on the same boss or sub-boss and difficulty tier that season, which gives the relative damage per token (% above the guild average). A player's season score is the mean over their attacks (no minimum), everybody who played the season is ranked on it (former members included), and the insignia shows the member's rank by the average of those season ranks (no minimum number of seasons). The guild average is taken over the whole season. The "biggest hit" medals drop finishing blows too, but keep one-shots.

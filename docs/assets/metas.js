@@ -18,7 +18,8 @@
       const d = parseFloat(b.dataset["m" + col]) - parseFloat(a.dataset["m" + col]);
       return (dir === "desc" ? d : -d) || a.dataset.i - b.dataset.i;
     });
-    rows.forEach(function (r) { grid.appendChild(r); });
+    const holder = grid.querySelector(".pg-rows") || grid; // the rows live in the panel
+    rows.forEach(function (r) { holder.appendChild(r); });
   }
   document.addEventListener("click", function (e) {
     const head = e.target.closest(".pg-meta[data-sort]");

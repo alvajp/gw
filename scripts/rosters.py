@@ -15,6 +15,8 @@ import os
 from datetime import datetime
 from html import escape
 
+import medals as medals_mod
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ROSTERS_DIR = os.path.join(ROOT, "data", "rosters")
 UNITS_DIR = os.path.join(ROOT, "docs", "assets", "units")
@@ -283,7 +285,7 @@ RAID_METAS = [
     ("Battlesuit", {
         "Core": [_h("tauCrisis", [50, 60], W, relic=(DW02, 10)), _h("tauFarsight", [60, 60], 11, relic=(DAWN_BLADE, 10)), _h("eldarLhykhis", [35, 60], 12),
                  _h("admecManipulus", [50, 50], 11), _h("tauDarkstrider", [35, 60], 12)],
-        "Machines": [_m("necroReanimator", [50, 60, 4])]}),
+        "Machines": [_m("necroReanimator", [50, 60, 4]), _m("deathCrawler", [1, 36, 4])]}),
     ("Méchas", {
         "Core": [_h("admecRuststalker", [60, 60], W, relic=(KARDIOCORE, 10)), _h("admecMarshall", [50, 60], 11, relic=(KARDIOCORE, 1)), _h("necroOverlord", [60, 50], 11, relic=(PHASAL, 10)),
                  _h("votanMemnyr", [60, 60], 11), _h("admecDominus", [35, 60], 11)],
@@ -584,9 +586,9 @@ def _pct_html(pcts):
 
 
 def render_raid_metas(units, prefix="../"):
-    """Raid metas: completion badges (icon + % for Core / Flex / MOW per meta, click = methodology dialog), then a
-    table (one row per meta, columns Core / Flex / Machines) with what this player owns; on phones the CSS stacks
-    each table row into a labelled card."""
+    """Raid metas: a table (one row per meta with its icon, columns Core / Flex / Machines, each with its completion % above
+    the units this player owns; click a row = methodology dialog). On phones the table is hidden and the completion badges
+    (icon + % for Core / Flex / MOW per meta) take its place."""
     owned = {u["id"]: u for u in units}
     names = _unit_names()
     badges, rows, modals = "", "", ""
@@ -594,19 +596,93 @@ def render_raid_metas(units, prefix="../"):
         pcts = _pct_html(meta_pcts(owned, roles))
         badges += (f'<div class="mbadge" role="button" tabindex="0" data-meta="meta-{idx}" title="Voir la méthodologie">{_meta_icon(team, prefix)}'
                    f'<div class="mbadge-body"><span class="mbadge-name">{escape(team)}</span><div class="mpcts">{pcts}</div></div></div>')
+        got = dict(meta_pcts(owned, roles))
         cells = ""
         for role in ROLES:
             inner = "".join(_mini_unit(i, owned.get(i), names, prefix, req) for i, req in roles.get(role, [])) or '<span class="mnone">—</span>'
-            cells += f'<td data-label="{role}"><div class="munits">{inner}</div></td>'
+            pct = f'<span class="mrole-pct {_pct_class(got[role])}">{got[role]}%</span>' if role in got else ""
+            cells += f'<td data-label="{role}">{pct}<div class="munits">{inner}</div></td>'
         rows += (f'<tr role="button" tabindex="0" data-meta="meta-{idx}" title="Voir le détail de {escape(team)}">'
-                 f'<th scope="row" class="mteam-name">{escape(team)}</th>{cells}</tr>')
+                 f'<th scope="row" class="mteam-name"><span>{escape(team)}</span></th>{cells}</tr>')
         modals += _meta_modal(idx, team, roles, owned, names, prefix)
     head = "".join(f"<th>{role}</th>" for role in ROLES)
     return (f'<div class="rmetas"><div class="mbadges">{badges}</div>'
             f'<table class="mtable"><thead><tr><th>Meta</th>{head}</tr></thead><tbody>{rows}</tbody></table>{modals}{method_modal()}</div>')
 
 
-def render_player_body(r, prefix="../"):
+def _insignia(kind, label, info, prefix):
+    """One insignia. War: `info` = {rank, of, avg, wars}; raid: {rank, of, avg_season_rank, seasons, avg_rel} (None = not ranked).
+    The top three get the game's August 2026 avatar frame (the plate says WAR or RAID) around a coloured disc with their rank:
+    orange 1st (mythic), teal 2nd (legendary), gold 3rd (epic), the Onslaught badge colours; the others a plain white medal."""
+    if not info:
+        why = "Pas encore classé"
+        return (f'<div class="insignia"><span class="ins-medal tier-none">–</span>'
+                f'<span class="ins-text"><b>{label}</b><small>{why}</small></span></div>')
+    rank = info["rank"]
+    if rank <= 3:
+        medal = (f'<span class="ins-frame tier-{rank}"><span class="ins-core"><b>{rank}</b></span>'
+                 f'<img class="ins-frame-img" src="{prefix}assets/ui/avatar_frame_{kind}.png" alt=""></span>')
+    else:
+        medal = f'<span class="ins-medal tier-plain">{rank}</span>'
+    if kind == "raid":
+        plural = "s" if info["seasons"] > 1 else ""
+        lines = f'<small>Rang {rank} sur {info["of"]}</small><small>{info["seasons"]} saison{plural}</small>'
+        tip = ("Classement de raid : dégâts par attaque relativement à la moyenne de la guilde sur la saison (sans finishs ni one shots), "
+               "classés par saison puis moyennés")
+    else:
+        plural = "s" if info["wars"] > 1 else ""
+        lines = f'<small>Rang {rank} sur {info["of"]}</small><small>{info["wars"]} guerre{plural}</small>'
+        tip = "Classement général de guerre, parmi les membres actuels"
+    return f'<div class="insignia" title="{tip}">{medal}<span class="ins-text"><b>{label}</b>{lines}</span></div>'
+
+
+def render_insignias(war, prefix="../", raid=None, extra="", raid_known=False):
+    """Insignias at the top of a player page: the player's rank in the guild's general war ranking (overall average points
+    per war among the current members) and in the raid ranking (average of the per-season rankings; a placeholder X while
+    there is no raid data)."""
+    raid_html = (_insignia("raid", "Raid", raid, prefix) if raid_known else
+                 '<div class="insignia" title="Classement de raid : bientôt"><span class="ins-medal tier-none">X</span>'
+                 '<span class="ins-text"><b>Raid</b><small>À venir</small></span></div>')
+    return f'<div class="insignias">{_insignia("war", "Guerre", war, prefix)}{raid_html}{extra}</div>'
+
+
+def _fmt_damage(n):
+    return f"{n / 1_000_000:.2f}".replace(".", ",") + " M"
+
+
+def _medal(kind, caption, sub, earned, tier, prefix, art=None, text=None):
+    """One medal: Onslaught frame (mythic / legendary / epic by rank, "challenge" for the thresholds), the boss portrait or a
+    text inside, greyed out when not earned. Its name and figure appear in a tooltip when the mouse rests on it."""
+    frame = "challenge" if kind == "challenge" else {1: "mythic", 2: "legendary", 3: "epic"}.get(tier, "mythic")
+    art_html = f'<img class="medal-art" src="{prefix}assets/{art}" alt="" loading="lazy">' if art else ""
+    text_html = f'<b class="medal-txt">{text}</b>' if text else ""
+    return (f'<div class="medal-item {"earned" if earned else "grey"}" tabindex="0">'
+            f'<span class="medal medal-{kind}">{art_html}<img class="medal-frame" src="{prefix}assets/ui/onslaught_{frame}.png" alt="" loading="lazy">{text_html}</span>'
+            f'<span class="medal-tip"><b>{escape(caption)}</b><small>{escape(sub)}</small></span></div>')
+
+
+def render_medals(m, prefix="../"):
+    """Medals row under the insignias: guild-war median and reliability, then one medal per raid boss. All are shown; the
+    ones the player did not earn are greyed out."""
+    m = m or {}
+    median, reliab = m.get("median"), m.get("reliability")
+    items = []
+    ok = median is not None and median >= medals_mod.MEDIAN_THRESHOLD
+    items.append(_medal("challenge", f"Médiane GvG ≥ {medals_mod.MEDIAN_THRESHOLD}", f"Ta médiane : {round(median)}" if median is not None else "Pas de score", ok, 0, prefix,
+                        text=str(medals_mod.MEDIAN_THRESHOLD)))
+    ok = reliab is not None and reliab > medals_mod.RELIABILITY_THRESHOLD
+    items.append(_medal("challenge", f"Fiabilité GvG > {round(100 * medals_mod.RELIABILITY_THRESHOLD)} %", f"Ta fiabilité : {round(100 * reliab)} %" if reliab is not None else "Pas de guerre", ok, 0, prefix,
+                        text=f"{round(100 * medals_mod.RELIABILITY_THRESHOLD)}%"))
+    for slot in medals_mod.slots():
+        b = (m.get("bosses") or {}).get(slot["key"]) or {}
+        rank = b.get("rank")
+        pos = b.get("position")
+        sub = (f"{'1er' if pos == 1 else f'{pos}e'} sur {b['of']} · {_fmt_damage(b['damage'])}" if pos and b.get("damage") else "pas d'attaque")
+        items.append(_medal("boss", f"{slot['name']} · plus gros coup", sub, bool(rank), rank or 0, prefix, art=slot["art"]))
+    return '<div class="medals">' + "".join(items) + "</div>"
+
+
+def render_player_body(r, prefix="../", war=None, medals=None, raid=None, raid_known=False):
     units = r["units"]
     heroes = [u for u in units if not is_mow(u)]
     machines = sorted((u for u in units if is_mow(u)), key=_sort_key)
@@ -659,10 +735,11 @@ def render_player_body(r, prefix="../"):
         f'<div class="chips">{chips}</div></div>'
     )
     return (
-        render_raid_metas(units, prefix) + summary + render_resources(r["inventory"], prefix) + controls
+        render_insignias(war, prefix, raid=raid, raid_known=raid_known, extra=render_medals(medals, prefix)) + render_raid_metas(units, prefix) + summary + render_resources(r["inventory"], prefix)
+        + controls + '<div class="roster-zone">'
         + '<div id="roster" class="roster">' + "".join(sections)
         + '<section class="rs rs-flat" hidden><div class="rs-grid"></div></section></div>'
-        + '<p id="roster-empty" class="roster-empty" hidden>Aucun personnage ne correspond.</p>'
+        + '<p id="roster-empty" class="roster-empty" hidden>Aucun personnage ne correspond.</p></div>'
     )
 
 
@@ -708,4 +785,4 @@ def render_players_index_body(rosters):
                  f'{cells}</div>')
         # this player's own dialog for every meta (their values next to the requirements)
         player_modals += "".join(_meta_modal(f"{pi}-{i}", team, roles, owned, names, "", who=r["name"], href=f'joueurs/{player_slug(r["uid"])}.html') for i, (team, roles) in metas)
-    return f'<div class="pgrid">{head}{rows}</div>{player_modals}{method_modal()}'
+    return f'<div class="pgrid">{head}<div class="pg-rows">{rows}</div></div>{player_modals}{method_modal()}'
