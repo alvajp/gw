@@ -663,10 +663,21 @@ def aggregate_relative_battle_events(wars):
             continue
         t0 = min(e["createdOn"] for e in our_events)
         for e in our_events:
-            events.append({"uid": e["uid"], "createdOn": e["createdOn"] - t0})
+            events.append({"uid": e["uid"], "createdOn": e["createdOn"] - t0, "fail": bool(e.get("fail"))})
         for uid, p in result["players"].items():
             display_names.setdefault(uid, p.get("displayName", uid))
     return events, display_names
+
+
+def _n_event_wars(wars):
+    """How many of these wars have battles of ours (the divisor of the aggregated Chronologie curve)."""
+    n = 0
+    for w in wars:
+        result = w["result"]
+        our_idx = find_team_idx(result["guilds"], OUR_GUILD)
+        if any(e["team"] == our_idx for e in result["battle_events"]):
+            n += 1
+    return max(1, n)
 
 
 def aggregate_ms_milestones(wars):
@@ -718,7 +729,7 @@ def aggregate_ms_milestones(wars):
     return milestones
 
 
-def render_activity_curve_svg(battle_events, milestones, relative=False):
+def render_activity_curve_svg(battle_events, milestones, relative=False, n_wars=1):
     """The "Chronologie" chart (war/season/index pages, see render_war_page/
     render_season_page/render_index): a smoothed density curve of attack
     VOLUME (how many of our battles landed in each 1h slice), gaussian-
@@ -746,8 +757,9 @@ def render_activity_curve_svg(battle_events, milestones, relative=False):
     events, t_min, t_max = _timeline_domain(battle_events, milestones)
     hours_span = (t_max - t_min) / MS_PER_HOUR
 
-    left_pad = TIMELINE_LEFT_PAD
-    chart_h, bottom_pad = TIMELINE_CHART_H, TIMELINE_BOTTOM_PAD
+    # relative (season / War pages): same frame as a war page's chart -- y axis with gridlines, one tick row of failed tokens under the plot
+    left_pad = WAR_CHART_LEFT_PAD if relative else TIMELINE_LEFT_PAD
+    chart_h, bottom_pad = TIMELINE_CHART_H, (62 if relative else TIMELINE_BOTTOM_PAD)
     top_pad = TIMELINE_MILESTONE_ZONE_H if milestones else 16
     chart_w = max(200.0, TIMELINE_PX_PER_HOUR * hours_span)
     plot_right = left_pad + chart_w
@@ -768,10 +780,14 @@ def render_activity_curve_svg(battle_events, milestones, relative=False):
         idx = min(num_buckets - 1, int((e["createdOn"] - t_min) / MS_PER_HOUR))
         counts[idx] += 1
     smoothed = _gaussian_smooth(counts, sigma=1.2)
+    if relative:  # attacks per hour, per war
+        smoothed = [v / max(1, n_wars) for v in smoothed]
     max_val = max(smoothed) if smoothed else 0
+    y_step = _nice_step(max_val, 4) if relative and max_val > 0 else 0
+    y_top = max(y_step, math.ceil(max_val / y_step) * y_step) if y_step else max_val
 
     def y_of(v):
-        return baseline_y if max_val <= 0 else baseline_y - (v / max_val) * chart_h
+        return baseline_y if y_top <= 0 else baseline_y - (v / y_top) * chart_h
 
     points = [
         (x_of(t_min + (i + 0.5) * MS_PER_HOUR), y_of(v))
@@ -782,6 +798,12 @@ def render_activity_curve_svg(battle_events, milestones, relative=False):
         f'<line class="timeline-axis-line" x1="{left_pad:.1f}" y1="{baseline_y:.1f}" x2="{plot_right:.1f}" y2="{baseline_y:.1f}"/>'
     ]
     if relative:
+        v = 0
+        while y_step and v <= y_top + 1e-9:
+            gy = y_of(v)
+            axis.append(f'<line class="timeline-axis-line" x1="{left_pad:.1f}" y1="{gy:.1f}" x2="{plot_right:.1f}" y2="{gy:.1f}"/>')
+            axis.append(f'<text x="{left_pad - 6:.1f}" y="{gy + 3:.1f}" class="chart-axis-label">{v:g}</text>')
+            v += y_step
         # No clock to align ticks to -- just every 6h from the shared t_min=0.
         tick_ms = 0
         while tick_ms <= t_max:
@@ -854,19 +876,35 @@ def render_activity_curve_svg(battle_events, milestones, relative=False):
     line_pts = " ".join(f"{x:.1f},{y:.1f}" for x, y in points)
     area_pts = f"{left_pad:.1f},{baseline_y:.1f} {line_pts} {plot_right:.1f},{baseline_y:.1f}"
 
+    fail_row = ""
+    if relative:  # every failed token of every war, so the dense stretches read as a darker band (like a war page's "Fails" row)
+        fy = baseline_y + 24
+        mid = fy + 5
+        fail_row = (
+            f'<text x="{left_pad - 10:.1f}" y="{mid:.1f}" class="chart-axis-label timeline-axis-label" '
+            f'transform="rotate(-90 {left_pad - 10:.1f} {mid:.1f})" dominant-baseline="middle">Fails</text>'
+            + "".join(
+                f'<line class="war-fail-tick war-us" x1="{x_of(e["createdOn"]):.1f}" y1="{fy:.1f}" x2="{x_of(e["createdOn"]):.1f}" y2="{fy + 10:.1f}" stroke-opacity="0.4"/>'
+                for e in events if e.get("fail")
+            )
+        )
+    curve = (f'<polyline class="war-line war-us" points="{line_pts}"/>' if relative else
+             f'<polygon class="timeline-activity-area" points="{area_pts}"/>'
+             f'<polyline class="timeline-activity-line" points="{line_pts}"/>')
+
     return (
         f'<svg viewBox="0 0 {width:.1f} {height:.1f}" width="{width:.1f}" height="{height:.1f}" '
         f'xmlns="http://www.w3.org/2000/svg">'
         + "".join(axis)
-        + f'<polygon class="timeline-activity-area" points="{area_pts}"/>'
-        + f'<polyline class="timeline-activity-line" points="{line_pts}"/>'
+        + curve
         + "".join(player_marks)
         + "".join(milestone_els)
+        + fail_row
         + "</svg>"
     )
 
 
-def render_chronologie_section(battle_events, milestones, display_names, relative=False):
+def render_chronologie_section(battle_events, milestones, display_names, relative=False, n_wars=1):
     """Shared "Chronologie" section (heading + player filter chips + the
     activity curve) used by render_war_page (single war, real clock time,
     milestones) and render_season_page/render_index (aggregated across
@@ -882,7 +920,7 @@ def render_chronologie_section(battle_events, milestones, display_names, relativ
     that only works because the id is unconditionally here to find)."""
     if not battle_events:
         return '<div id="chronologie-wrap"></div>'
-    activity_svg = render_activity_curve_svg(battle_events, milestones, relative=relative)
+    activity_svg = render_activity_curve_svg(battle_events, milestones, relative=relative, n_wars=n_wars)
 
     # Selecting a chip reveals that player's timeline-player-mark lines (see
     # timeline-filter.js) over the aggregate curve, showing exactly when
@@ -904,9 +942,13 @@ def render_chronologie_section(battle_events, milestones, display_names, relativ
         f'{html_escape(display_names.get(uid, uid))}: +{avg_hours[uid]:.0f}h</button>'
         for uid in chip_uids
     )
+    legend = ""
+    if relative:  # same legend line as a war page (the curve is our attacks per hour, averaged over the wars in scope)
+        legend = (f'<div class="war-legend"><span class="war-legend-item"><span class="war-legend-swatch war-us"></span>'
+                  f'{html_escape(OUR_GUILD_LABEL)}</span></div>')
     return (
         '<div id="chronologie-wrap"><h2>Chronologie</h2>'
-        f'<div class="chips timeline-player-chips">{player_chips}</div>'
+        f'{legend}<div class="chips timeline-player-chips">{player_chips}</div>'
         f'<div class="timeline-scroll">{activity_svg}</div></div>'
     )
 
@@ -1591,6 +1633,26 @@ def render_battlefield_section(result, our_idx, boards, prefix="../", attack_tab
 COMBINED_OPPONENTS = {"Bloody Rose", "Ti'lath's Changers", "Red Corsairs"}  # + any guild with "Alpha Legion" in its name
 
 
+GUILD_NUMBERS = {"Bloody Rose": 1, "Alpha Legion": 2, "Ti'lath's Changers": 3, "Red Corsairs": 4}  # the opponents we compare ourselves to
+
+
+def guild_number(name):
+    for guild, n in GUILD_NUMBERS.items():
+        if guild in name:
+            return n
+    return None
+
+
+def guild_badge(name, prefix=""):
+    """The player insignias' laurel frame around the guild's number (1 orange, 2 teal, 3 gold, 4 silver)."""
+    n = guild_number(name)
+    if not n:
+        return ""
+    tier = n if n <= 3 else "silver"
+    return (f'<span class="ins-frame guild-badge tier-{tier}"><span class="ins-core"><b>{n}</b></span>'
+            f'<img class="ins-frame-img" src="{prefix}assets/ui/avatar_frame_war.png" alt=""></span>')
+
+
 def _is_combined_opponent(name):
     return name in COMBINED_OPPONENTS or "Alpha Legion" in name
 
@@ -1697,11 +1759,12 @@ def render_opponent_map(all_wars, prefix=""):
         sides.append(
             f'<div class="battlefield-side side-{len(sides)}"><h3{" id=opp-heading" if side == "them" else ""}>{html_escape(heading)}</h3><div class="battlefield-grid">{"".join(tiles)}</div>{under}</div>'
         )
-    ordered = sorted(uniq, key=lambda g: (g != default_guild, uniq.index(g)))  # default guild first
+    ordered = sorted(uniq, key=lambda g: (guild_number(g) or 99, uniq.index(g)))
     picker = (
-        '<div class="opp-filter"><span class="opp-filter-label">Sélectionner</span><div class="chips">'
+        '<div class="opp-filter"><span class="opp-filter-label">Se comparer à</span><div class="chips">'
         + "".join(
-            f'<button type="button" class="chip{" active" if g == default_guild else ""}" data-g="{html_escape(g)}">{html_escape(g)}</button>'
+            f'<button type="button" class="chip guild-chip{" active" if g == default_guild else ""}" data-g="{html_escape(g)}">'
+            f'{guild_badge(g, prefix)}<span class="gc-name">{html_escape(g)}</span></button>'
             for g in ordered
         )
         + "</div></div>"
@@ -1995,7 +2058,7 @@ def render_season_page(season, wars_in_season, active_uids=frozenset()):
     body += f'<div id="table-wrap">{render_history_table(wars_in_season)}</div>' + BAREME_EXPLAIN
     body += '<h2>Scores</h2>'
     body += render_average_chart(display_names, averages, win_rate, tokens, buffs, maps_, score_display_names, score_distributions, active_uids, scope="season")
-    body += render_chronologie_section(agg_events, agg_milestones, agg_display_names, relative=True)
+    body += render_chronologie_section(agg_events, agg_milestones, agg_display_names, relative=True, n_wars=_n_event_wars(wars_in_season))
 
     header_action = ""
     back_link = back_link_html("../war.html", "War")
@@ -2419,7 +2482,7 @@ def render_index(seasons, active_uids=frozenset()):
     body = f'<div id="table-wrap">{render_season_average_table(season_numbers, season_stats, display_names, averages, active_uids)}</div>' + BAREME_EXPLAIN
     body += '<h2>Scores</h2>'
     body += render_average_chart(display_names, averages, win_rate, tokens, buffs, maps_, score_display_names, score_distributions, active_uids, scope="global")
-    body += render_chronologie_section(agg_events, agg_milestones, agg_display_names, relative=True)
+    body += render_chronologie_section(agg_events, agg_milestones, agg_display_names, relative=True, n_wars=_n_event_wars(all_wars_flat))
 
     # Guild name sits where the breadcrumb back-link would on other pages --
     # same visual format (color/size), just not a link and with no arrow,
@@ -2445,8 +2508,8 @@ def render_strategy_index(all_wars):
     opp_html, opp_events, opp_players = render_opponent_map(all_wars)
     body = opp_html + _defense_modal_html(opp_events, opp_players, "")
     html = render_page(
-        nav_active="strategy", title="Stratégie", asset_prefix="", body=body, back_link=back_link_html("war.html", "War"),
-        title_class="hero-title", header_extra="", header_action="", v=ASSETS_VERSION, bg="war-for-armageddon",
+        nav_active="strategy", page_kind="strategy", title="Stratégie", asset_prefix="", body=body, back_link=back_link_html("war.html", "War"),
+        title_class="hero-title", header_extra="", header_action="", v=ASSETS_VERSION, bg="deathguard-plague",
     )
     with open(os.path.join(DOCS_DIR, "strategie.html"), "w", encoding="utf-8") as f:
         f.write(html)
@@ -2459,18 +2522,26 @@ def render_defenses_page(all_wars):
     html = render_page(
         nav_active="defenses", page_kind="strategy", title="Défenses", asset_prefix="", body=body,
         back_link=back_link_html("war.html", "War"), title_class="hero-title", header_extra="", header_action="",
-        v=ASSETS_VERSION, bg="war-for-armageddon",
+        v=ASSETS_VERSION, bg="deathguard-plague",
     )
     with open(os.path.join(DOCS_DIR, "defenses.html"), "w", encoding="utf-8") as f:
         f.write(html)
 
 
 def player_background(war, raid):
-    """Event banner behind a player's page: the top two of the guild war ranking and (once the raid ranking exists) of the
-    raid ranking get their own art, everyone else the default space vista. War takes priority."""
-    by_war = {1: "war-for-armageddon", 2: "skull-harvest"}
-    by_raid = {1: "armageddon", 2: "war-amongst-the-stars"}
-    return by_war.get((war or {}).get("rank")) or by_raid.get((raid or {}).get("rank")) or ""
+    """Backdrop of a player's page: the podium of the guild war ranking gets the War pages' picture (1st) or the Stratégie /
+    Défenses one (2nd, 3rd), the raid podium the Raid pages' picture (1st) or the Boss pages' one (2nd, 3rd); everybody else the
+    default Joueurs picture. War takes priority."""
+    w, r = (war or {}).get("rank"), (raid or {}).get("rank")
+    if w == 1:
+        return "war-1"
+    if w in (2, 3):
+        return "war-podium"
+    if r == 1:
+        return "raid-1"
+    if r in (2, 3):
+        return "raid-podium"
+    return ""
 
 
 def compute_medals(seasons):
@@ -2618,8 +2689,8 @@ def render_boss_pages(all_wars):
         ) or '<li class="bp-none">Pas encore d\'attaque</li>'
         cards += (f'<a class="boss-card" href="boss/{slot["key"]}.html"><span class="boss-card-head"><img src="assets/{slot["art"]}" alt="">'
                   f'<b>{html_escape(slot["name"])}</b></span><ol>{rows}</ol></a>')
-    body = BOSS_EXPLAIN + f'<div class="boss-cards">{cards}</div>'
-    html = render_page(nav_active="boss", title="Boss", asset_prefix="", body=body, back_link="", title_class="hero-title",
+    body = f'<div class="boss-cards">{cards}</div>' + BOSS_EXPLAIN
+    html = render_page(nav_active="boss", title="Boss", asset_prefix="", body=body, back_link=back_link_html("raid.html", "Raid"), title_class="hero-title",
                        header_extra="", header_action="", v=ASSETS_VERSION)
     with open(os.path.join(DOCS_DIR, "boss.html"), "w", encoding="utf-8") as f:
         f.write(html)
@@ -2671,7 +2742,7 @@ def render_players_pages(war_rank=None, raid_rank=None, medals=None):
     roles = medals_mod.guild_roles()
     html = render_page(
         nav_active="players", title="Joueurs", asset_prefix="", body=rosters_mod.render_players_index_body(rosters),
-        back_link=guild_crumb(), title_class="hero-title", header_extra="", header_action="", v=ASSETS_VERSION, bg="0",
+        back_link=guild_crumb(), title_class="hero-title", header_extra="", header_action="", v=ASSETS_VERSION,
     )
     with open(os.path.join(DOCS_DIR, "joueurs.html"), "w", encoding="utf-8") as f:
         f.write(html)

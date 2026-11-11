@@ -662,17 +662,10 @@ def _medal(kind, caption, sub, earned, tier, prefix, art=None, text=None, href=N
 
 
 def render_medals(m, prefix="../"):
-    """Medals row under the insignias: guild-war median and reliability, then one medal per raid boss. All are shown; the
-    ones the player did not earn are greyed out."""
+    """Medals band to the right of the insignias, in two lines: the main raid bosses, then the primes (sub-bosses). All are
+    shown; the ones the player did not earn are greyed out."""
     m = m or {}
-    median, reliab = m.get("median"), m.get("reliability")
-    items = []
-    ok = median is not None and median >= medals_mod.MEDIAN_THRESHOLD
-    items.append(_medal("challenge", f"Médiane GvG ≥ {medals_mod.MEDIAN_THRESHOLD}", f"Ta médiane : {round(median)}" if median is not None else "Pas de score", ok, 0, prefix,
-                        text=str(medals_mod.MEDIAN_THRESHOLD)))
-    ok = reliab is not None and reliab > medals_mod.RELIABILITY_THRESHOLD
-    items.append(_medal("challenge", f"Fiabilité GvG > {round(100 * medals_mod.RELIABILITY_THRESHOLD)} %", f"Ta fiabilité : {round(100 * reliab)} %" if reliab is not None else "Pas de guerre", ok, 0, prefix,
-                        text=f"{round(100 * medals_mod.RELIABILITY_THRESHOLD)}%"))
+    items, primes = [], []
     for slot in medals_mod.slots():
         b = (m.get("bosses") or {}).get(slot["key"]) or {}
         rank = b.get("rank")
@@ -682,9 +675,11 @@ def render_medals(m, prefix="../"):
             sub = f"{'1er' if pos == 1 else f'{pos}e'} sur {b['of']} · {rel} ({b['n']} attaque{'s' if b['n'] > 1 else ''})"
         else:
             sub = "pas d'attaque"
-        items.append(_medal("boss", f"{slot['name']} · relatif", sub, bool(rank), rank or 0, prefix, art=slot["art"],
-                            href=f"{prefix}boss/{slot['key']}.html"))
-    return '<div class="medals">' + "".join(items) + "</div>"
+        (primes if " (" in slot["name"] else items).append(
+            _medal("boss", f"{slot['name']} · relatif", sub, bool(rank), rank or 0, prefix, art=slot["art"],
+                   href=f"{prefix}boss/{slot['key']}.html"))
+    return ('<div class="medals"><div class="medals-row">' + "".join(items) + '</div>'
+            '<div class="medals-row">' + "".join(primes) + "</div></div>")
 
 
 def render_player_body(r, prefix="../", war=None, medals=None, raid=None, raid_known=False):
