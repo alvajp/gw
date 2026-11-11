@@ -12,8 +12,9 @@ function initSortableTables(root) {
         const tbody = table.querySelector("tbody");
         const rows = Array.from(tbody.querySelectorAll("tr"));
         rows.sort(function (a, b) {
-          const av = a.children[colIndex].innerText.trim();
-          const bv = b.children[colIndex].innerText.trim();
+          const ac = a.children[colIndex], bc = b.children[colIndex];
+          const av = (ac.dataset.sort !== undefined ? ac.dataset.sort : ac.innerText).trim();   // data-sort = exact value behind a rounded display
+          const bv = (bc.dataset.sort !== undefined ? bc.dataset.sort : bc.innerText).trim();
           const an = parseFloat(av.replace(",", "."));
           const bn = parseFloat(bv.replace(",", "."));
           const bothNumeric = !isNaN(an) && !isNaN(bn);

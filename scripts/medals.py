@@ -1,7 +1,8 @@
 """
 Medals shown on the player pages (Onslaught badge art) and the raid ranking:
-  * biggest single hit (one-shots count, finishing blows do not) per raid boss -> top 3 players (orange / teal / gold = Onslaught mythic / legendary / epic frames),
-    from the raid history in data/raid/ (fetch_raid.py, guild key, seasons 82 to the latest), bombs excluded, current members only;
+  * best all-time relative damage per raid boss and sub-boss (every season and difficulty, the % above the guild average, no bombs,
+    finishes or one-shots) -> top 3 members (orange / teal / gold = Onslaught mythic / legendary / epic frames), from the raid
+    history in data/raid/ (fetch_raid.py, guild key, seasons 82 to the latest);
   * median guild-war battle score >= 1600 (1600 is the score cap, so "above 1600" can never happen) and
   * guild-war reliability > 90 % ((wins + finishes) / all tokens), both with the Onslaught "challenge" frame.
 Every medal is shown on every page; the ones a player did not earn are greyed out.
@@ -64,20 +65,6 @@ def load_raid_entries():
     return entries
 
 
-def boss_podiums(entries, members=None):
-    """medal key -> [(uid, best single hit, rank)] for ranks 1-3. Equal hits share a rank (many sub-boss hits stop at the
-    boss's remaining HP, so ties at the cap are common): everyone tied inside the top three keeps the medal.
-    Main boss and sub-boss encounters only, bombs excluded, and only the current members (`members`, set of uids) compete,
-    so a former member never takes a place."""
-    best = _best_hits(entries, members)
-    out = {}
-    for key, hits in best.items():
-        values = sorted(hits.values(), reverse=True)
-        ranked = [(u, d, 1 + sum(1 for v in values if v > d)) for u, d in sorted(hits.items(), key=lambda kv: -kv[1])]
-        out[key] = [x for x in ranked if x[2] <= 3]
-    return out
-
-
 def _medal_key(e):
     """Main boss encounters are keyed by boss type, sub-boss encounters by the sub-boss unit."""
     if e.get("encounterType") == "Boss":
@@ -88,53 +75,45 @@ def _medal_key(e):
     return None
 
 
-def _is_one_shot(e):
-    """A kill from full HP in a single attack."""
-    return e.get("remainingHp", 1) == 0 and e.get("damageDealt", 0) >= e.get("maxHp", 1 << 60)
+def _valid(e):
+    """A regular attack that counts: no bomb and no finish or one-shot (both leave the boss at 0 HP, so their damage is only what
+    was left of it and understates the hit)."""
+    return _medal_key(e) is not None and e.get("damageType") != "Bomb" and e.get("remainingHp", 1) > 0
 
 
-def _valid(e, keep_one_shots=False):
-    """A regular attack (no bomb) that did not end the fight. A finishing blow leaves 0 HP and its damage is only what was
-    left of the boss, so it understates the hit and is left out; a one-shot (kill from full HP) is a real hit and is kept for
-    the "biggest hit" medals (keep_one_shots) but left out of the raid ranking."""
-    if _medal_key(e) is None or e.get("damageType") == "Bomb":
-        return False
-    return e.get("remainingHp", 1) > 0 or (keep_one_shots and _is_one_shot(e))
-
-
-def _best_hits(entries, members=None):
-    """medal key -> {uid: best single hit}; bombs and finishing blows excluded, one-shots kept."""
-    best = defaultdict(dict)
-    for e in entries:
-        key = _medal_key(e)
-        if not _valid(e, keep_one_shots=True):
-            continue
-        if members is not None and e["userId"] not in members:
-            continue
-        cur = best[key].get(e["userId"], 0)
-        best[key][e["userId"]] = max(cur, e.get("damageDealt", 0))
-    return best
+def boss_relative(members=None):
+    """medal key -> {uid: (mean relative damage, attacks)} over every season and every difficulty tier ("all time, all rarity"):
+    each regular attack is compared with the guild's average hit on the same boss / sub-boss and tier that season (see
+    raid_seasons), and a player's figure on a boss is the mean over all their attacks on it. Only the current members (`members`)
+    compete, so a former member never takes a place."""
+    acc = defaultdict(lambda: defaultdict(lambda: [0.0, 0]))
+    for data in raid_seasons().values():
+        for uid, p in data["players"].items():
+            if members is not None and uid not in members:
+                continue
+            for key, (m, n) in p["by_key"].items():
+                a = acc[key][uid]
+                a[0] += m * n
+                a[1] += n
+    return {key: {uid: (tot / n, n) for uid, (tot, n) in d.items() if n} for key, d in acc.items()}
 
 
 def compute(scores, win_rate, members=None):
-    """uid -> {"bosses": {medal key: {"rank": 1-3 | None, "damage": best hit | None, "position": rank among the members, "of": field}}, "median", "reliability"}; `scores` = uid ->
-    battle scores, `win_rate` = uid -> reliability (0-1). Podiums only count the current members; every member's own best hit
-    is kept (all uids, even outside the podium)."""
-    entries = load_raid_entries()
-    podiums = boss_podiums(entries, members)
-    best_all = _best_hits(entries)  # everybody, to show a player's own figure
-    field_hits = _best_hits(entries, members)  # the current members only: position and field size, shown even outside the podium
+    """uid -> {"bosses": {medal key: {"rank": 1-3 | None, "rel": mean relative damage, "n": attacks, "position", "of"}}, "median",
+    "reliability"}; `scores` = uid -> battle scores, `win_rate` = uid -> reliability (0-1). A boss medal goes to the three members
+    with the best all-time relative damage on that boss (equal figures share a rank); position / field are kept for everybody."""
+    relative = boss_relative(members)
     out = {}
-    uids = set(scores) | set(win_rate) | {u for b in best_all.values() for u in b}
+    uids = set(scores) | set(win_rate) | {u for f in relative.values() for u in f}
     for uid in uids:
         bosses = {}
         for slot in slots():
             key = slot["key"]
-            rank = next((r for u, _, r in podiums.get(key, []) if u == uid), None)
-            field = field_hits.get(key, {})
+            field = relative.get(key, {})
             mine = field.get(uid)
-            bosses[key] = {"rank": rank, "damage": best_all.get(key, {}).get(uid),
-                           "position": 1 + sum(1 for v in field.values() if v > mine) if mine is not None else None, "of": len(field)}
+            position = 1 + sum(1 for v in field.values() if v[0] > mine[0]) if mine else None
+            bosses[key] = {"rank": position if position and position <= 3 else None, "rel": mine[0] if mine else None,
+                           "n": mine[1] if mine else 0, "position": position, "of": len(field)}
         out[uid] = {
             "bosses": bosses,
             "median": statistics.median(scores[uid]) if scores.get(uid) else None,
@@ -156,33 +135,49 @@ def season_files():
     return out
 
 
-def raid_ranking(members):
-    """uid -> {rank, of, avg_season_rank, seasons, avg_rel} for the current members.
-    Per season: every regular attack (no bomb, no finish, no one-shot) is compared with the guild's average hit on the same
-    boss / sub-boss and difficulty tier that season (relative damage per token, as a % above the guild average); a player's
-    season score is the mean of their attacks, and everybody who played the season (at least MIN_ATTACKS attacks, former members
-    included, so the season rank is the real guild ranking of that season) is ranked on it. The overall ranking orders the members by their average season rank (needs MIN_SEASONS seasons), ties by the
-    average relative damage."""
-    per_player = defaultdict(list)  # uid -> [(season rank, season score)]
+def raid_seasons():
+    """season -> {"players": {uid: {score, n, rank, by_key: {medal key: (mean relative damage, attacks)}}}, "keys": [medal keys
+    played that season, in medal order], "field": players ranked}.
+    Relative damage = a regular attack (no bomb, no finish, no one-shot) compared with the guild's average hit on the same boss /
+    sub-boss and difficulty tier over the whole season; a player's score is the mean over their attacks. Everybody who played the
+    season (former members included) is ranked on it."""
+    order = [slot["key"] for slot in slots()]
+    mean = lambda v: sum(v) / len(v)
+    out = {}
     for season, entries in season_files().items():
         hits = [e for e in entries if _valid(e)]
         groups, coarse = defaultdict(list), defaultdict(list)
         for e in hits:
             groups[(_medal_key(e), e.get("tier"))].append(e["damageDealt"])
             coarse[_medal_key(e)].append(e["damageDealt"])
-        mean = lambda v: sum(v) / len(v)
-        rel = defaultdict(list)
+        rel_all, rel_key = defaultdict(list), defaultdict(lambda: defaultdict(list))
         for e in hits:
             g = groups[(_medal_key(e), e.get("tier"))]
             base = mean(g) if len(g) >= 5 else mean(coarse[_medal_key(e)])
             if base > 0:
-                rel[e["userId"]].append(e["damageDealt"] / base - 1)
-        scored = sorted(((mean(v), u) for u, v in rel.items() if len(v) >= MIN_ATTACKS), reverse=True)  # everybody who played the season
-        for rank, (score, uid) in enumerate(scored, 1):
+                r = e["damageDealt"] / base - 1
+                rel_all[e["userId"]].append(r)
+                rel_key[e["userId"]][_medal_key(e)].append(r)
+        scored = sorted(((mean(v), u) for u, v in rel_all.items() if len(v) >= MIN_ATTACKS), reverse=True)
+        players = {
+            uid: {"score": score, "n": len(rel_all[uid]), "rank": rank,
+                  "by_key": {k: (mean(v), len(v)) for k, v in rel_key[uid].items()}}
+            for rank, (score, uid) in enumerate(scored, 1)
+        }
+        keys = [k for k in order if any(k in p["by_key"] for p in players.values())]
+        out[season] = {"players": players, "keys": keys, "field": len(scored)}
+    return out
+
+
+def raid_ranking(members):
+    """uid -> {rank, of, avg_season_rank, seasons, avg_rel} for the current members: the members ordered by their average
+    season rank (see raid_seasons), ties by the average relative damage. The guild average is taken over the whole season."""
+    per_player = defaultdict(list)  # uid -> [(season rank, season score)]
+    for season, data in raid_seasons().items():
+        for uid, p in data["players"].items():
             if uid in members:
-                per_player[uid].append((rank, score))
-    rows = [(uid, mean_rank, avg_rel, len(v)) for uid, v in per_player.items() if len(v) >= MIN_SEASONS
-            for mean_rank, avg_rel in [(sum(r for r, _ in v) / len(v), sum(s for _, s in v) / len(v))]]
+                per_player[uid].append((p["rank"], p["score"]))
+    rows = [(uid, sum(r for r, _ in v) / len(v), sum(sc for _, sc in v) / len(v), len(v)) for uid, v in per_player.items() if len(v) >= MIN_SEASONS]
     rows.sort(key=lambda r: (r[1], -r[2]))
     return {uid: {"rank": i, "of": len(rows), "avg_season_rank": round(m, 1), "seasons": n, "avg_rel": round(100 * rel_, 1)}
             for i, (uid, m, rel_, n) in enumerate(rows, 1)}

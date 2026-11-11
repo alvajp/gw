@@ -1242,3 +1242,41 @@ body[data-page="strategy"][data-bg="war-for-armageddon"]::before {
 .ins-frame.tier-silver .ins-core { background: radial-gradient(circle at 35% 25%, #eef0f4, #aab2bf 62%, #7d8696); }   /* ranks 4-20 */
 .ins-frame.tier-silver .ins-core b { color: #20242c; text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5); }
 .ins-frame.tier-bronze .ins-core { background: radial-gradient(circle at 35% 25%, #f1c08e, #c98544 62%, #8f5420); }     /* ranks 21-30 */
+
+/* Raid pages: tables of relative damage (global by season, per season by boss). */
+.raid-explain { max-width: 62rem; margin: 0.2rem 0 1rem; font-size: 0.85rem; line-height: 1.5; color: var(--text-muted); }
+.raid-table th, .raid-table td { white-space: nowrap; }
+.raid-table td { font-variant-numeric: tabular-nums; }
+.raid-table .player-btn { padding: 0.2rem 0.8rem; font-size: 0.82rem; text-decoration: none; }
+.raid-go { margin-left: 0.3rem; font-size: 0.8rem; text-decoration: none; color: var(--accent); }
+.rb-ico { display: block; width: 2.2rem; height: 2.2rem; margin: 0 auto 0.15rem; object-fit: cover; border-radius: 6px; }
+.raid-table th span { display: block; max-width: 5.5rem; font-size: 0.66rem; line-height: 1.15; white-space: normal; text-align: center; }
+.ex-member { color: var(--text-muted); font-size: 0.82rem; }
+.raid-table { table-layout: auto; width: max-content; min-width: 100%; }
+.raid-table th, .raid-table td { width: auto; overflow: visible; text-overflow: clip; border-left: none; border-right: none; text-align: left; padding: 0.45rem 0.7rem; }
+.raid-table th:first-child, .raid-table td:first-child { position: static; background: none; }
+.raid-table thead th { position: static; background: var(--table-header-bg); }
+.raid-table td:not(:nth-child(2)) { text-align: right; }
+.raid-table th:nth-child(n+3) { text-align: right; }
+.raid-table th img + span { margin: 0 auto; }
+.raid-chips { display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem 0.8rem; margin: 0 0 1rem; }
+.raid-chips-label { font-size: 0.78rem; font-weight: 600; color: var(--text-muted); }
+.raid-chips .chips { margin: 0; flex-wrap: wrap; overflow-x: visible; }
+.raid-chips .chip { text-decoration: none; }
+
+/* Page backgrounds: sharper (2x upscaled, sharpened sources) and, in light mode, crisp: no white wash over the picture and no
+   backdrop blur; the picture only fades into the page colour towards the bottom. Dark mode keeps its darkening veil. */
+body[data-page="players"], body[data-page="players"][data-bg=""] { --bg-img: url("bg/spacevista.webp"); }
+body[data-page="players"][data-bg="war-for-armageddon"] { --bg-img: url("bg/war-for-armageddon.webp"); }
+body[data-page="players"][data-bg="skull-harvest"] { --bg-img: url("bg/skull-harvest.webp"); }
+body[data-page="players"][data-bg="armageddon"] { --bg-img: url("bg/armageddon.webp"); }
+body[data-page="players"][data-bg="war-amongst-the-stars"] { --bg-img: url("bg/war-amongst-the-stars.webp"); }
+body[data-page="strategy"][data-bg="war-for-armageddon"] { --bg-img: url("bg/war-for-armageddon.webp"); }
+body[data-page="players"]::before, body[data-page="strategy"][data-bg="war-for-armageddon"]::before {
+  background-image: linear-gradient(to bottom, color-mix(in srgb, var(--bg) 45%, transparent), var(--bg) 80%), var(--bg-img);
+  background-size: cover; background-position: center top; image-rendering: auto;
+}
+:root[data-theme="light"] body[data-page="players"]::before, :root[data-theme="light"] body[data-page="strategy"][data-bg="war-for-armageddon"]::before {
+  background-image: linear-gradient(to bottom, color-mix(in srgb, var(--bg) 40%, transparent) 0, color-mix(in srgb, var(--bg) 62%, transparent) 45%, var(--bg) 92%), var(--bg-img);
+}
+:root[data-theme="light"] .pg-rows, :root[data-theme="light"] .pgrid { backdrop-filter: none; -webkit-backdrop-filter: none; }

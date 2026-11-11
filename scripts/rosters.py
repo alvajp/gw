@@ -676,8 +676,12 @@ def render_medals(m, prefix="../"):
         b = (m.get("bosses") or {}).get(slot["key"]) or {}
         rank = b.get("rank")
         pos = b.get("position")
-        sub = (f"{'1er' if pos == 1 else f'{pos}e'} sur {b['of']} · {_fmt_damage(b['damage'])}" if pos and b.get("damage") else "pas d'attaque")
-        items.append(_medal("boss", f"{slot['name']} · plus gros coup", sub, bool(rank), rank or 0, prefix, art=slot["art"]))
+        if pos and b.get("rel") is not None:
+            rel = f"{100 * b['rel']:+.1f} %".replace(".", ",")
+            sub = f"{'1er' if pos == 1 else f'{pos}e'} sur {b['of']} · {rel} ({b['n']} attaque{'s' if b['n'] > 1 else ''})"
+        else:
+            sub = "pas d'attaque"
+        items.append(_medal("boss", f"{slot['name']} · relatif", sub, bool(rank), rank or 0, prefix, art=slot["art"]))
     return '<div class="medals">' + "".join(items) + "</div>"
 
 
