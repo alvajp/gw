@@ -1545,3 +1545,13 @@ td.rk .tb-badge .ins-core b .rn { height: 0.78em; }
 /* The # column is centred, so the laurels and the numbers share one vertical axis. */
 th.rk, td.rk { text-align: center; padding-left: 0.45em; padding-right: 0.45em; }
 .table-scroll table th.rk, .table-scroll table td.rk { text-align: center; padding-left: 0.45em; padding-right: 0.45em; }
+/* Tables only scroll sideways: no stray 1px vertical scroll. */
+.table-scroll { overflow-y: hidden; }
+
+/* The # and Joueur columns never move when a table scrolls sideways: both are sticky, # at the left edge and Joueur right after it. */
+.table-scroll table th.rk, .table-scroll table td.rk { position: sticky; left: 0; z-index: 3; width: 3rem; min-width: 3rem; max-width: 3rem; box-sizing: border-box; background: var(--table-bg); }
+.table-scroll table thead th.rk { background: var(--table-header-bg); z-index: 5; }
+.table-scroll table tbody tr:nth-child(even) td.rk { background-color: var(--table-row-alt); }
+.table-scroll table th.rk + th, .table-scroll table td.rk + td { position: sticky; left: 3rem; z-index: 2; background: var(--table-bg); }
+.table-scroll table thead th.rk + th { background: var(--table-header-bg); z-index: 4; }
+.table-scroll table tbody tr:nth-child(even) td.rk + td { background-color: var(--table-row-alt); }
