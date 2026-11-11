@@ -1487,3 +1487,58 @@ thead th.col-hover { color: var(--text); background: color-mix(in srgb, var(--ac
 .table-scroll .player-btn, .table-scroll .player-btn:hover, .table-scroll .player-btn:focus-visible { background: transparent; border-color: transparent; }
 .table-scroll tbody tr.opens-player .player-btn, .table-scroll tbody tr:focus-visible .player-btn { background: var(--surface-hover); }
 tbody tr[data-active="false"] .player-btn { color: var(--text-muted); }
+
+/* Players list: the Raid and War laurels (podium only) and the number of boss medals (the Onslaught "challenge" frame) left of each name.
+   Plain slots under the row's stretched link, so the pointer is always on the name. */
+.pg-head, .pg-row { grid-template-columns: minmax(12.5rem, 14.5rem) repeat(4, minmax(0, 1fr)); }
+.pg-who { display: flex; align-items: center; gap: 0.4rem; min-width: 0; }
+.pg-badges { display: inline-flex; align-items: center; gap: 0.3rem; margin-left: 0.4rem; }
+.pg-slot { display: inline-flex; align-items: center; justify-content: center; width: 2.1rem; height: 2.1rem; }
+.pg-slot-count { width: 1.4rem; }
+.pg-slot .ins-frame { width: 2.1rem; }
+.pg-slot .ins-core b { font-size: 0.8rem; }
+.pg-slot .ins-core b::before { font-size: 0.5rem; margin-right: 0.02rem; vertical-align: 0.4em; }
+.pg-slot .medal { height: 2.1rem; }
+.pg-slot .medal-txt { font-size: 0.75rem; }
+.pg-who .player-btn { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 760px) {
+  .pg-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pg-who { grid-column: 1 / -1; }
+}
+
+/* Laurel badges: no "#" sign; I, II, III on the podium, the number after. */
+.ins-core b::before { content: none !important; }
+.ins-core b .rn { height: 0.72em; width: auto; display: block; filter: brightness(0.3) sepia(0.6); }  /* dark numerals on every disc: more readable */
+
+/* Players list: smaller laurels, no medal count. */
+.pg-slot { width: 1.7rem; height: 1.7rem; }
+.pg-slot .ins-frame { width: 1.7rem; }
+.pg-slot .ins-core b { font-size: 0.65rem; }
+
+/* Players list: the laurels sit right of the name (fixed name width so they line up). */
+.pg-who .player-btn { flex: 0 0 8rem; }
+.pg-badges { margin-left: 0; }
+.pg-head, .pg-row { grid-template-columns: minmax(13rem, 15rem) repeat(4, minmax(0, 1fr)); }
+@media (max-width: 760px) {
+  .pg-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pg-who { grid-column: 1 / -1; }
+}
+@media (max-width: 760px) {
+  .pg-who { justify-content: space-between; }  /* card: the name on the left, the laurels at the far end */
+  .pg-who .player-btn { flex: 0 1 auto; }
+}
+
+/* Laurel badges: 4th = grey, 5th = brown (as the Onslaught medals), from 6th a neutral disc. */
+.ins-frame.tier-plain .ins-core { background: radial-gradient(circle at 35% 25%, #6b7483, #434b58 62%, #2c323c); }
+/* V (and the V of IV) is light at the bottom, so its centre of mass sits high: nudged down to look centred in the disc. */
+.ins-core b .rn[alt="V"] { transform: translateY(8%); }
+.ins-core b .rn[alt="IV"] { transform: translateY(5%); }
+
+/* Names without a page (no API key, former members, adversaries): the same pill so they line up, grey, and clicking opens nothing. */
+.table-scroll tbody tr:hover .ex-pill { background: var(--surface-hover); }
+.ex-pill { cursor: default; color: var(--text-muted); }
+.table-scroll tbody tr.opens-player .ex-pill { background: var(--surface-hover); }
+/* the top 5 of War and Raid wear their laurel instead of a number in the first column */
+td.rk .tb-badge { display: inline-block; width: 1.15rem; vertical-align: middle; margin: -0.25rem 0; }
+td.rk .tb-badge .ins-core b { font-size: 0.52rem; }
+td.rk .tb-badge .ins-core b .rn { height: 0.78em; }

@@ -27,7 +27,7 @@
   function pill(e, over) {
     const cell = e.target.closest && e.target.closest("tbody td");
     const row = cell && cell.parentElement;
-    if (!row || !row.dataset.href) return;
+    if (!row || !(row.dataset.href || row.querySelector(".ex-pill"))) return;  // absent players (no page) get the pill too
     row.classList.toggle("opens-player", over && !colHead(cell));
   }
   document.addEventListener("mouseover", function (e) { light(e, true); pill(e, true); });

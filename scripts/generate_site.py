@@ -205,8 +205,8 @@ def name_cell(uid, name, prefix):
     """The player's name in a table: the same pill as the Joueurs list (fill and rounded corners, no visible border) leading to
     their page; plain text for people without a page (adversaries, former members)."""
     slug = PLAYER_SLUGS.get(uid)
-    if not slug:
-        return f"<td>{html_escape(name)}</td>"
+    if not slug:  # no page (no API key, former member, adversary): the same pill so the names line up, clicking opens nothing
+        return f'<td><span class="chip player-btn ex-pill">{html_escape(name)}</span></td>'
     return f'<td><a class="chip player-btn" href="{prefix}joueurs/{slug}.html">{html_escape(name)}</a></td>'
 
 
@@ -1659,8 +1659,8 @@ def guild_badge(name, prefix=""):
     n = guild_number(name)
     if not n:
         return ""
-    tier = n if n <= 3 else "silver"
-    return (f'<span class="ins-frame guild-badge tier-{tier}"><span class="ins-core"><b>{n}</b></span>'
+    tier = rosters_mod.badge_tier(n)
+    return (f'<span class="ins-frame guild-badge tier-{tier}"><span class="ins-core"><b>{rosters_mod.rank_label(n, prefix)}</b></span>'
             f'<img class="ins-frame-img" src="{prefix}assets/ui/avatar_frame_war.png" alt=""></span>')
 
 
@@ -2150,7 +2150,7 @@ def compute_season_averages(seasons):
     return season_stats, display_names, totals, war_counts, averages, win_rate, tokens, buffs, maps_
 
 
-def render_season_average_table(season_numbers, season_stats, display_names, averages, active_uids=frozenset()):
+def render_season_average_table(season_numbers, season_stats, display_names, averages, active_uids=frozenset(), war_rank=None):
     """Joueur x season table for the homepage: each season column shows the
     player's average points per war played that season (not the raw per-war
     results), plus the overall Moyenne across every war played. Rows are
@@ -2183,7 +2183,8 @@ def render_season_average_table(season_numbers, season_stats, display_names, ave
 
     body_rows = []
     for rank, uid in enumerate(sorted(season_stats, key=lambda u: -averages[u]), 1):
-        cells = [f'<td class="rk">{rank}</td>', name_cell(uid, display_names[uid], "")]
+        badge = rosters_mod.table_badge("war", (war_rank or {}).get(uid), "")
+        cells = [f'<td class="rk">{badge or rank}</td>', name_cell(uid, display_names[uid], "")]
         for season in season_numbers:
             val = season_values[season].get(uid)
             if val is None:
@@ -2485,7 +2486,7 @@ def render_boxplot_svg(display_names, distributions, active_uids, id_suffix=""):
     )
 
 
-def render_index(seasons, active_uids=frozenset()):
+def render_index(seasons, active_uids=frozenset(), war_rank=None):
     season_numbers = sorted(seasons.keys())
     season_stats, display_names, totals, war_counts, averages, win_rate, tokens, buffs, maps_ = compute_season_averages(seasons)
     all_wars_flat = [w for wars_in_season in seasons.values() for w in wars_in_season]
@@ -2493,7 +2494,7 @@ def render_index(seasons, active_uids=frozenset()):
     agg_events, agg_display_names = aggregate_relative_battle_events(all_wars_flat)
     agg_milestones = aggregate_ms_milestones(all_wars_flat)
 
-    body = f'<div id="table-wrap">{render_season_average_table(season_numbers, season_stats, display_names, averages, active_uids)}</div>' + BAREME_EXPLAIN
+    body = f'<div id="table-wrap">{render_season_average_table(season_numbers, season_stats, display_names, averages, active_uids, war_rank)}</div>' + BAREME_EXPLAIN
     body += '<h2>Scores</h2>'
     body += render_average_chart(display_names, averages, win_rate, tokens, buffs, maps_, score_display_names, score_distributions, active_uids, scope="global")
     body += render_chronologie_section(agg_events, agg_milestones, agg_display_names, relative=True, n_wars=_n_event_wars(all_wars_flat))
@@ -2618,8 +2619,9 @@ def raid_names(all_wars, rosters):
     return names
 
 
-RAID_EXPLAIN = '<p class="raid-explain">Dégâts par attaque relativement à la moyenne de la guilde sur la saison, sans finishs, à partir de Legendary 4</p>'
-BOSS_EXPLAIN = RAID_EXPLAIN  # same line on the Boss landing page; the individual boss pages have no text
+RAID_EXPLAIN = ('<p class="raid-explain">Dégâts par attaque relativement à la moyenne de la guilde sur la saison, sans finishs, à partir de Legendary 4. '
+                'Une saison compte 27 jetons : chaque jeton non joué est un jeton perdu et retire 1/27 des dégâts du score de la saison</p>')
+BOSS_EXPLAIN = '<p class="raid-explain">Dégâts par attaque relativement à la moyenne de la guilde sur la saison, sans finishs, à partir de Legendary 4</p>'  # no lost tokens here: per boss, per attack; the individual boss pages have no text
 
 
 def render_raid_pages(all_wars):
@@ -2641,12 +2643,17 @@ def render_raid_pages(all_wars):
     for n in season_order:
         vals = [p["score"] for u, p in seasons[n]["players"].items() if u in members]
         bounds[n] = (min(vals), max(vals)) if vals else (0, 0)
-    head = ["<th>#</th>", "<th>Joueur</th>", "<th>Rang moyen</th>", "<th>Saisons</th>"] + [f'<th data-href="raid/{n}.html">S{n}</th>' for n in season_order]
+    head = ["<th>#</th>", "<th>Joueur</th>", "<th>Saisons</th>", '<th title="Jetons non joués sous les 27 de chaque saison terminée">Jetons perdus</th>',
+            '<th title="Moyenne des scores de toutes les saisons">Score</th>'] + [f'<th data-href="raid/{n}.html">S{n}</th>' for n in season_order]
+    avg_vals = [i["avg_rel"] for i in ranking.values()]
+    avg_lo, avg_hi = (min(avg_vals), max(avg_vals)) if avg_vals else (0, 0)
     rows = []
     for uid, info in sorted(ranking.items(), key=lambda kv: kv[1]["rank"]):
-        cells = [f'<td>{info["rank"]}</td>',
+        cells = [f'<td class="rk">{rosters_mod.table_badge("raid", info, "") or info["rank"]}</td>',
                  f'<td><a class="chip player-btn" href="joueurs/{rosters_mod.player_slug(uid)}.html">{html_escape(names[uid])}</a></td>',
-                 f'<td data-sort="{info["avg_season_rank"]}">{round(info["avg_season_rank"])}</td>', f'<td>{info["seasons"]}</td>']
+                 f'<td>{info["seasons"]}</td>',
+                 f'<td>{sum(seasons[n]["players"][uid]["lost"] or 0 for n in season_order if uid in seasons[n]["players"])}</td>',
+                 f'<td{value_to_bg(info["avg_rel"], avg_lo, avg_hi)} title="Moyenne des scores sur {info["seasons"]} saisons">{_fmt_rel(info["avg_rel"] / 100)}</td>']
         for n in season_order:
             p = seasons[n]["players"].get(uid)
             if p is None:
@@ -2669,7 +2676,7 @@ def render_raid_pages(all_wars):
         bb = {k: (lambda v: (min(v), max(v)) if v else (0, 0))([p["by_key"][k][0] for p in data["players"].values() if k in p["by_key"]]) for k in keys}
         s_lo = min((p["score"] for p in data["players"].values()), default=0)
         s_hi = max((p["score"] for p in data["players"].values()), default=0)
-        head = ["<th>#</th>", "<th>Joueur</th>", "<th>Saison</th>"]
+        head = ["<th>#</th>", "<th>Joueur</th>", "<th>Score</th>", '<th title="Jetons non joués sous les 27 de la saison">Jetons perdus</th>']
         for k in keys:
             slot = slots[k]
             label = slot["name"].split(" (")[0]
@@ -2678,9 +2685,12 @@ def render_raid_pages(all_wars):
         for uid, p in sorted(data["players"].items(), key=lambda kv: kv[1]["rank"]):
             name = html_escape(names.get(uid, "Ancien membre"))
             who = (f'<a class="chip player-btn" href="../joueurs/{rosters_mod.player_slug(uid)}.html">{name}</a>' if uid in members
-                   else f'<span class="ex-member" title="Ne fait plus partie de la guilde">{name}</span>')
+                   else f'<span class="chip player-btn ex-pill" title="Ne fait plus partie de la guilde">{name}</span>')
+            lost = "–" if p["lost"] is None else p["lost"]  # a season in progress has no lost tokens yet
+            raw_note = f' · avant jetons perdus : {_fmt_rel(p["raw"])}' if p["lost"] else ""
             cells = [f'<td>{p["rank"]}</td>', f"<td>{who}</td>",
-                     f'<td{value_to_bg(p["score"], s_lo, s_hi)} title="{p["n"]} attaques">{_fmt_rel(p["score"])}</td>']
+                     f'<td{value_to_bg(p["score"], s_lo, s_hi)} title="{p["n"]} attaques · {p["tokens"]} jetons{raw_note}">{_fmt_rel(p["score"])}</td>',
+                     f"<td>{lost}</td>"]
             for k in keys:
                 v = p["by_key"].get(k)
                 if v is None:
@@ -2775,7 +2785,7 @@ def render_players_pages(war_rank=None, raid_rank=None, medals=None):
     os.makedirs(os.path.join(DOCS_DIR, "joueurs"), exist_ok=True)
     roles = medals_mod.guild_roles()
     html = render_page(
-        nav_active="players", title="Joueurs", asset_prefix="", body=rosters_mod.render_players_index_body(rosters),
+        nav_active="players", title="Joueurs", asset_prefix="", body=rosters_mod.render_players_index_body(rosters, war=war_rank, raid=raid_rank, medals=medals),
         back_link=guild_crumb(), title_class="hero-title", header_extra="", header_action="", v=ASSETS_VERSION,
     )
     with open(os.path.join(DOCS_DIR, "joueurs.html"), "w", encoding="utf-8") as f:
@@ -2846,12 +2856,13 @@ def main():
     for season, season_wars in seasons.items():
         render_season_page(season, season_wars, active_uids)
 
-    render_index(seasons, active_uids)
+    war_rank = compute_war_rank(seasons, active_uids)
+    render_index(seasons, active_uids, war_rank)
     render_home(all_wars, seasons)
     render_strategy_index(all_wars)
     render_defenses_page(all_wars)
     members = {r["uid"] for r in rosters_mod.load_rosters()}
-    render_players_pages(compute_war_rank(seasons, active_uids), raid_rank=medals_mod.raid_ranking(members), medals=compute_medals(seasons))
+    render_players_pages(war_rank, raid_rank=medals_mod.raid_ranking(members), medals=compute_medals(seasons))
     render_raid_pages(all_wars)
     render_boss_pages(all_wars)
     for w in all_wars:

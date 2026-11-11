@@ -610,6 +610,23 @@ def render_raid_metas(units, prefix="../"):
             f'<table class="mtable"><thead><tr>{head}</tr></thead><tbody>{rows}</tbody></table>{modals}{method_modal()}</div>')
 
 
+ROMAN5 = ["I", "II", "III", "IV", "V"]
+
+
+def badge_tier(rank):
+    """Colour of a laurel badge: 1-3 the Onslaught mythic / legendary / epic colours, 4 grey, 5 brown (the Onslaught medals' colours), then a
+    neutral disc."""
+    return rank if rank <= 3 else "silver" if rank == 4 else "bronze" if rank == 5 else "plain"
+
+
+def rank_label(rank, prefix=""):
+    """What the laurel badges show: the game's own I, II, III numerals (cut out of its rank medals, docs/assets/ui/rn_*.png) on the
+    podium, the plain number from 4th on (no # sign)."""
+    if 1 <= rank <= 5:
+        return f'<img class="rn" src="{prefix}assets/ui/rn_{rank}.png" alt="{ROMAN5[rank - 1]}">'
+    return str(rank)
+
+
 def _insignia(kind, label, info, prefix):
     """One insignia. War: `info` = {rank, of, avg, wars}; raid: {rank, of, avg_season_rank, seasons, avg_rel} (None = not ranked).
     Everybody ranked gets the game's August 2026 avatar frame (the plate says WAR or RAID) around a disc with their rank:
@@ -620,17 +637,17 @@ def _insignia(kind, label, info, prefix):
         return (f'<a class="insignia" href="{prefix}{kind}.html"><span class="ins-medal tier-none">–</span>'
                 f'<span class="ins-text"><b>{label}</b><small>{why}</small></span></a>')
     rank = info["rank"]
-    tier = rank if rank <= 3 else "silver" if rank <= 20 else "bronze"  # 1-3 Onslaught colours, 4-20 silver grey, 21+ bronze
-    medal = (f'<span class="ins-frame tier-{tier}"><span class="ins-core"><b>{rank}</b></span>'
+    tier = badge_tier(rank)
+    medal = (f'<span class="ins-frame tier-{tier}"><span class="ins-core"><b>{rank_label(rank, prefix)}</b></span>'
              f'<img class="ins-frame-img" src="{prefix}assets/ui/avatar_frame_{kind}.png" alt=""></span>')
     if kind == "raid":
         plural = "s" if info["seasons"] > 1 else ""
-        lines = f'<small class="ins-rank">Rang {rank} sur {info["of"]}</small><small>{info["seasons"]} saison{plural}</small>'
-        tip = ("Classement de raid : dégâts par attaque relativement à la moyenne de la guilde sur la saison (sans finishs, à partir de Legendary 4), "
+        lines = f'<small>{info["seasons"]} saison{plural}</small>'
+        tip = ("Classement de raid : dégâts par attaque relativement à la moyenne de la guilde sur la saison (sans finishs, à partir de Legendary 4, moins 1/27 par jeton perdu sous les 27 de la saison), "
                "classés par saison puis moyennés")
     else:
         plural = "s" if info["seasons"] > 1 else ""
-        lines = f'<small class="ins-rank">Rang {rank} sur {info["of"]}</small><small>{info["seasons"]} saison{plural}</small>'
+        lines = f'<small>{info["seasons"]} saison{plural}</small>'
         tip = "Classement général de guerre, parmi les membres actuels"
     return f'<a class="insignia" href="{prefix}{kind}.html" title="{tip}">{medal}<span class="ins-text"><b>{label}</b>{lines}</span></a>'
 
@@ -642,7 +659,7 @@ def render_insignias(war, prefix="../", raid=None, extra="", raid_known=False):
     raid_html = (_insignia("raid", "Raid", raid, prefix) if raid_known else
                  f'<a class="insignia" href="{prefix}raid.html" title="Classement de raid : bientôt"><span class="ins-medal tier-none">X</span>'
                  '<span class="ins-text"><b>Raid</b><small>À venir</small></span></a>')
-    return f'<div class="insignias">{_insignia("war", "War", war, prefix)}{raid_html}{extra}</div>'
+    return f'<div class="insignias">{raid_html}{_insignia("war", "War", war, prefix)}{extra}</div>'
 
 
 def _fmt_damage(n):
@@ -757,7 +774,27 @@ def _pct_slots(owned, roles):
     )
 
 
-def render_players_index_body(rosters):
+def table_badge(kind, info, prefix):
+    """The laurel badge (I to V, coloured as on the player pages) that replaces the rank number in the War and Raid tables for the top 5;
+    "" for everybody else (the number stays)."""
+    if not info or info["rank"] > 5:
+        return ""
+    rank = info["rank"]
+    return (f'<span class="ins-frame tb-badge tier-{badge_tier(rank)}"><span class="ins-core"><b>{rank_label(rank, prefix)}</b></span>'
+            f'<img class="ins-frame-img" src="{prefix}assets/ui/avatar_frame_{kind}.png" alt="{rank}"></span>')
+
+
+def _mini_rank(kind, info):
+    """The War / Raid laurel (see _insignia) shrunk for the players list, only for the top 5; an empty slot otherwise so
+    the names stay aligned. Plain spans: the pointer is always on the name's row, which reacts as a whole."""
+    if not info or info["rank"] > 5:
+        return '<span class="pg-slot"></span>'
+    rank = info["rank"]
+    return (f'<span class="pg-slot"><span class="ins-frame tier-{badge_tier(rank)}"><span class="ins-core"><b>{rank_label(rank)}</b></span>'
+            f'<img class="ins-frame-img" src="assets/ui/avatar_frame_{kind}.png" alt=""></span></span>')
+
+
+def render_players_index_body(rosters, war=None, raid=None, medals=None):
     """Players list as a grid (not a real table, so each name stays a primary button): one row per member, in alphabetical
     order, with the member's completion for every raid meta in columns (Core / Flex / MOW); clicking a column head sorts the players by that meta; clicking a
     meta's percentages opens that player's dialog."""
@@ -781,8 +818,10 @@ def render_players_index_body(rosters):
         avgs = "".join(
             f' data-m{i}="{sum(v for _, v in meta_pcts(owned, roles)) / len(meta_pcts(owned, roles)):.2f}"' for i, (team, roles) in metas
         )  # sort key per meta: mean of its Core / Flex / MOW %
-        rows += (f'<div class="pg-row" data-i="{pi}"{avgs}><a class="chip player-btn" href="joueurs/{player_slug(r["uid"])}.html">{escape(r["name"])}</a>'
-                 f'{cells}</div>')
+        href = f'joueurs/{player_slug(r["uid"])}.html'
+        badges = _mini_rank("raid", (raid or {}).get(r["uid"])) + _mini_rank("war", (war or {}).get(r["uid"]))
+        rows += (f'<div class="pg-row" data-i="{pi}"{avgs}><div class="pg-who"><a class="chip player-btn" href="{href}">{escape(r["name"])}</a>'
+                 f'<span class="pg-badges">{badges}</span></div>{cells}</div>')
         # this player's own dialog for every meta (their values next to the requirements)
         player_modals += "".join(_meta_modal(f"{pi}-{i}", team, roles, owned, names, "", who=r["name"], href=f'joueurs/{player_slug(r["uid"])}.html') for i, (team, roles) in metas)
     return f'<div class="pgrid">{head}<div class="pg-rows">{rows}</div></div>{player_modals}{method_modal()}'

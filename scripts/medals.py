@@ -54,6 +54,7 @@ def slots():
     return out
 
 
+TOKENS_PER_SEASON = 27  # a player who plays fewer tokens than this in a season has lost the difference (and 1/27 of the damage per lost token)
 MEDAL_RANKS = 5  # boss medals go to the top 5 members of each boss
 MEDIAN_THRESHOLD = 1600
 RELIABILITY_THRESHOLD = 0.90
@@ -173,7 +174,7 @@ def raid_seasons():
     """season -> {"players": {uid: {score, n, rank, by_key: {medal key: (mean relative damage, attacks)}}}, "keys": [medal keys
     played that season, in medal order], "field": players ranked}.
     Relative damage = an attack from Legendary 4 up (no bomb, no finish; one-shots count) compared with the guild's average hit on the same boss /
-    sub-boss and difficulty tier over the whole season; a player's score is the mean over their attacks. Everybody who played the
+    sub-boss and difficulty tier over the whole season; a player's score is the mean over their attacks, then cut by 1/27 per token short of 27 in the season (a season in progress is not cut). Everybody who played the
     season (former members included) is ranked on it."""
     order = [slot["key"] for slot in slots()]
     mean = lambda v: sum(v) / len(v)
@@ -192,11 +193,26 @@ def raid_seasons():
                 r = e["damageDealt"] / base - 1
                 rel_all[e["userId"]].append(r)
                 rel_key[e["userId"]][_medal_key(e)].append(r)
-        scored = sorted(((mean(v), u) for u, v in rel_all.items() if len(v) >= MIN_ATTACKS), reverse=True)
+        # tokens = every attack of the season that is not a bomb (finishing blows and one-shots included, whatever the boss)
+        tokens = defaultdict(int)
+        for e in entries:
+            if e.get("damageType") != "Bomb":
+                tokens[e["userId"]] += 1
+        complete = max(tokens.values(), default=0) >= TOKENS_PER_SEASON  # a season in progress is not penalised yet
+
+        def adjusted(uid, raw):
+            """Relative damage per available token: the damage ratio (1 + relative) is cut by the share of the 27 tokens left unplayed,
+            so each lost token costs 1/27 of the damage, whether the player is above or below the guild average."""
+            if not complete:
+                return raw
+            return (1 + raw) * min(1.0, tokens[uid] / TOKENS_PER_SEASON) - 1
+
+        scored = sorted(((adjusted(u, mean(v)), mean(v), u) for u, v in rel_all.items() if len(v) >= MIN_ATTACKS), reverse=True)
         players = {
-            uid: {"score": score, "n": len(rel_all[uid]), "rank": rank,
+            uid: {"score": score, "raw": raw, "n": len(rel_all[uid]), "rank": rank, "tokens": tokens[uid],
+                  "lost": max(0, TOKENS_PER_SEASON - tokens[uid]) if complete else None,
                   "by_key": {k: (mean(v), len(v)) for k, v in rel_key[uid].items()}}
-            for rank, (score, uid) in enumerate(scored, 1)
+            for rank, (score, raw, uid) in enumerate(scored, 1)
         }
         if not players:  # a season with no counted attack yet
             continue
