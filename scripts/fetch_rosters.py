@@ -7,7 +7,7 @@ repository: {"players": [{"name": ..., "user_id": ..., "api_key": ...}]}.
 A player with an empty api_key is skipped. Keys are never printed or written
 anywhere else; only the player data (units, progress) is kept.
 
-Usage: python3 scripts/fetch_rosters.py [--strict]   (--strict: exit 1 if any member failed, used by the daily GitHub workflow)
+Usage: python3 scripts/fetch_rosters.py [--strict] [name-or-user-id ...]   (names / ids given: only those members)   (--strict: exit 1 if any member failed, used by the daily GitHub workflow)
 """
 import json
 import os
@@ -44,9 +44,12 @@ def main():
     with open(KEYS, encoding="utf-8") as f:
         players = json.load(f)["players"]
     os.makedirs(OUT_DIR, exist_ok=True)
+    only = [a.lower() for a in sys.argv[1:] if not a.startswith("--")]  # optional: refresh only these members (name or user id)
     ok, failed = 0, []
     for p in players:
         label = p.get("name") or p["user_id"]
+        if only and not any(o in (p.get("name") or "").lower() or o == p["user_id"].lower() or p["user_id"].lower().startswith(o) for o in only):
+            continue
         if not p.get("api_key") or not p.get("user_id"):
             failed.append((label, "no key"))
             continue

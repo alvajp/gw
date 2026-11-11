@@ -657,7 +657,7 @@ details.map-defense .table-scroll { margin-bottom: 0; border: none; border-radiu
 .defense-table tbody tr[data-attacks] { cursor: pointer; }
 .defense-table tbody tr[data-attacks]:hover td { filter: brightness(1.12); }
 dialog.defense-modal {
-  width: min(980px, calc(100vw - 2rem)); max-height: calc(100vh - 2rem); padding: 0; overflow-y: auto;
+  width: min(860px, calc(100vw - 2rem)); max-height: calc(100vh - 2rem); padding: 0; overflow-y: auto;
   border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text);
 }
 dialog.defense-modal::backdrop { background: rgba(0, 0, 0, 0.55); }
@@ -884,7 +884,7 @@ details.map-defense > summary:hover { background: var(--table-header-hover); }
 .attacks-table tbody tr[data-pl-img], .dm-row[data-pl-img] { cursor: pointer; }
 .attacks-table tbody tr[data-pl-img]:hover td, .dm-row[data-pl-img]:hover { filter: brightness(1.12); }
 dialog.placement-modal {
-  width: min(min(660px, calc(100vw - 2rem)), calc(100vh - 3rem)); padding: 0; overflow: hidden;
+  width: min(min(600px, calc(100vw - 2rem)), calc(100vh - 3rem)); padding: 0; overflow: hidden;
   border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text);
 }
 dialog.placement-modal::backdrop { background: rgba(0, 0, 0, 0.55); }
