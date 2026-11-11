@@ -1,7 +1,7 @@
 """
 Medals shown on the player pages (Onslaught badge art) and the raid ranking:
   * best all-time relative damage per raid boss and sub-boss (every season and difficulty, the % above the guild average, no bombs,
-    finishes or one-shots) -> top 5 members (orange / teal / gold / grey / brown = Onslaught mythic / legendary / epic frames, then the epic frame recoloured), from the raid
+    finishes, from Legendary 4 up; one-shots count) -> top 5 members (orange / teal / gold / grey / brown = Onslaught mythic / legendary / epic frames, then the epic frame recoloured), from the raid
     history in data/raid/ (fetch_raid.py, guild key, seasons 97 to the latest);
   * median guild-war battle score >= 1600 (1600 is the score cap, so "above 1600" can never happen) and
   * guild-war reliability > 90 % ((wins + finishes) / all tokens), both with the Onslaught "challenge" frame.
@@ -76,7 +76,15 @@ def _medal_key(e):
     return None
 
 
-ONE_SHOT_SHARE = 0.30  # a boss / sub-boss where at least this share of the attacks are one-shots counts them (see one_shot_keys)
+# A season has 5 Legendary bosses (the API's `set` 0-4, in the order they are fought) and 3 Mythic ones (set 0-2); `tier` is only the
+# loop count (4, 6, 8... for Legendary, 5, 7, 9... for Mythic). Only the attacks from the 4th Legendary boss ("Legendary 4", set 3) up
+# count for the relative damage, the ranking and the medals: Legendary 4 and 5, then every Mythic boss.
+MIN_LEGENDARY_SET = 3
+
+
+def _counts_for_rank(e):
+    rarity = e.get("rarity")
+    return rarity == "Mythic" or (rarity == "Legendary" and e.get("set", 0) >= MIN_LEGENDARY_SET)
 
 
 def _is_one_shot(e):
@@ -84,36 +92,12 @@ def _is_one_shot(e):
     return e.get("remainingHp", 1) == 0 and e.get("damageDealt", 0) >= e.get("maxHp", 1 << 60)
 
 
-_ONE_SHOT_KEYS = None
-
-
-def one_shot_keys():
-    """Medal keys of the bosses / sub-bosses where one-shots are the usual outcome (at least ONE_SHOT_SHARE of their attacks over
-    the whole history, e.g. Thaddeus). Leaving the kills out there would keep only the failed attempts and rank the players on
-    how badly they missed; counting a one-shot at the boss's full HP, which is above the average damage, ranks them on how often
-    they kill. Finishing blows (a kill after earlier damage) never count: their damage is only what was left of the boss."""
-    global _ONE_SHOT_KEYS
-    if _ONE_SHOT_KEYS is None:
-        total, shots = defaultdict(int), defaultdict(int)
-        for entries in season_files().values():
-            for e in entries:
-                key = _medal_key(e)
-                if key is None or e.get("damageType") == "Bomb":
-                    continue
-                total[key] += 1
-                shots[key] += _is_one_shot(e)
-        _ONE_SHOT_KEYS = {k for k, n in total.items() if shots[k] / n >= ONE_SHOT_SHARE}
-    return _ONE_SHOT_KEYS
-
-
 def _valid(e):
-    """A regular attack that counts: no bomb, and no finishing blow; a one-shot only on the bosses where it is the usual outcome."""
-    key = _medal_key(e)
-    if key is None or e.get("damageType") == "Bomb":
+    """An attack that counts: Legendary 4 or higher (see _counts_for_rank), no bomb, and no finishing blow (a kill after earlier damage: its damage is
+    only what was left of the boss); every one-shot counts, at the boss's full HP."""
+    if _medal_key(e) is None or e.get("damageType") == "Bomb" or not _counts_for_rank(e):
         return False
-    if e.get("remainingHp", 1) > 0:
-        return True
-    return _is_one_shot(e) and key in one_shot_keys()
+    return e.get("remainingHp", 1) > 0 or _is_one_shot(e)
 
 
 def boss_relative(members=None):
@@ -188,7 +172,7 @@ def season_files():
 def raid_seasons():
     """season -> {"players": {uid: {score, n, rank, by_key: {medal key: (mean relative damage, attacks)}}}, "keys": [medal keys
     played that season, in medal order], "field": players ranked}.
-    Relative damage = a regular attack (no bomb, no finish, no one-shot) compared with the guild's average hit on the same boss /
+    Relative damage = an attack from Legendary 4 up (no bomb, no finish; one-shots count) compared with the guild's average hit on the same boss /
     sub-boss and difficulty tier over the whole season; a player's score is the mean over their attacks. Everybody who played the
     season (former members included) is ranked on it."""
     order = [slot["key"] for slot in slots()]
@@ -214,6 +198,8 @@ def raid_seasons():
                   "by_key": {k: (mean(v), len(v)) for k, v in rel_key[uid].items()}}
             for rank, (score, uid) in enumerate(scored, 1)
         }
+        if not players:  # a season with no counted attack yet
+            continue
         keys = [k for k in order if any(k in p["by_key"] for p in players.values())]
         out[season] = {"players": players, "keys": keys, "field": len(scored)}
     return out

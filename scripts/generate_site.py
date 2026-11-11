@@ -432,7 +432,7 @@ PAGE_TEMPLATE = """<!doctype html>
 
 
 NAV_SEASONS = {"raid": [], "war": []}  # season numbers (latest first) shown in the second menu row; filled in main()
-NAV_SECTION = {"ranking": "war", "strategy": "war", "defenses": "war", "raid": "raid", "boss": "raid", "players": "players"}
+NAV_SECTION = {"home": None, "ranking": "war", "strategy": "war", "defenses": "war", "raid": "raid", "boss": "raid", "players": "players"}
 
 
 def render_topbar(prefix, active, sub=None):
@@ -466,7 +466,7 @@ def render_topbar(prefix, active, sub=None):
         sub_html = f'<div class="topsub"><div class="topsub-inner">{items}</div></div>'
     return (
         '<nav class="topbar"><div class="topbar-inner">'
-        f'<a class="brand" href="{prefix}war.html"><span class="brand-mark"></span>'
+        f'<a class="brand" href="{prefix}index.html"><span class="brand-mark"></span>'
         f'<span class="brand-name">{html_escape(OUR_GUILD_LABEL)}</span></a>'
         f'<div class="topnav">{top}</div>'
         f'</div>{sub_html}</nav>'
@@ -1990,7 +1990,7 @@ def render_war_page(slug, result, season, outcome=None, active_uids=frozenset(),
     display_names = {uid: p.get("displayName", uid) for uid, p in result["players"].items()}
     body += render_war_chronologie_section(result, our_idx, display_names)
 
-    body += "<h2>Détails</h2>" + render_table(our_rows, hard_cols, easy_cols)
+    body += "<h2>Détail</h2>" + render_table(our_rows, hard_cols, easy_cols)
 
     other_tables = []
     for team_idx in sorted(guilds):
@@ -2495,12 +2495,30 @@ def render_index(seasons, active_uids=frozenset()):
     )
     with open(os.path.join(DOCS_DIR, "war.html"), "w", encoding="utf-8") as f:
         f.write(html)
-    # the site root and every old link to index.html land on the War page
+
+
+def render_home(all_wars, seasons):
+    """docs/index.html, the page the logo leads to: the guild's name over a wallpaper and one big card per section."""
+    n_members = len(rosters_mod.load_rosters())
+    raid_seasons = NAV_SEASONS["raid"]
+    cards = [
+        ("raid.html", "Raid", f"{len(raid_seasons)} saisons, de S{min(raid_seasons)} à S{max(raid_seasons)}" if raid_seasons else "Dégâts par attaque, bosses et primes",
+         "Classement par saison, et les meilleurs sur chaque boss"),
+        ("war.html", "War", f"{len(seasons)} saisons, {len(all_wars)} guerres",
+         "Classement général, stratégie, défenses et chaque guerre"),
+        ("joueurs.html", "Joueurs", f"{n_members} membres", "Rosters, metas du raid, badges et médailles"),
+    ]
+    body = '<div class="home-cards">' + "".join(
+        f'<a class="home-card" href="{href}"><h2>{title}</h2><b>{html_escape(stat)}</b><p>{html_escape(text)}</p>'
+        f'<span class="home-go">{ARROW_RIGHT}</span></a>'
+        for href, title, stat, text in cards
+    ) + "</div>"
+    html = render_page(
+        nav_active="home", title=OUR_GUILD_LABEL, asset_prefix="", body=body, back_link="", title_class="hero-title",
+        header_extra="", header_action="", v=ASSETS_VERSION,
+    )
     with open(os.path.join(DOCS_DIR, "index.html"), "w", encoding="utf-8") as f:
-        f.write('<!doctype html>\n<html lang="fr"><head><meta charset="utf-8"><title>War</title>'
-                '<link rel="canonical" href="war.html"><meta http-equiv="refresh" content="0; url=war.html">'
-                '<script>location.replace("war.html" + location.search + location.hash);</script></head>'
-                '<body><a href="war.html">War</a></body></html>\n')
+        f.write(html)
 
 
 def render_strategy_index(all_wars):
@@ -2586,7 +2604,7 @@ def raid_names(all_wars, rosters):
     return names
 
 
-RAID_EXPLAIN = '<p class="raid-explain">Dégâts par attaque relativement à la moyenne de la guilde sur la saison, sans finishs ni one shots</p>'
+RAID_EXPLAIN = '<p class="raid-explain">Dégâts par attaque relativement à la moyenne de la guilde sur la saison, sans finishs, à partir de Legendary 4</p>'
 BOSS_EXPLAIN = RAID_EXPLAIN  # same line on the Boss landing page; the individual boss pages have no text
 
 
@@ -2813,6 +2831,7 @@ def main():
         render_season_page(season, season_wars, active_uids)
 
     render_index(seasons, active_uids)
+    render_home(all_wars, seasons)
     render_strategy_index(all_wars)
     render_defenses_page(all_wars)
     members = {r["uid"] for r in rosters_mod.load_rosters()}

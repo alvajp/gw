@@ -586,8 +586,8 @@ def _pct_html(pcts):
 
 
 def render_raid_metas(units, prefix="../"):
-    """Raid metas: a table (one row per meta with its icon, columns Core / Flex / Machines, each with its completion % above
-    the units this player owns; click a row = methodology dialog). On phones the table is hidden and the completion badges
+    """Raid metas: a table (one row per meta, columns Core / Flex / Machines, each with its completion % above the units this
+    player owns; the meta's name leads the Core cell, next to its %; click a row = methodology dialog). On phones the table is hidden and the completion badges
     (icon + % for Core / Flex / MOW per meta) take its place."""
     owned = {u["id"]: u for u in units}
     names = _unit_names()
@@ -601,13 +601,13 @@ def render_raid_metas(units, prefix="../"):
         for role in ROLES:
             inner = "".join(_mini_unit(i, owned.get(i), names, prefix, req) for i, req in roles.get(role, [])) or '<span class="mnone">—</span>'
             pct = f'<span class="mrole-pct {_pct_class(got[role])}">{got[role]}%</span>' if role in got else ""
-            cells += f'<td data-label="{role}">{pct}<div class="munits">{inner}</div></td>'
-        rows += (f'<tr role="button" tabindex="0" data-meta="meta-{idx}" title="Voir le détail de {escape(team)}">'
-                 f'<th scope="row" class="mteam-name"><span>{escape(team)}</span></th>{cells}</tr>')
+            title = f'<span class="mteam-title">{escape(team)}</span>' if role == ROLES[0] else ""  # the meta's name leads the Core cell
+            cells += f'<td data-label="{role}"><div class="mcell-head">{title}{pct}</div><div class="munits">{inner}</div></td>'
+        rows += (f'<tr role="button" tabindex="0" data-meta="meta-{idx}" title="Voir le détail de {escape(team)}">{cells}</tr>')
         modals += _meta_modal(idx, team, roles, owned, names, prefix)
     head = "".join(f"<th>{role}</th>" for role in ROLES)
     return (f'<div class="rmetas"><div class="mbadges">{badges}</div>'
-            f'<table class="mtable"><thead><tr><th>Meta</th>{head}</tr></thead><tbody>{rows}</tbody></table>{modals}{method_modal()}</div>')
+            f'<table class="mtable"><thead><tr>{head}</tr></thead><tbody>{rows}</tbody></table>{modals}{method_modal()}</div>')
 
 
 def _insignia(kind, label, info, prefix):
@@ -626,7 +626,7 @@ def _insignia(kind, label, info, prefix):
     if kind == "raid":
         plural = "s" if info["seasons"] > 1 else ""
         lines = f'<small class="ins-rank">Rang {rank} sur {info["of"]}</small><small>{info["seasons"]} saison{plural}</small>'
-        tip = ("Classement de raid : dégâts par attaque relativement à la moyenne de la guilde sur la saison (sans finishs ni one shots), "
+        tip = ("Classement de raid : dégâts par attaque relativement à la moyenne de la guilde sur la saison (sans finishs, à partir de Legendary 4), "
                "classés par saison puis moyennés")
     else:
         plural = "s" if info["seasons"] > 1 else ""

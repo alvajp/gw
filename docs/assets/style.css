@@ -1433,3 +1433,27 @@ body[data-page="players"][data-bg="raid-podium"] { --bg-img: url("bg/sororitas-d
 body[data-page="players"]::before {
   background-image: linear-gradient(to bottom, color-mix(in srgb, var(--bg) var(--veil-a, 68%), transparent), color-mix(in srgb, var(--bg) var(--veil-b, 88%), transparent) 45%, var(--bg) 75%), var(--bg-img);
 }
+
+/* Home (index.html): the guild's name over a wallpaper, one big card per section. */
+body[data-page="home"] { --bg-img: url("bg/world-eaters.webp"); }
+body[data-page="home"]::before {
+  content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background-image: linear-gradient(to bottom, color-mix(in srgb, var(--bg) 30%, transparent), color-mix(in srgb, var(--bg) 62%, transparent) 55%, var(--bg) 100%), var(--bg-img);
+  background-size: cover; background-position: center top; background-repeat: no-repeat;
+}
+body[data-page="home"] h1.hero-title { margin-top: 5rem; font-size: 3.4rem; text-shadow: 0 2px 18px rgba(0, 0, 0, 0.6); }
+.home-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 1rem; margin: 3rem 0 2rem; }
+.home-card { position: relative; display: flex; flex-direction: column; gap: 0.35rem; padding: 1.4rem 1.5rem 1.5rem; color: var(--text); text-decoration: none; background: color-mix(in srgb, var(--bg) 72%, transparent); border: 1px solid var(--border); border-radius: var(--radius); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); transition: border-color 120ms ease, transform 120ms ease, background 120ms ease; }
+.home-card:hover { border-color: var(--accent); background: color-mix(in srgb, var(--bg) 62%, transparent); transform: translateY(-2px); }
+.home-card h2 { margin: 0; font-size: 1.7rem; }
+.home-card b { font-size: 0.95rem; color: var(--accent); font-weight: 600; }
+.home-card p { margin: 0.3rem 0 1.6rem; font-size: 0.9rem; line-height: 1.45; color: var(--text-muted); }
+.home-go { position: absolute; right: 1.3rem; bottom: 1.2rem; color: var(--accent); }
+@media (max-width: 480px) { body[data-page="home"] h1.hero-title { margin-top: 2.5rem; font-size: 2.3rem; line-height: 1.15; } }
+
+/* Metas table without a Meta column: the meta's icon and name lead the Core cell, then its %, like the % of the other cells. */
+.mcell-head { display: flex; align-items: center; gap: 0.6rem; min-height: 2.1rem; }
+.mcell-head .meta-ico { width: 2.1rem; height: 2.1rem; margin: 0; flex: none; }
+.mteam-title { font-size: 0.95rem; font-weight: 700; }
+.mcell-head .mrole-pct { margin: 0; }
+.mtable tbody tr[data-meta]:hover > td:first-child, .mtable tbody tr[data-meta]:focus-visible > td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
