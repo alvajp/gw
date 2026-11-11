@@ -281,8 +281,8 @@ RAID_METAS = [
         "Flex": [_h("thousTzaangor", [35, 35], 11, relic=(THRYDDERGHYRE, 1)), _h("bloodMephiston", [36, 60], 11, relic=(VITARUS, 1))],
         "Machines": [_m("thousDaemonPrince", [60, 35, 4])]}),
     ("Battlesuit", {
-        "Core": [_h("tauCrisis", [50, 60], W, relic=(DW02, 10)), _h("tauFarsight", [60, 60], 11, relic=(DAWN_BLADE, 10)), _h("eldarLhykhis", [35, 60], 11),
-                 _h("admecManipulus", [50, 50], 11), _h("tauDarkstrider", [35, 60], 11)],
+        "Core": [_h("tauCrisis", [50, 60], W, relic=(DW02, 10)), _h("tauFarsight", [60, 60], 11, relic=(DAWN_BLADE, 10)), _h("eldarLhykhis", [35, 60], 12),
+                 _h("admecManipulus", [50, 50], 11), _h("tauDarkstrider", [35, 60], 12)],
         "Machines": [_m("necroReanimator", [50, 60, 4])]}),
     ("Méchas", {
         "Core": [_h("admecRuststalker", [60, 60], W, relic=(KARDIOCORE, 10)), _h("admecMarshall", [50, 60], 11, relic=(KARDIOCORE, 1)), _h("necroOverlord", [60, 50], 11, relic=(PHASAL, 10)),
