@@ -9,6 +9,8 @@ Static site tracking guild war results for "Les Joyeux Psychopathes !" across mu
 - `data/maps.json` + `docs/assets/maps/` — the 15 guild war boards: boardId, English name, image, and which 6 are the tracked hard/easy maps
 - `data/units.json` + `docs/assets/units/` — real name + portrait of every character/machine of war seen in a captured defense (`scripts/sync_units.py`)
 - `data/rosters/<user_id>.json` — each member's roster from the official Tacticus API (git-ignored, `scripts/fetch_rosters.py`); rendered as the "Joueurs" pages by `scripts/rosters.py`
+- `data/progression_costs.json` — the game's cumulative costs (XP per level, ability gold / badges, shards + orbs per star step, rank-up energy per character) behind the raid-meta completion %; refreshed with `scripts/fetch_progression_costs.py` (tacticusdb's public data API)
+- `docs/assets/ui/`, `docs/assets/items/`, `docs/assets/res/` — game art used by the Joueurs pages (rarity frames, rank medals, faction crests, star icons, item and relic icons, orbs / XP books / requisition orders). Copied from tacticusdb.com and tacticusplanner.app; the artwork belongs to Snowprint Studios / Games Workshop
 - `docs/assets/slots.json` — hand-annotated hex centres (px on the 480x480 art) of the 5 numbered defender slots (`e`) and the 5 white attacker slots (`o`) of each board; used by `placement.js` (click an attack -> map with both lineups). Add an entry when a new board image is imported
 - `scripts/ranking.py` — the point formula (win/finish tiers, buffs, map bonus, unused-token count)
 - `scripts/generate_site.py` — renders `docs/` (the GitHub Pages source) from everything in `data/wars/`
@@ -38,10 +40,24 @@ Run the steps separately if you prefer: `read_maps.py`, `sync_units.py`, `genera
 
 ## Players (rosters)
 
-The API keys stay outside the repo, in `~/.config/tacticus-guildwar/keys.json` (`{"players": [{"name", "user_id", "api_key"}]}`; the `user_id` is what matters, `name` is only a label). To refresh the "Joueurs" pages:
+The API keys stay outside the repo, in `~/.config/tacticus-guildwar/keys.json` (`{"players": [{"name", "user_id", "api_key"}]}`; the `user_id` is what matters, `name` is only a label). To refresh the "Joueurs" pages by hand:
 
 ```
 python3 scripts/fetch_rosters.py && python3 scripts/generate_site.py
 ```
 
-`fetch_rosters.py` writes the raw API answers to `data/rosters/` (never the keys); `generate_site.py` then builds `docs/joueurs.html` and one `docs/joueurs/<id>.html` per member.
+`fetch_rosters.py` writes the raw API answers to `data/rosters/` (never the keys; it retries on timeouts, and `--strict` makes it exit 1 if any member failed); `generate_site.py` then builds `docs/joueurs.html` and one `docs/joueurs/<id>.html` per member. New characters need their portrait: `python3 scripts/sync_units.py` (reads the local game files).
+
+### Daily refresh (GitHub Actions)
+
+`.github/workflows/refresh-rosters.yml` does the same every day at 11:00 UTC (noon in winter) and can be started by hand (`gh workflow run refresh-rosters.yml --repo alvajp/gw`). The keys come from the repository secret `ROSTER_KEYS` (the content of `keys.json`), are written to a temporary file on the runner and deleted right after; they are never in the repo, the logs or the site. If any member fails after 3 attempts nothing is published. It only refreshes rosters: wars and unit portraits stay manual. The workflow pushes to `main`, so `git pull --rebase` before pushing.
+
+To add or replace a key: edit `keys.json`, then `gh secret set ROSTER_KEYS --repo alvajp/gw < ~/.config/tacticus-guildwar/keys.json` (replaces the whole secret). Never paste a key anywhere else.
+
+### Raid metas
+
+Each player page opens with the raid metas (Lavistodes, Neuro, Battlesuit, Méchas). They are defined in `RAID_METAS` in `scripts/rosters.py`: per unit its requirement (ability levels, stars, rank, optional relic level; machines of war: abilities and the stars that set their mythic ability). The completion % of a unit is the share of resources already spent (stars / level + rank / abilities, a third each; a required relic takes 10 %), measured with `data/progression_costs.json`; Core / Flex / MOW are the mean of their units. The "Méthodologie" dialog on the site explains it with worked examples; the list on `joueurs.html` can be sorted by meta.
+
+### Strategy page
+
+`strategie.html` has guild chips (Bloody Rose by default) that filter the "Contre les meilleurs" map; the guilds are the `COMBINED_OPPONENTS` of `generate_site.py`.

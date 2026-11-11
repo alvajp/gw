@@ -479,27 +479,13 @@ def relic_icon(rid, prefix):
 
 
 def _relic_cell(req, u, prefix):
-    """Relic requirement: its icon, then the player's level / the required level (green when met); — when none is required."""
+    """Relic requirement of a unit the player owns: its icon, then their level / the required level (green when met); — when none is required."""
     relic = req.get("relic") if req else None
     if not relic:
         return "—"
     rid, need = relic
-    icon = relic_icon(rid, prefix)
-    if u is None:  # requirements only
-        return f'{icon}<span class="mm-have">{need}</span>'
     have = relic_level(u, rid)
-    return f'{icon}<span class="mm-have {"ok" if have >= need else "ko"}">{have}</span><small>{need}</small>'
-
-
-def _req_cells(req, prefix):
-    """Requirement-only cells (no player data): abilities, rank, stars, relic."""
-    ab = " / ".join(f'<span class="mm-have">{n}</span>' for n in req["ab"])
-    relic = _relic_cell(req, None, prefix)
-    if "rank" in req:
-        return ab, f'<span class="mm-badge">{rank_badge(req["rank"], prefix)}</span>', f'<span class="mm-badge">{stars_badge(req["stars"], prefix)}</span>', relic
-    if req.get("mow"):
-        return ab, "—", f'<span class="mm-badge">{stars_badge(req["stars"], prefix)}</span>', relic
-    return ab, "—", "—", relic
+    return f'{relic_icon(rid, prefix)}<span class="mm-have {"ok" if have >= need else "ko"}">{have}</span><small>{need}</small>'
 
 
 # Worked examples for the method block: (label, progression index, level, API rank, ability levels), judged against the maximum requirement.
@@ -540,26 +526,18 @@ def method_html():
 
 
 def _meta_modal(idx, team, roles, owned, names, prefix, who=None):
-    """Per-meta dialog. With `owned` (a player's units by id): every unit's requirement next to what this player has,
-    plus its completion. With owned=None (the players list): the requirements alone."""
-    generic = owned is None
+    """Per-meta dialog for one player (`owned` = their units by id): every unit's requirement next to what they have, the
+    relic, and the unit's completion; `who` (the player's name) goes next to the meta's name."""
     body = ""
     for role in ROLES:
         entries = roles.get(role)
         if not entries:
             continue
         label = ROLE_SHORT[role] if role == "Machines" else role
-        if generic:
-            body += f'<tr class="mm-role"><th>{label}</th><th></th><th></th><th></th><th></th><th></th></tr>'
-        else:
-            pct = round(100 * sum(unit_completion(owned.get(uid), req) for uid, req in entries) / len(entries))
-            body += f'<tr class="mm-role"><th>{label}</th><th></th><th></th><th></th><th></th><th class="mm-pct">{pct}%</th></tr>'
+        pct = round(100 * sum(unit_completion(owned.get(uid), req) for uid, req in entries) / len(entries))
+        body += f'<tr class="mm-role"><th>{label}</th><th></th><th></th><th></th><th></th><th class="mm-pct">{pct}%</th></tr>'
         for uid, req in entries:
             name = escape(names.get(uid, uid))
-            if generic:
-                ab, rank, stars, relic = _req_cells(req, prefix)
-                body += f'<tr><td class="mm-unit">{name}</td><td>{ab}</td><td>{rank}</td><td>{stars}</td><td>{relic}</td><td></td></tr>'
-                continue
             u = owned.get(uid)
             if u is None:
                 cells = '<td colspan="4" class="mm-undef">Non possédé</td>'
@@ -567,25 +545,20 @@ def _meta_modal(idx, team, roles, owned, names, prefix, who=None):
                 need = req["ab"]
                 have = _levels(u, len(need))
                 ab = " / ".join(f'<span class="mm-have {"ok" if h >= n else "ko"}">{h}</span><small>{n}</small>' for h, n in zip(have, need))
+                st = rarity_stars(u["progressionIndex"])[1]
+                stars = _pair(stars_badge(st, prefix), stars_badge(req["stars"], prefix), st >= req["stars"])
                 if "rank" in req:
                     rank = _pair(rank_badge(u["rank"], prefix), rank_badge(req["rank"], prefix), u["rank"] >= req["rank"])
-                    st = rarity_stars(u["progressionIndex"])[1]
-                    stars = _pair(stars_badge(st, prefix), stars_badge(req["stars"], prefix), st >= req["stars"])
-                elif req.get("mow"):  # machine: no rank, the stars show its mythic ability
+                else:  # machine of war: no rank, the stars show its mythic ability
                     rank = "—"
-                    st = rarity_stars(u["progressionIndex"])[1]
-                    stars = _pair(stars_badge(st, prefix), stars_badge(req["stars"], prefix), st >= req["stars"])
-                else:
-                    rank = stars = "—"
                 cells = f"<td>{ab}</td><td>{rank}</td><td>{stars}</td><td>{_relic_cell(req, u, prefix)}</td>"
             pc = round(100 * unit_completion(u, req))
             body += f'<tr><td class="mm-unit">{name}</td>{cells}<td class="mm-pct">{pc}%</td></tr>'
     return (
         f'<dialog class="meta-modal" id="meta-{idx}"><button type="button" class="mm-close" aria-label="Fermer">×</button>'
         f'<h3>{_meta_icon(team, prefix)}{escape(team)}{f" <small class=mm-who>{escape(who)}</small>" if who else ""}</h3>'
-        +
         '<div class="mm-scroll"><table class="mm-table"><thead><tr><th>Unité</th><th>Capacités</th>'
-        f'<th>Rang</th><th>Étoiles</th><th>Relique</th><th>{"" if generic else "% "}{METHOD_BTN}</th></tr></thead><tbody>{body}</tbody></table></div></dialog>'
+        f'<th>Rang</th><th>Étoiles</th><th>Relique</th><th>% {METHOD_BTN}</th></tr></thead><tbody>{body}</tbody></table></div></dialog>'
     )
 
 
