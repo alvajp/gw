@@ -1088,3 +1088,9 @@ dialog.method-modal { width: min(640px, calc(100vw - 2rem)); }
 .opp-filter-label { font-size: 0.78rem; font-weight: 600; color: var(--text-muted); }
 .opp-filter .chips { margin: 0; flex-wrap: wrap; overflow-x: visible; }
 .map-def[hidden] { display: none; }
+
+/* Relic requirement cell: hex icon + player level / required level. */
+.mm-relic { position: relative; display: inline-block; width: 1.9rem; height: 1.9rem; vertical-align: middle; margin-right: 0.5rem; }
+.mm-relic .it-img { position: absolute; left: 14%; top: 14%; width: 72%; height: 72%; object-fit: contain; }
+.mm-relic .it-frame { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.mm-relic-missing { display: inline-flex; align-items: center; justify-content: center; color: var(--text-muted); border: 1px dashed var(--border); border-radius: 6px; }

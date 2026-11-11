@@ -237,9 +237,26 @@ A2, W = 19, 14
 D3 = 17  # Diamond III (level cap 50)
 
 
-def _h(uid, ab, stars, rank=A2):
-    """Hero requirement; the level needed is the cap of the rank (A2 -> 60, Diamond 3 -> 50)."""
-    return (uid, {"ab": ab, "stars": stars, "rank": rank, "level": 60 if rank >= A2 else 50})
+# Relics (equipped item "R_..."): id -> name; each requirement can ask for one at a minimum level (relic levels are per unit).
+RELIC_NAMES = {
+    "R_Crit_HeadwoppasKillchoppa": "Headwoppa's Killchoppa", "R_Booster_Block_NornCrown": "Norn Crown",
+    "R_Booster_Crit_BookOfFate": "Book of Fate", "R_Crit_TalonOfHorus": "Talon of Horus", "R_Crit_Vitarus": "Vitarus",
+    "R_Defensive_Thrydderghyre": "Thrydderghyre", "R_Booster_Crit_KardiocoreGalvanus": "Kardiocore Galvanus",
+    "R_Booster_Crit_PhasalSubjugator": "Phasal Subjugator", "R_Booster_Crit_NetherRealmCasket": "Nether-Realm Casket",
+    "R_Crit_Dw02AdvancedBurstCannon": "DW-02 Advanced Burst Cannon", "R_Crit_DawnBlade": "Dawn Blade",
+}
+KILLCHOPPA, NORN_CROWN, BOOK_OF_FATE = "R_Crit_HeadwoppasKillchoppa", "R_Booster_Block_NornCrown", "R_Booster_Crit_BookOfFate"
+TALON_OF_HORUS, VITARUS, THRYDDERGHYRE = "R_Crit_TalonOfHorus", "R_Crit_Vitarus", "R_Defensive_Thrydderghyre"
+KARDIOCORE, PHASAL, NETHER_CASKET = "R_Booster_Crit_KardiocoreGalvanus", "R_Booster_Crit_PhasalSubjugator", "R_Booster_Crit_NetherRealmCasket"
+DW02, DAWN_BLADE = "R_Crit_Dw02AdvancedBurstCannon", "R_Crit_DawnBlade"
+
+
+def _h(uid, ab, stars, rank=A2, relic=None):
+    """Hero requirement; the level needed is the cap of the rank (A2 -> 60, Diamond 3 -> 50). relic = (relic id, minimum level)."""
+    req = {"ab": ab, "stars": stars, "rank": rank, "level": 60 if rank >= A2 else 50}
+    if relic:
+        req["relic"] = relic
+    return (uid, req)
 
 
 # Machines of war: the mythic ability level follows the machine's stars (level 1-3 = 1-3 blue stars, level 4 = skulled).
@@ -254,24 +271,24 @@ def _m(uid, ab):
 RAID_METAS = [
     ("Lavistodes", {
         "Core": [_h("emperExultant", [60, 36], W), _h("custoBladeChampion", [60, 60], W), _h("custoTrajann", [50, 60], 13),
-                 _h("orksWarboss", [60, 60], 13), _h("custoVexilusPraetor", [60, 50], 13), _h("custoAtlacoya", [60, 36], 11)],
+                 _h("orksWarboss", [60, 60], 13, relic=(KILLCHOPPA, 1)), _h("custoVexilusPraetor", [60, 50], 13), _h("custoAtlacoya", [60, 36], 11)],
         "Flex": [_h("bloodDante", [50, 60], 11), _h("worldKharn", [60, 60], 13), _h("admecDominus", [50, 60], 13),
                  _h("worldExecutions", [60, 60], 13), _h("adeptCanoness", [50, 60], 11)],
         "Machines": [_m("tyranBiovore", [60, 60, 4]), _m("deathCrawler", [1, 36, 4])]}),
     ("Neuro", {
-        "Core": [_h("tyranNeurothrope", [36, 60], 11), _h("thousAhriman", [50, 60], 11), _h("thousInfernalMaster", [60, 60], 11),
-                 _h("blackPossession", [60, 35], 11), _h("blackAbaddon", [60, 60], 11)],
-        "Flex": [_h("thousTzaangor", [35, 35], 11), _h("bloodMephiston", [36, 60], 11)],
+        "Core": [_h("tyranNeurothrope", [36, 60], 11, relic=(NORN_CROWN, 10)), _h("thousAhriman", [50, 60], 11), _h("thousInfernalMaster", [60, 60], 11, relic=(BOOK_OF_FATE, 10)),
+                 _h("blackPossession", [60, 35], 11, relic=(BOOK_OF_FATE, 10)), _h("blackAbaddon", [60, 60], 11, relic=(TALON_OF_HORUS, 1))],
+        "Flex": [_h("thousTzaangor", [35, 35], 11, relic=(THRYDDERGHYRE, 1)), _h("bloodMephiston", [36, 60], 11, relic=(VITARUS, 1))],
         "Machines": [_m("thousDaemonPrince", [60, 35, 4])]}),
     ("Battlesuit", {
-        "Core": [_h("tauCrisis", [50, 60], W), _h("tauFarsight", [60, 60], 11), _h("eldarLhykhis", [35, 60], 11),
+        "Core": [_h("tauCrisis", [50, 60], W, relic=(DW02, 10)), _h("tauFarsight", [60, 60], 11, relic=(DAWN_BLADE, 10)), _h("eldarLhykhis", [35, 60], 11),
                  _h("admecManipulus", [50, 60], 11), _h("tauDarkstrider", [35, 60], 11)],
         "Machines": [_m("necroReanimator", [50, 60, 4])]}),
     ("Méchas", {
-        "Core": [_h("admecRuststalker", [60, 60], W), _h("admecMarshall", [50, 60], 11), _h("necroOverlord", [60, 50], 11),
+        "Core": [_h("admecRuststalker", [60, 60], W, relic=(KARDIOCORE, 10)), _h("admecMarshall", [50, 60], 11, relic=(KARDIOCORE, 1)), _h("necroOverlord", [60, 50], 11, relic=(PHASAL, 10)),
                  _h("votanMemnyr", [60, 60], 11), _h("admecDominus", [35, 60], 11)],
         "Flex": [_h("custoTrajann", [36, 60], 11, D3), _h("templHelbrecht", [60, 60], 11, D3), _h("tauMarksman", [50, 60], 11),
-                 _h("necroSpyder", [50, 50], 11, D3), _h("admecManipulus", [50, 50], 11, D3)],
+                 _h("necroSpyder", [50, 50], 11, D3, relic=(NETHER_CASKET, 1)), _h("admecManipulus", [50, 50], 11, D3)],
         "Machines": [_m("necroReanimator", [50, 60, 4])]}),
 ]
 ROLES = ["Core", "Flex", "Machines"]
@@ -338,13 +355,34 @@ def _star_index(stars):
     return next(i for i in range(20) if rarity_stars(i)[1] >= stars)
 
 
+RELIC_WEIGHT = 0.10  # share of a unit's completion given to its relic when the requirement has one
+
+
+def relic_level(u, relic_id):
+    """Level of the relic equipped on this unit (0 when it is not equipped)."""
+    return next((it["level"] for it in (u or {}).get("items", []) if it["id"] == relic_id), 0)
+
+
+HERO_WEIGHTS = [1 / 3, 1 / 6, 1 / 6, 1 / 3]  # stars, XP level, rank, abilities: stars / level+rank / abilities = a third each
+
+
+def _finish(u, req, mine, target):
+    """Ratio of what the unit has to what the requirement needs; a required relic takes 10 % of the total (no cost data
+    for relic levels: linear in its level), the rest 90 %."""
+    base = min(1.0, mine / target)
+    if req.get("relic"):
+        rid, need_lvl = req["relic"]
+        return (1 - RELIC_WEIGHT) * base + RELIC_WEIGHT * min(relic_level(u, rid) / need_lvl, 1)
+    return base
+
+
 def unit_completion(u, req):
     """0..1 completion of one unit against its requirement. Each criterion is measured by the real resources it costs:
     stars = shards + orbs (mythic = 5x), level = XP, rank = energy to farm the rank-up items, abilities = gold + badges
-    (mythic = 5x). The player's state is capped at the requirement, the criteria's cost shares are averaged (equal
-    weights), then divided by the same average for the requirement itself, so meeting the requirement is exactly 100 %.
-    No smoothing: the % is the plain share of resources already spent. Machines of war: stars (which set the mythic ability) + ability levels (gold), no level or rank. Absent unit = 0;
-    a unit with no requirement is 1 once owned."""
+    (mythic = 5x). The player's state is capped at the requirement. Heroes: stars, level + rank (half each) and abilities
+    weigh a third each; machines of war: stars (which set the mythic ability) and ability levels, half each. The weighted
+    cost share is divided by the same value for the requirement itself, so meeting the requirement is exactly 100 %;
+    no smoothing. A required relic takes 10 % (see _finish). Absent unit = 0; a unit with no requirement is 1 once owned."""
     if u is None:
         return 0.0
     if req is None:
@@ -356,11 +394,13 @@ def unit_completion(u, req):
     if req.get("mow"):  # machine of war: stars (they set the mythic ability) + ability levels, no level / rank
         mine = [stars_now, sum(_ability_frac(min(h, n), True) for h, n in zip(have, need)) / len(need)]
         target = [stars_req, sum(_ability_frac(n, True) for n in need) / len(need)]
-    else:  # hero
+    else:  # hero: stars, level + rank (one block: XP and rank-up energy, half each), abilities -> one third each
         mine = [stars_now, _xp_frac(min(max(u["xpLevel"], 1), req["level"])), _rank_frac(u["id"], min(u["rank"], req["rank"])),
                 sum(_ability_frac(min(h, n)) for h, n in zip(have, need)) / len(need)]
         target = [stars_req, _xp_frac(req["level"]), _rank_frac(u["id"], req["rank"]), sum(_ability_frac(n) for n in need) / len(need)]
-    return min(1.0, (sum(mine) / len(mine)) / (sum(target) / len(target)))
+        w = HERO_WEIGHTS
+        return _finish(u, req, sum(a * b for a, b in zip(w, mine)), sum(a * b for a, b in zip(w, target)))
+    return _finish(u, req, sum(mine) / len(mine), sum(target) / len(target))
 
 
 def stars_label(stars):
@@ -415,14 +455,37 @@ def _pair(have_html, need_html, ok):
     return f'<span class="mm-badge {"ok" if ok else "ko"}">{have_html}</span><span class="mm-req">{need_html}</span>'
 
 
+def relic_icon(rid, prefix):
+    """A relic's art in the hexagonal Mythic frame (same look as the roster cards), name as tooltip."""
+    name = RELIC_NAMES.get(rid, rid)
+    if not os.path.exists(os.path.join(ROOT, "docs", "assets", "items", rid + ".webp")):
+        return f'<span class="mm-relic mm-relic-missing" title="{escape(name)}">?</span>'
+    return (f'<span class="mm-relic" title="{escape(name)}"><img class="it-img" src="{prefix}assets/items/{rid}.webp" alt="" loading="lazy">'
+            f'<img class="it-frame" src="{prefix}assets/ui/frame_items_M.png" alt="" loading="lazy"></span>')
+
+
+def _relic_cell(req, u, prefix):
+    """Relic requirement: its icon, then the player's level / the required level (green when met); — when none is required."""
+    relic = req.get("relic") if req else None
+    if not relic:
+        return "—"
+    rid, need = relic
+    icon = relic_icon(rid, prefix)
+    if u is None:  # requirements only
+        return f'{icon}<span class="mm-have">{need}</span>'
+    have = relic_level(u, rid)
+    return f'{icon}<span class="mm-have {"ok" if have >= need else "ko"}">{have}</span><small>{need}</small>'
+
+
 def _req_cells(req, prefix):
-    """Requirement-only cells (no player data): abilities, rank, stars."""
+    """Requirement-only cells (no player data): abilities, rank, stars, relic."""
     ab = " / ".join(f'<span class="mm-have">{n}</span>' for n in req["ab"])
+    relic = _relic_cell(req, None, prefix)
     if "rank" in req:
-        return ab, f'<span class="mm-badge">{rank_badge(req["rank"], prefix)}</span>', f'<span class="mm-badge">{stars_badge(req["stars"], prefix)}</span>'
+        return ab, f'<span class="mm-badge">{rank_badge(req["rank"], prefix)}</span>', f'<span class="mm-badge">{stars_badge(req["stars"], prefix)}</span>', relic
     if req.get("mow"):
-        return ab, "—", f'<span class="mm-badge">{stars_badge(req["stars"], prefix)}</span>'
-    return ab, "—", "—"
+        return ab, "—", f'<span class="mm-badge">{stars_badge(req["stars"], prefix)}</span>', relic
+    return ab, "—", "—", relic
 
 
 # Worked examples for the method block: (label, progression index, level, API rank, ability levels), judged against the maximum requirement.
@@ -452,9 +515,10 @@ def method_html():
         u = {"id": "custoBladeChampion", "progressionIndex": idx, "xpLevel": lvl, "rank": rank, "abilities": [{"level": a} for a in ab]}
         rows += f'<tr><td>{escape(label)}</td><td class="mm-pct">{round(100 * unit_completion(u, full))}%</td></tr>'
     return (
-        '<div class="mm-method"><p><b>Chaque unité = la moyenne de 4 critères (25 % chacun)</b> : étoiles (fragments et orbes dépensés), '
-        'niveau (XP dépensée), rang (énergie dépensée pour farmer les objets de rang) et capacités (or et jetons dépensés). '
+        '<div class="mm-method"><p><b>Chaque unité = la moyenne de 3 blocs (un tiers chacun)</b> : étoiles (fragments et orbes dépensés), '
+        'niveau (XP dépensée et énergie dépensée pour farmer les objets de rang, moitié chacun) et capacités (or et jetons dépensés). '
         'Pour chacun, on regarde la part du coût total déjà payée, jusqu\'à l\'exigence de la meta ; atteindre l\'exigence = 100&nbsp;%.</p>'
+        '<p>Si une relique est requise, elle compte pour <b>10&nbsp;%</b> (niveau actuel / niveau requis) et les trois blocs pour 30&nbsp;% chacun.</p>'
         '<p>Le % de Core, Flex et MOW est la moyenne de ses unités (une unité absente = 0&nbsp;%). '
         'Machines de guerre : étoiles (elles déterminent la capacité mythique) et capacités seulement.</p>'
         f'<table class="mm-ex"><thead><tr><th>Exemple (exigence Adamantine 2 · 60/60 · skulled)</th><th>%</th></tr></thead><tbody>{rows}</tbody></table></div>'
@@ -472,19 +536,19 @@ def _meta_modal(idx, team, roles, owned, names, prefix, who=None):
             continue
         label = ROLE_SHORT[role] if role == "Machines" else role
         if generic:
-            body += f'<tr class="mm-role"><th>{label}</th><th></th><th></th><th></th><th></th></tr>'
+            body += f'<tr class="mm-role"><th>{label}</th><th></th><th></th><th></th><th></th><th></th></tr>'
         else:
             pct = round(100 * sum(unit_completion(owned.get(uid), req) for uid, req in entries) / len(entries))
-            body += f'<tr class="mm-role"><th>{label}</th><th></th><th></th><th></th><th class="mm-pct">{pct}%</th></tr>'
+            body += f'<tr class="mm-role"><th>{label}</th><th></th><th></th><th></th><th></th><th class="mm-pct">{pct}%</th></tr>'
         for uid, req in entries:
             name = escape(names.get(uid, uid))
             if generic:
-                ab, rank, stars = _req_cells(req, prefix)
-                body += f'<tr><td class="mm-unit">{name}</td><td>{ab}</td><td>{rank}</td><td>{stars}</td><td></td></tr>'
+                ab, rank, stars, relic = _req_cells(req, prefix)
+                body += f'<tr><td class="mm-unit">{name}</td><td>{ab}</td><td>{rank}</td><td>{stars}</td><td>{relic}</td><td></td></tr>'
                 continue
             u = owned.get(uid)
             if u is None:
-                cells = '<td colspan="3" class="mm-undef">Non possédé</td>'
+                cells = '<td colspan="4" class="mm-undef">Non possédé</td>'
             else:
                 need = req["ab"]
                 have = _levels(u, len(need))
@@ -499,7 +563,7 @@ def _meta_modal(idx, team, roles, owned, names, prefix, who=None):
                     stars = _pair(stars_badge(st, prefix), stars_badge(req["stars"], prefix), st >= req["stars"])
                 else:
                     rank = stars = "—"
-                cells = f"<td>{ab}</td><td>{rank}</td><td>{stars}</td>"
+                cells = f"<td>{ab}</td><td>{rank}</td><td>{stars}</td><td>{_relic_cell(req, u, prefix)}</td>"
             pc = round(100 * unit_completion(u, req))
             body += f'<tr><td class="mm-unit">{name}</td>{cells}<td class="mm-pct">{pc}%</td></tr>'
     return (
@@ -507,7 +571,7 @@ def _meta_modal(idx, team, roles, owned, names, prefix, who=None):
         f'<h3>{_meta_icon(team, prefix)}{escape(team)}{f" <small class=mm-who>{escape(who)}</small>" if who else ""}</h3>'
         +
         '<div class="mm-scroll"><table class="mm-table"><thead><tr><th>Unité</th><th>Capacités</th>'
-        f'<th>Rang</th><th>Étoiles</th><th>{"" if generic else "% "}{METHOD_BTN}</th></tr></thead><tbody>{body}</tbody></table></div></dialog>'
+        f'<th>Rang</th><th>Étoiles</th><th>Relique</th><th>{"" if generic else "% "}{METHOD_BTN}</th></tr></thead><tbody>{body}</tbody></table></div></dialog>'
     )
 
 
