@@ -1094,3 +1094,12 @@ dialog.method-modal { width: min(640px, calc(100vw - 2rem)); }
 .mm-relic .it-img { position: absolute; left: 14%; top: 14%; width: 72%; height: 72%; object-fit: contain; }
 .mm-relic .it-frame { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .mm-relic-missing { display: inline-flex; align-items: center; justify-content: center; color: var(--text-muted); border: 1px dashed var(--border); border-radius: 6px; }
+
+/* Meta table (player page): required relic under a unit's name. */
+.mu { width: 3.4rem; }
+.mu-relic { display: inline-flex; align-items: center; gap: 0.15rem; margin-top: 0.1rem; font-variant-numeric: tabular-nums; }
+.mu-relic .mm-relic { width: 1.2rem; height: 1.2rem; margin-right: 0; }
+.mu-relic .mm-have { font-size: 0.68rem; }
+.mu-relic small { margin-left: 0; font-size: 0.6rem; color: var(--text-muted); }
+.mu-relic small::before { content: "/"; margin-right: 0.1rem; }
+.mu-missing .mu-relic { opacity: 0.55; }

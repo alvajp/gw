@@ -417,18 +417,32 @@ def stars_label(stars):
     return "aucune"
 
 
-def _mini_unit(uid, owned, names, prefix):
-    """Small portrait for the raid-meta block: owned units show frame + stars + rank medal, missing ones are greyed out."""
+def _mini_relic(req, owned, prefix):
+    """Under a unit of the meta table: its required relic (small icon) and player level / required level."""
+    relic = req.get("relic") if req else None
+    if not relic:
+        return ""
+    rid, need = relic
+    have = relic_level(owned, rid) if owned else 0
+    cls = "ok" if have >= need else "ko"
+    return (f'<span class="mu-relic" title="{escape(RELIC_NAMES.get(rid, rid))} : niveau {have} sur {need}">{relic_icon(rid, prefix)}'
+            f'<span class="mm-have {cls}">{have}</span><small>{need}</small></span>')
+
+
+def _mini_unit(uid, owned, names, prefix, req=None):
+    """Small portrait for the raid-meta block: owned units show frame + stars + rank medal, missing ones are greyed out.
+    When the meta requires a relic on this unit, its icon and level / required level sit under the name."""
     name = names.get(uid, uid)
+    relic = _mini_relic(req, owned, prefix)
     if owned is None:
         art = (f'<span class="rc-portrait"><img class="rc-img" src="{prefix}assets/units/{uid}.webp" alt="" loading="lazy">'
                f'<img class="rc-frame" src="{prefix}assets/ui/frame_portrait_common.png" alt="" loading="lazy"></span>')
-        return f'<div class="mu mu-missing" title="{escape(name)} — non possédé">{art}<span class="mu-name">{escape(name)}</span></div>'
+        return f'<div class="mu mu-missing" title="{escape(name)} — non possédé">{art}<span class="mu-name">{escape(name)}</span>{relic}</div>'
     mow = is_mow(owned)
     rarity, stars = rarity_stars(owned["progressionIndex"])
     title = f'{name} — {RARITIES[rarity]}' + ("" if mow else f', {rank_label(owned["rank"])}') + f', niveau {owned["xpLevel"]}'
     return (f'<div class="mu" title="{escape(title)}">{_portrait(owned, rarity, mow, stars, prefix)}'
-            f'<span class="mu-name">{escape(name)}</span></div>')
+            f'<span class="mu-name">{escape(name)}</span>{relic}</div>')
 
 
 def _meta_icon(team, prefix):
@@ -598,8 +612,7 @@ def render_raid_metas(units, prefix="../"):
                    f'<div class="mbadge-body"><span class="mbadge-name">{escape(team)}</span><div class="mpcts">{pcts}</div></div></div>')
         cells = ""
         for role in ROLES:
-            ids = [uid for uid, _ in roles.get(role, [])]
-            inner = "".join(_mini_unit(i, owned.get(i), names, prefix) for i in ids) or '<span class="mnone">—</span>'
+            inner = "".join(_mini_unit(i, owned.get(i), names, prefix, req) for i, req in roles.get(role, [])) or '<span class="mnone">—</span>'
             cells += f'<td data-label="{role}"><div class="munits">{inner}</div></td>'
         rows += (f'<tr role="button" tabindex="0" data-meta="meta-{idx}" title="Voir le détail de {escape(team)}">'
                  f'<th scope="row" class="mteam-name">{escape(team)}</th>{cells}</tr>')

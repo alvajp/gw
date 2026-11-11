@@ -7,7 +7,7 @@ repository: {"players": [{"name": ..., "user_id": ..., "api_key": ...}]}.
 A player with an empty api_key is skipped. Keys are never printed or written
 anywhere else; only the player data (units, progress) is kept.
 
-Usage: python3 scripts/fetch_rosters.py
+Usage: python3 scripts/fetch_rosters.py [--strict]   (--strict: exit 1 if any member failed, used by the daily GitHub workflow)
 """
 import json
 import os
@@ -67,6 +67,8 @@ def main():
     print(f"{ok} roster(s) saved in {OUT_DIR}")
     for label, why in failed:
         print("FAILED", label, why)
+    if failed and "--strict" in sys.argv:  # CI: a partial member list must not be published
+        sys.exit(1)
 
 
 if __name__ == "__main__":

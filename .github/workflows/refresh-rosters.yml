@@ -1,0 +1,62 @@
+# Refreshes the players' rosters every day at noon (Paris, winter time) from the official Tacticus API, rebuilds the site
+# and publishes it. The API keys live in the repository SECRET "ROSTER_KEYS" (the content of keys.json): they are written to
+# a temporary file on the runner, used by fetch_rosters.py, then deleted. They never appear in the repo, the logs or the site.
+# Only rosters are refreshed here; war captures and unit portraits stay manual (they come from the local game files).
+name: Refresh rosters
+
+on:
+  schedule:
+    - cron: "0 11 * * *"   # 11:00 UTC = 12:00 CET (13:00 in summer time)
+  workflow_dispatch:         # manual "Run workflow" button (collaborators only)
+
+permissions:
+  contents: write
+  pages: write
+
+concurrency:
+  group: refresh-rosters
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Fetch rosters (keys come from the secret)
+        env:
+          ROSTER_KEYS: ${{ secrets.ROSTER_KEYS }}
+        run: |
+          set -e
+          test -n "$ROSTER_KEYS" || { echo "Secret ROSTER_KEYS is empty or missing"; exit 1; }
+          mkdir -p ~/.config/tacticus-guildwar
+          (umask 077; printf '%s' "$ROSTER_KEYS" > ~/.config/tacticus-guildwar/keys.json)
+          ok=0
+          for attempt in 1 2 3; do
+            if python3 scripts/fetch_rosters.py --strict; then ok=1; break; fi
+            echo "Attempt $attempt failed, retrying in 60 s"; sleep 60
+          done
+          rm -f ~/.config/tacticus-guildwar/keys.json
+          test "$ok" = 1   # never publish a partial member list
+
+      - name: Rebuild the site
+        run: python3 scripts/generate_site.py
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs
+          if git diff --cached --quiet; then
+            echo "No change in the rosters"
+          else
+            git commit -m "Refresh rosters (automatic)"
+            git push
+            gh api -X POST "repos/${{ github.repository }}/pages/builds" >/dev/null 2>&1 || true
+          fi
