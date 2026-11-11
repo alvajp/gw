@@ -58,9 +58,13 @@ To add or replace a key: edit `keys.json`, then `gh secret set ROSTER_KEYS --rep
 
 Each player page opens with the raid metas (Lavistodes, Neuro, Battlesuit, Méchas). They are defined in `RAID_METAS` in `scripts/rosters.py`: per unit its requirement (ability levels, stars, rank, optional relic level; machines of war: abilities and the stars that set their mythic ability). The completion % of a unit is the share of resources already spent (stars / level + rank / abilities, a third each; a required relic takes 10 %), measured with `data/progression_costs.json`; Core / Flex / MOW are the mean of their units. The "Méthodologie" dialog on the site explains it with worked examples; the list on `joueurs.html` can be sorted by meta.
 
-### Strategy page
+### Menu
 
-`strategie.html` has guild chips (Bloody Rose by default) that filter the "Contre les meilleurs" map; the guilds are the `COMBINED_OPPONENTS` of `generate_site.py`.
+Two rows, dark theme only. First row: Raid, War, Joueurs. The second row appears on the Raid pages (Boss, then the raid seasons, latest first) and on the War pages (Stratégie, Défenses, then the war seasons, latest first); both rows scroll sideways on a phone. The War page is `war.html` (`index.html` only redirects to it). Season pages hold the table first, the points scale under it, then the Scores chart.
+
+### Strategy and Défenses pages
+
+`strategie.html` has guild chips (Bloody Rose by default) that filter the "Contre les meilleurs" map and the attack tables under each map (one pill per player, like on the war strategy pages); the guilds are the `COMBINED_OPPONENTS` of `generate_site.py`. `defenses.html` lists, for every map, the best defences seen over all captured wars.
 
 ### Medals
 
@@ -72,6 +76,6 @@ The Raid insignia (`scripts/medals.py`, `raid_ranking`) works season by season o
 
 ### Raid and Boss tabs
 
-`raid.html` ranks the members on the raid ranking above, one column per season (relative damage, % above the guild average), with a chip per season leading to `raid/<season>.html` (everybody who played the season, one column per boss). `boss.html` has a chip (icon + name) for every boss and sub-boss and the podium of each; `boss/<key>.html` ranks the members on their all-time relative damage against that boss, one column per season it was fought. Both read `data/raid/` through `scripts/medals.py`.
+`raid.html` ranks the members on the raid ranking above, one column per season (relative damage, % above the guild average), with the seasons in the menu's second row leading to `raid/<season>.html` (everybody who played the season, one column per boss). `boss.html` has the podium of every boss and sub-boss; `boss/<key>.html` ranks the members on their all-time relative damage against that boss, one column per season it was fought. Both read `data/raid/` through `scripts/medals.py`.
 
 One-shots: the raid ranking, the boss medals and the Boss pages leave finishing blows out, and one-shots too, except on the bosses / sub-bosses where a one-shot is the usual outcome (at least 30 % of their attacks, `ONE_SHOT_SHARE` in `scripts/medals.py`; today only Thaddeus). There a one-shot counts at the boss's full HP, so the players are ranked on how often they kill instead of on how badly they missed.

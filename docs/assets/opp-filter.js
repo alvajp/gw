@@ -11,6 +11,7 @@
     const chosen = Array.prototype.map.call(picker.querySelectorAll(".chip.active"), function (c) { return c.dataset.g; });
     wrap.querySelectorAll(".map-def[data-g]").forEach(function (b) { b.hidden = chosen.indexOf(b.dataset.g) < 0; });
     if (heading) heading.textContent = chosen.join(", ");
+    document.dispatchEvent(new CustomEvent("opp-change")); // attacks-table.js re-filters the attack tables
   }
 
   picker.addEventListener("click", function (e) {

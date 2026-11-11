@@ -291,7 +291,7 @@ RAID_METAS = [
                  _h("votanMemnyr", [60, 60], 11), _h("admecDominus", [35, 60], 11)],
         "Flex": [_h("custoTrajann", [36, 60], 11, D3), _h("templHelbrecht", [60, 60], 11, D3), _h("tauMarksman", [50, 60], 11),
                  _h("necroSpyder", [50, 50], 11, D3, relic=(NETHER_CASKET, 1)), _h("admecManipulus", [50, 50], 11, D3)],
-        "Machines": [_m("necroReanimator", [50, 60, 4])]}),
+        "Machines": [_m("necroReanimator", [50, 60, 4]), _m("tyranBiovore", [60, 60, 4])]}),
 ]
 ROLES = ["Core", "Flex", "Machines"]
 # Unit whose portrait symbolises each meta
@@ -625,12 +625,12 @@ def _insignia(kind, label, info, prefix):
              f'<img class="ins-frame-img" src="{prefix}assets/ui/avatar_frame_{kind}.png" alt=""></span>')
     if kind == "raid":
         plural = "s" if info["seasons"] > 1 else ""
-        lines = f'<small>Rang {rank} sur {info["of"]}</small><small>{info["seasons"]} saison{plural}</small>'
+        lines = f'<small class="ins-rank">Rang {rank} sur {info["of"]}</small><small>{info["seasons"]} saison{plural}</small>'
         tip = ("Classement de raid : dégâts par attaque relativement à la moyenne de la guilde sur la saison (sans finishs ni one shots), "
                "classés par saison puis moyennés")
     else:
-        plural = "s" if info["wars"] > 1 else ""
-        lines = f'<small>Rang {rank} sur {info["of"]}</small><small>{info["wars"]} guerre{plural}</small>'
+        plural = "s" if info["seasons"] > 1 else ""
+        lines = f'<small class="ins-rank">Rang {rank} sur {info["of"]}</small><small>{info["seasons"]} saison{plural}</small>'
         tip = "Classement général de guerre, parmi les membres actuels"
     return f'<div class="insignia" title="{tip}">{medal}<span class="ins-text"><b>{label}</b>{lines}</span></div>'
 
@@ -642,7 +642,7 @@ def render_insignias(war, prefix="../", raid=None, extra="", raid_known=False):
     raid_html = (_insignia("raid", "Raid", raid, prefix) if raid_known else
                  '<div class="insignia" title="Classement de raid : bientôt"><span class="ins-medal tier-none">X</span>'
                  '<span class="ins-text"><b>Raid</b><small>À venir</small></span></div>')
-    return f'<div class="insignias">{_insignia("war", "Guerre", war, prefix)}{raid_html}{extra}</div>'
+    return f'<div class="insignias">{_insignia("war", "War", war, prefix)}{raid_html}{extra}</div>'
 
 
 def _fmt_damage(n):
@@ -763,8 +763,8 @@ def _pct_slots(owned, roles):
 
 
 def render_players_index_body(rosters):
-    """Players list as a grid (not a real table, so each name stays a primary button): one row per member, highest level
-    first, with the member's completion for every raid meta in columns (Core / Flex / MOW); clicking a column head sorts the players by that meta; clicking a
+    """Players list as a grid (not a real table, so each name stays a primary button): one row per member, in alphabetical
+    order, with the member's completion for every raid meta in columns (Core / Flex / MOW); clicking a column head sorts the players by that meta; clicking a
     meta's percentages opens that player's dialog."""
     names = _unit_names()
     labels = "".join(f'<span>{ROLE_SHORT[r]}</span>' for r in ROLES)
@@ -776,7 +776,7 @@ def render_players_index_body(rosters):
         for i, (team, _) in metas
     ) + "</div>"
     rows, player_modals = "", ""
-    for pi, r in enumerate(sorted(rosters, key=lambda r: (-r["power"], r["name"].lower()))):
+    for pi, r in enumerate(sorted(rosters, key=lambda r: (r["name"].casefold(), r["name"]))):
         owned = {u["id"]: u for u in r["units"]}
         cells = "".join(
             f'<div class="pg-cell" role="button" tabindex="0" data-col="{i}" data-meta="meta-{pi}-{i}" data-label="{escape(team)}" '

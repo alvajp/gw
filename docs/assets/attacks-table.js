@@ -31,13 +31,22 @@
       return units.map(function (i) { return portrait(i, false); }).join("") + portrait(mow, true);
     }
 
+    // Strategy page: the guild chips above the maps choose which opponents' attacks count (see opp-filter.js).
+    function chosenGuilds() {
+      return Array.prototype.map.call(document.querySelectorAll("#opp-map-wrap .opp-filter .chip.active"), function (c) { return c.dataset.g; });
+    }
+
     document.querySelectorAll(".attacks-block").forEach(function (block) {
       const rows = d.t[parseInt(block.dataset.team, 10)] || [];
       const tbody = block.querySelector("tbody");
+      const byGuild = block.dataset.filter === "g";
 
       // Exactly one player is shown at a time; rows are built only for that player.
       function show(p) {
-        tbody.innerHTML = rows.filter(function (r) { return String(r[0]) === p; }).map(function (r) {
+        const chosen = byGuild ? chosenGuilds() : null;
+        tbody.innerHTML = rows.filter(function (r) {
+          return String(r[0]) === p && (!byGuild || chosen.indexOf(d.g[r[9]]) >= 0);
+        }).map(function (r) {
           const o = OUTCOME[r[1]] || OUTCOME.u;
           const map = r[8] >= 0 ? d.m[r[8]] : null;
           const mapHtml = (map ? '<img class="map-thumb" src="' + map[1] + '" alt="" loading="lazy">' : "") +
@@ -53,8 +62,28 @@
         }).join("");
       }
 
-      const first = block.querySelector(".attacks-chips .chip.active") || block.querySelector(".attacks-chips .chip");
-      if (first) show(first.dataset.p);
+      // With guild chips: only the players who met a chosen guild get a pill; the first visible one is selected.
+      function refresh() {
+        const chosen = chosenGuilds();
+        const chips = block.querySelectorAll(".attacks-chips .chip");
+        chips.forEach(function (c) {
+          c.hidden = !(c.dataset.gs || "").split("|").some(function (g) { return chosen.indexOf(g) >= 0; });
+        });
+        let act = block.querySelector(".attacks-chips .chip.active:not([hidden])");
+        if (!act) {
+          chips.forEach(function (c) { c.classList.remove("active"); });
+          act = block.querySelector(".attacks-chips .chip:not([hidden])");
+          if (act) act.classList.add("active");
+        }
+        if (act) show(act.dataset.p); else tbody.innerHTML = "";
+      }
+      if (byGuild) {
+        refresh();
+        document.addEventListener("opp-change", refresh);
+      } else {
+        const first = block.querySelector(".attacks-chips .chip.active") || block.querySelector(".attacks-chips .chip");
+        if (first) show(first.dataset.p);
+      }
 
       block.querySelector(".attacks-chips").addEventListener("click", function (e) {
         const chip = e.target.closest(".chip[data-p]");

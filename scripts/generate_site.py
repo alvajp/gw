@@ -74,33 +74,6 @@ def compute_pts_breakdown(ps, hard_cols, easy_cols):
     )
     return reussites, buffs_pts, map_pts
 
-BAREME_HTML = """<h2 id="bareme">Barème de points</h2>
-<ul>
-  <li><strong>Palier de score par bataille</strong> :
-    <ul>
-      <li>1600 &rarr; 10 pts</li>
-      <li>1400 &rarr; 8 pts</li>
-      <li>1200 / 1050 &rarr; 7 pts</li>
-      <li>1100 / 850 &rarr; 6 pts</li>
-      <li>650 / 450 / 250 &rarr; 5 pts</li>
-      <li>Fail / Miss &rarr; 0 pt</li>
-    </ul>
-  </li>
-  <li><strong>Buffs de zone</strong> (win / finish uniquement) :
-    <ul>
-      <li>Medicae Station (MS) = +2 pts</li>
-      <li>Autre buffs (AP/AA/AR/FP/LP) = +0.5 pt</li>
-    </ul>
-  </li>
-  <li><strong>Bonus de map</strong> :
-    <ul>
-      <li>+2 pts pour {HARD_MAP_NAMES}</li>
-      <li>+0.5 pt pour {EASY_MAP_NAMES}</li>
-    </ul>
-  </li>
-</ul>"""
-
-
 def _load_maps_db():
     """data/maps.json: boardId -> English name / image / difficulty for the
     guild war boards (the "maps"). Missing file just means no map images."""
@@ -125,10 +98,12 @@ def _load_units_db():
 
 UNITS_DB = _load_units_db()
 MAP_BOARD_BY_NAME = {m["name"]: board for board, m in MAPS_DB.items()}
-BAREME_HTML = BAREME_HTML.replace(
-    "{HARD_MAP_NAMES}", ", ".join(m["name"] for m in MAPS_DB.values() if m.get("difficulty") == "hard")
-).replace(
-    "{EASY_MAP_NAMES}", ", ".join(m["name"] for m in MAPS_DB.values() if m.get("difficulty") == "easy")
+_HARD = ", ".join(m["name"] for m in MAPS_DB.values() if m.get("difficulty") == "hard")
+_EASY = ", ".join(m["name"] for m in MAPS_DB.values() if m.get("difficulty") == "easy")
+BAREME_EXPLAIN = (
+    '<p class="raid-explain">Points par bataille selon son score : 1600 = 10 pts, 1400 = 8, 1200 / 1050 = 7, 1100 / 850 = 6, '
+    '650 / 450 / 250 = 5, échec = 0. S\'y ajoutent, sur les victoires et finishs, +2 pts pour un buff de zone Medicae Station '
+    '(+0,5 pt pour les autres buffs : AP, AA, AR, FP, LP) et un bonus de map : +2 pts pour ' + _HARD + ', +0,5 pt pour ' + _EASY + '</p>'
 )
 
 
@@ -272,16 +247,13 @@ def render_table(rows, hard_cols, easy_cols):
 </table></div>"""
 
 
-def render_frise(items, transition=False):
+def render_frise(items):
     """items: list of (label, href, outcome, above). outcome is "win"/"loss"/
     None and colors the dot green/red accordingly (None keeps the neutral
     color — used for items that aren't a single war, e.g. the per-season
     items on the homepage). above is an optional short string (e.g. the war
     number within its season) rendered above the dot; pass None to omit it.
-    transition=True marks links as animated client-side navigation targets
-    (only valid between page shapes that share the frise+chart layout, i.e.
-    index<->season)."""
-    attr = ' data-transition="true"' if transition else ""
+    """
     lis = []
     for label, href, outcome, above in items:
         if outcome == "win":
@@ -292,7 +264,7 @@ def render_frise(items, transition=False):
             dot_class = "frise-dot"
         above_html = f'<span class="frise-above">{html_escape(above)}</span>' if above else ""
         lis.append(
-            f'<a class="frise-item" href="{href}"{attr}>{above_html}<span class="{dot_class}"></span>'
+            f'<a class="frise-item" href="{href}">{above_html}<span class="{dot_class}"></span>'
             f'<span class="frise-label">{html_escape(label)}</span></a>'
         )
     return (
@@ -430,7 +402,6 @@ PAGE_TEMPLATE = """<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<script>try{{if(localStorage.getItem("theme")==="light")document.documentElement.setAttribute("data-theme","light");}}catch(e){{}}</script>
 <title>{title}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -446,7 +417,7 @@ PAGE_TEMPLATE = """<!doctype html>
 </main>
 <script src="{asset_prefix}assets/sort-table.js?v={v}"></script>
 <script src="{asset_prefix}assets/chart-toggle.js?v={v}"></script>
-<script src="{asset_prefix}assets/theme-toggle.js?v={v}"></script>
+<script src="{asset_prefix}assets/topnav.js?v={v}"></script>
 <script src="{asset_prefix}assets/timeline-filter.js?v={v}"></script>
 <script src="{asset_prefix}assets/defense-filter.js?v={v}"></script>
 <script src="{asset_prefix}assets/attacks-table.js?v={v}"></script>
@@ -456,41 +427,56 @@ PAGE_TEMPLATE = """<!doctype html>
 <script src="{asset_prefix}assets/opp-filter.js?v={v}"></script>
 <script src="{asset_prefix}assets/chip-scroll.js?v={v}"></script>
 <script src="{asset_prefix}assets/row-link.js?v={v}"></script>
-<script src="{asset_prefix}assets/page-transition.js?v={v}"></script>
 </body>
 </html>"""
 
 
-THEME_ICONS = (
-    '<svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" '
-    'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/>'
-    '<path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>'
-    '<svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" '
-    'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>'
-)
+NAV_SEASONS = {"raid": [], "war": []}  # season numbers (latest first) shown in the second menu row; filled in main()
+NAV_SECTION = {"ranking": "war", "strategy": "war", "defenses": "war", "raid": "raid", "boss": "raid", "players": "players"}
 
 
-def render_topbar(prefix, active):
-    """Sticky top bar shared by every page: brand, the two sections, theme switch.
-    (A <nav>, not a <header>: page-transition.js locks/animates the first <header>.)"""
-    def link(key, href, label):
-        cls = ' class="active"' if key == active else ""
-        return f'<a{cls} href="{prefix}{href}">{label}</a>'
+def render_topbar(prefix, active, sub=None):
+    """Sticky top bar shared by every page. First row: Raid / War / Joueurs. Second row (Raid and War pages only): that section's
+    own pages -- Boss resp. Stratégie, then its seasons latest first. `active` is the page kind (see NAV_SECTION), `sub` the
+    season item to highlight ("raid-113", "war-28"); both rows scroll sideways when they do not fit.
+    """
+    section = NAV_SECTION.get(active, "war")
+
+    def link(href, label, on):
+        attr = ' class="active"' if on else ""
+        return f'<a{attr} href="{prefix}{href}">{label}</a>'
+
+    top = "".join(link(href, label, key == section) for key, href, label in
+                  (("raid", "raid.html", "Raid"), ("war", "war.html", "War"), ("players", "joueurs.html", "Joueurs")))
+    sub_html = ""
+    if section == "raid":
+        first = [("boss", "boss.html", "Boss")]
+        seasons = [(f"raid-{n}", f"raid/{n}.html", f"S{n}") for n in NAV_SEASONS["raid"]]
+    elif section == "war":
+        first = [("strategy", "strategie.html", "Stratégie"), ("defenses", "defenses.html", "Défenses")]
+        seasons = [(f"war-{n}", f"seasons/{n}.html", f"S{n}") for n in NAV_SEASONS["war"]]
+    else:
+        first = seasons = []
+    if first:
+        cur = active if active in ("boss", "strategy", "defenses") else sub
+        items = "".join(link(href, label, key == cur) for key, href, label in first)
+        if seasons:
+            items += '<span class="topsub-sep" aria-hidden="true"></span>'
+            items += "".join(link(href, label, key == cur) for key, href, label in seasons)
+        sub_html = f'<div class="topsub"><div class="topsub-inner">{items}</div></div>'
     return (
         '<nav class="topbar"><div class="topbar-inner">'
-        f'<a class="brand" href="{prefix}index.html"><span class="brand-mark"></span>'
+        f'<a class="brand" href="{prefix}war.html"><span class="brand-mark"></span>'
         f'<span class="brand-name">{html_escape(OUR_GUILD_LABEL)}</span></a>'
-        f'<div class="topnav">{link("ranking", "index.html", "Classement")}{link("strategy", "strategie.html", "Stratégie")}{link("raid", "raid.html", "Raid")}{link("boss", "boss.html", "Boss")}{link("players", "joueurs.html", "Joueurs")}</div>'
-        '<button type="button" id="theme-toggle" class="icon-btn" aria-label="Changer de thème" aria-pressed="false" '
-        f'data-label-off="Sombre" data-label-on="Clair">{THEME_ICONS}</button>'
-        '</div></nav>'
+        f'<div class="topnav">{top}</div>'
+        f'</div>{sub_html}</nav>'
     )
 
 
 def render_page(nav_active="ranking", **kw):
     """PAGE_TEMPLATE.format with the top bar (needs asset_prefix) filled in."""
-    kw["topbar"] = render_topbar(kw["asset_prefix"], nav_active)
-    kw["page"] = nav_active
+    kw["topbar"] = render_topbar(kw["asset_prefix"], nav_active, kw.get("nav_sub"))
+    kw["page"] = kw.pop("page_kind", nav_active)  # data-page of <body> (CSS hooks); defaults to the menu entry
     kw.setdefault("title_icon", "")  # optional icon left of the title (boss pages)
     kw.setdefault("bg", "")  # Joueurs pages: which event banner (0-3) sits behind the page, see style.css
     return PAGE_TEMPLATE.format(**kw)
@@ -511,11 +497,15 @@ def strategy_button(href):
     return f'<a class="strategy-btn" href="{href}">Stratégie{ARROW_RIGHT}</a>'
 
 
-def back_link_html(href, label, transition=False):
+def guild_crumb():
+    """The guild's name above the title of the section's landing pages (War, Raid, Joueurs): same look as a breadcrumb, not a link."""
+    return f'<span class="breadcrumb-label">{html_escape(OUR_GUILD_LABEL)}</span>'
+
+
+def back_link_html(href, label):
     if not href:
         return ""
-    attr = ' data-transition="true"' if transition else ""
-    return f'<a href="{href}"{attr}>{ARROW_LEFT}{html_escape(label)}</a>'
+    return f'<a href="{href}">{ARROW_LEFT}{html_escape(label)}</a>'
 
 
 def guild_rows(result, team_idx):
@@ -1615,6 +1605,15 @@ def render_opponent_map(all_wars, prefix=""):
     it). Returns (html, events for the modal, players for the modal)."""
     tiles_by_board = {"us": defaultdict(list), "them": defaultdict(list)}
     events_all, players_all, guild_names = [], {}, []
+    atk = {"u": {}, "p": {}, "z": {}, "m": {}, "g": {}}  # lookup tables of the attacks data blob (value -> index)
+    atk_rows = {"us": [], "them": []}  # attacks that landed on our map (theirs) / on their map (ours)
+    atk_guilds = {"us": defaultdict(set), "them": defaultdict(set)}  # attacker uid -> opponent guilds they played against
+
+    def aidx(table, key):
+        if key not in atk[table]:
+            atk[table][key] = len(atk[table])
+        return atk[table][key]
+
     for w in all_wars:
         result = w["result"]
         boards = result.get("boards") or {}
@@ -1629,6 +1628,18 @@ def render_opponent_map(all_wars, prefix=""):
         players_all.update(result["players"])
         war_tag = f'S{w["season"]} G{w["war_number"]}' if w.get("war_number") else f'S{w["season"]}'
         field = compute_battlefield(result)
+        for e in sorted((e for e in result["battle_events"] if e.get("defender")), key=lambda e: e["createdOn"]):
+            board = boards.get(e["zone"])
+            if not board or board not in MAPS_DB:
+                continue
+            side = "them" if e["team"] == our_idx else "us"
+            atk_guilds[side][e["uid"]].add(opp_name)
+            atk_rows[side].append([
+                aidx("p", e["uid"]), TIER_CODE.get(e["tier"], "u"), round(e["adj"]),
+                [aidx("u", u) for u in e["att_units"]], aidx("u", e["att_mow"]) if e["att_mow"] else -1,
+                [aidx("u", u) for u in e["units"]], aidx("u", e["mow"]) if e["mow"] else -1,
+                aidx("z", f'{ZONE_LABELS.get(e["zone"], e["zone"])} · {war_tag}'), aidx("m", board), aidx("g", opp_name),
+            ])
         for side, team in (("us", our_idx), ("them", opp_idx)):
             for zone, entries in field.get(team, {}).items():
                 board = boards.get(zone)
@@ -1675,8 +1686,16 @@ def render_opponent_map(all_wars, prefix=""):
                 f'<img src="{prefix}{m["image"]}" alt="{html_escape(m["name"])}" loading="lazy">'
                 f'<div class="map-tile-defs">{chips}</div></div>'
             )
+        pills = "".join(
+            f'<button type="button" class="chip" data-p="{atk["p"][uid]}" data-gs="{html_escape("|".join(sorted(gs)))}">'
+            f'{html_escape(players_all.get(uid, {}).get("displayName", uid))}</button>'
+            for uid, gs in sorted(atk_guilds[side].items(), key=lambda kv: players_all.get(kv[0], {}).get("displayName", kv[0]).lower())
+        )
+        under = (f'<div class="attacks-block" data-team="{len(sides)}" data-filter="g"><div class="chips attacks-chips timeline-player-chips">{pills}</div>'
+                 '<div class="attacks-scroll"><table class="attacks-table"><thead><tr><th class="a-comp">Attaque</th><th class="a-def">Contre</th>'
+                 '<th class="a-score">Score</th><th class="a-map">Map</th></tr></thead><tbody></tbody></table></div></div>') if pills else ""
         sides.append(
-            f'<div class="battlefield-side side-{len(sides)}"><h3{" id=opp-heading" if side == "them" else ""}>{html_escape(heading)}</h3><div class="battlefield-grid">{"".join(tiles)}</div></div>'
+            f'<div class="battlefield-side side-{len(sides)}"><h3{" id=opp-heading" if side == "them" else ""}>{html_escape(heading)}</h3><div class="battlefield-grid">{"".join(tiles)}</div>{under}</div>'
         )
     ordered = sorted(uniq, key=lambda g: (g != default_guild, uniq.index(g)))  # default guild first
     picker = (
@@ -1687,7 +1706,14 @@ def render_opponent_map(all_wars, prefix=""):
         )
         + "</div></div>"
     )
-    html = f'<div id="opp-map-wrap">{picker}<div class="battlefield">{"".join(sides)}</div></div>'
+    data = {
+        "u": list(atk["u"]), "p": list(atk["p"]), "z": list(atk["z"]), "g": list(atk["g"]),
+        "m": [[MAPS_DB[b]["name"], prefix + MAPS_DB[b]["image"]] for b in atk["m"]],
+        "t": [atk_rows["us"], atk_rows["them"]],
+    }
+    script = ('<script type="application/json" id="attacks-data">'
+              + json.dumps(data, separators=(",", ":"), ensure_ascii=False).replace("</", "<\\/") + "</script>")
+    html = f'<div id="opp-map-wrap">{picker}<div class="battlefield">{"".join(sides)}</div>{script}</div>'
     return html, events_all, players_all
 
 
@@ -1921,8 +1947,8 @@ def render_war_page(slug, result, season, outcome=None, active_uids=frozenset(),
     header_action = strategy_button(slug + "-strategie.html") if has_strategy else ""
 
     title = ", ".join(opponent_names(result, our_idx)) or slug
-    back_link = back_link_html(f"../seasons/{season}.html", f"Saison {season}", transition=True)
-    html = render_page(title=title, asset_prefix="../", body=body, back_link=back_link, title_class="", header_extra="", header_action=header_action, v=ASSETS_VERSION)
+    back_link = back_link_html(f"../seasons/{season}.html", f"Saison {season}")
+    html = render_page(nav_sub=f"war-{season}", title=title, asset_prefix="../", body=body, back_link=back_link, title_class="", header_extra="", header_action=header_action, v=ASSETS_VERSION)
     out_path = os.path.join(DOCS_DIR, "wars", slug + ".html")
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(html)
@@ -1942,7 +1968,7 @@ def render_war_strategy_page(slug, result, season):
     opp = ", ".join(opponent_names(result, our_idx)) or slug
     back_link = back_link_html(f"{slug}.html", opp)
     html = render_page(
-        nav_active="strategy", title=f"Stratégie · {opp}", asset_prefix="../", body=body, back_link=back_link,
+        nav_sub=f"war-{season}", title=f"Stratégie · {opp}", asset_prefix="../", body=body, back_link=back_link,
         title_class="", header_extra="", header_action="", v=ASSETS_VERSION,
     )
     with open(os.path.join(DOCS_DIR, "wars", slug + "-strategie.html"), "w", encoding="utf-8") as f:
@@ -1965,17 +1991,15 @@ def render_season_page(season, wars_in_season, active_uids=frozenset()):
     agg_events, agg_display_names = aggregate_relative_battle_events(wars_in_season)
     agg_milestones = aggregate_ms_milestones(wars_in_season)
 
-    body = render_frise(frise_items, transition=True)
+    body = render_frise(frise_items)
+    body += f'<div id="table-wrap">{render_history_table(wars_in_season)}</div>' + BAREME_EXPLAIN
     body += '<h2>Scores</h2>'
     body += render_average_chart(display_names, averages, win_rate, tokens, buffs, maps_, score_display_names, score_distributions, active_uids, scope="season")
     body += render_chronologie_section(agg_events, agg_milestones, agg_display_names, relative=True)
-    body += '<h2>Détails</h2>'
-    body += f'<div id="table-wrap">{render_history_table(wars_in_season)}</div>'
-    body += '<div id="bareme-wrap"></div>'
 
     header_action = ""
-    back_link = back_link_html("../index.html", "Classement général", transition=True)
-    html = render_page(title=f"Guerre · saison {season}", asset_prefix="../", body=body, back_link=back_link, title_class="", header_extra="", header_action=header_action, v=ASSETS_VERSION)
+    back_link = back_link_html("../war.html", "War")
+    html = render_page(nav_sub=f"war-{season}", title=f"Guerre · saison {season}", asset_prefix="../", body=body, back_link=back_link, title_class="", header_extra="", header_action=header_action, v=ASSETS_VERSION)
     out_dir = os.path.join(DOCS_DIR, "seasons")
     os.makedirs(out_dir, exist_ok=True)
     with open(os.path.join(out_dir, f"{season}.html"), "w", encoding="utf-8") as f:
@@ -2232,8 +2256,8 @@ def render_average_chart(
 
     return (
         f'<div id="chart-wrap" class="chart-wrap"><div class="chips">{chips}</div>'
-        f'<p class="chart-legend">{html_escape(legends["moyenne"])}</p>'
-        f'{"".join(charts)}</div>'
+        f'{"".join(charts)}'
+        f'<p class="chart-legend">{html_escape(legends["moyenne"])}</p></div>'
     )
 
 
@@ -2386,47 +2410,58 @@ def render_boxplot_svg(display_names, distributions, active_uids, id_suffix=""):
 
 def render_index(seasons, active_uids=frozenset()):
     season_numbers = sorted(seasons.keys())
-    frise_items = [(f"Saison {s}", f"seasons/{s}.html", None, None) for s in season_numbers]
     season_stats, display_names, totals, war_counts, averages, win_rate, tokens, buffs, maps_ = compute_season_averages(seasons)
     all_wars_flat = [w for wars_in_season in seasons.values() for w in wars_in_season]
     score_display_names, score_distributions = compute_score_distributions(all_wars_flat)
     agg_events, agg_display_names = aggregate_relative_battle_events(all_wars_flat)
     agg_milestones = aggregate_ms_milestones(all_wars_flat)
 
-    body = render_frise(frise_items, transition=True)
+    body = f'<div id="table-wrap">{render_season_average_table(season_numbers, season_stats, display_names, averages, active_uids)}</div>' + BAREME_EXPLAIN
     body += '<h2>Scores</h2>'
     body += render_average_chart(display_names, averages, win_rate, tokens, buffs, maps_, score_display_names, score_distributions, active_uids, scope="global")
     body += render_chronologie_section(agg_events, agg_milestones, agg_display_names, relative=True)
-    body += '<h2>Détails</h2>'
-    body += f'<div id="table-wrap">{render_season_average_table(season_numbers, season_stats, display_names, averages, active_uids)}</div>'
-    body += f'<div id="bareme-wrap">{BAREME_HTML}</div>'
 
     # Guild name sits where the breadcrumb back-link would on other pages --
     # same visual format (color/size), just not a link and with no arrow,
     # since index has nothing to navigate back to.
-    guild_label = f'<span class="breadcrumb-label">{html_escape(OUR_GUILD_LABEL)}</span>'
+    guild_label = guild_crumb()
 
     html = render_page(
-        title="Classement général", asset_prefix="", body=body, back_link=guild_label,
-        title_class="hero-title", header_extra="",
-        header_action=strategy_button("strategie.html"), v=ASSETS_VERSION,
+        title="War", asset_prefix="", body=body, back_link=guild_label,
+        title_class="hero-title", header_extra="", header_action="", v=ASSETS_VERSION,
     )
-    with open(os.path.join(DOCS_DIR, "index.html"), "w", encoding="utf-8") as f:
+    with open(os.path.join(DOCS_DIR, "war.html"), "w", encoding="utf-8") as f:
         f.write(html)
+    # the site root and every old link to index.html land on the War page
+    with open(os.path.join(DOCS_DIR, "index.html"), "w", encoding="utf-8") as f:
+        f.write('<!doctype html>\n<html lang="fr"><head><meta charset="utf-8"><title>War</title>'
+                '<link rel="canonical" href="war.html"><meta http-equiv="refresh" content="0; url=war.html">'
+                '<script>location.replace("war.html" + location.search + location.hash);</script></head>'
+                '<body><a href="war.html">War</a></body></html>\n')
 
 
 def render_strategy_index(all_wars):
-    """docs/strategie.html (button next to the index H1): "Contre les meilleurs"
-    (combined opponents' map, both sides) then "Meilleures défenses par map"."""
+    """docs/strategie.html: "Contre les meilleurs" -- the combined opponents' map, both sides, with the attacks under each map."""
     opp_html, opp_events, opp_players = render_opponent_map(all_wars)
-    by_map_html, by_map_events, by_map_players = render_defense_by_map(all_wars)
-    body = opp_html + by_map_html
-    body += _defense_modal_html(by_map_events + opp_events, {**by_map_players, **opp_players}, "")
+    body = opp_html + _defense_modal_html(opp_events, opp_players, "")
     html = render_page(
-        nav_active="strategy", title="Stratégie", asset_prefix="", body=body, back_link=back_link_html("index.html", "Classement général"),
+        nav_active="strategy", title="Stratégie", asset_prefix="", body=body, back_link=back_link_html("war.html", "War"),
         title_class="hero-title", header_extra="", header_action="", v=ASSETS_VERSION, bg="war-for-armageddon",
     )
     with open(os.path.join(DOCS_DIR, "strategie.html"), "w", encoding="utf-8") as f:
+        f.write(html)
+
+
+def render_defenses_page(all_wars):
+    """docs/defenses.html (War > Défenses): for every map, the best defensive teams seen over all captured wars."""
+    by_map_html, by_map_events, by_map_players = render_defense_by_map(all_wars)
+    body = by_map_html.replace("<h2>Meilleures défenses par map</h2>", "", 1) + _defense_modal_html(by_map_events, by_map_players, "")
+    html = render_page(
+        nav_active="defenses", page_kind="strategy", title="Défenses", asset_prefix="", body=body,
+        back_link=back_link_html("war.html", "War"), title_class="hero-title", header_extra="", header_action="",
+        v=ASSETS_VERSION, bg="war-for-armageddon",
+    )
+    with open(os.path.join(DOCS_DIR, "defenses.html"), "w", encoding="utf-8") as f:
         f.write(html)
 
 
@@ -2452,7 +2487,15 @@ def compute_war_rank(seasons, active_uids):
     points per war: the same order as the general ranking table on the index page."""
     _, display_names, _, war_counts, averages, *_ = compute_season_averages(seasons)
     members = sorted((u for u in averages if u in active_uids), key=lambda u: (-averages[u], display_names.get(u, "").lower()))
-    return {u: {"rank": i, "of": len(members), "avg": round_pts(averages[u]), "wars": war_counts.get(u, 0)} for i, u in enumerate(members, 1)}
+    played = defaultdict(set)  # uid -> seasons in which they fought for our guild
+    for season, ws in seasons.items():
+        for w in ws:
+            our = find_team_idx(w["result"]["guilds"], OUR_GUILD)
+            for uid, ps in w["result"]["player_stats"].items():
+                if ps["team"] == our:
+                    played[uid].add(season)
+    return {u: {"rank": i, "of": len(members), "avg": round_pts(averages[u]), "wars": war_counts.get(u, 0), "seasons": len(played[u])}
+            for i, u in enumerate(members, 1)}
 
 
 def _fmt_rel(x):
@@ -2496,8 +2539,6 @@ def render_raid_pages(all_wars):
         vals = [p["score"] for u, p in seasons[n]["players"].items() if u in members]
         bounds[n] = (min(vals), max(vals)) if vals else (0, 0)
     head = ["<th>#</th>", "<th>Joueur</th>", "<th>Rang moyen</th>", "<th>Saisons</th>"] + [f"<th>S{n}</th>" for n in season_order]
-    chips = ('<div class="raid-chips"><span class="raid-chips-label">Saisons</span><div class="chips">'
-             + "".join(f'<a class="chip" href="raid/{n}.html">S{n}</a>' for n in season_order) + "</div></div>")
     rows = []
     for uid, info in sorted(ranking.items(), key=lambda kv: kv[1]["rank"]):
         cells = [f'<td>{info["rank"]}</td>',
@@ -2511,9 +2552,9 @@ def render_raid_pages(all_wars):
                 lo, hi = bounds[n]
                 cells.append(f'<td{value_to_bg(p["score"], lo, hi)} title="Rang {p["rank"]} sur {seasons[n]["field"]} · {p["n"]} attaques">{_fmt_rel(p["score"])}</td>')
         rows.append(f'<tr{player_row_attrs(uid, "")}>' + "".join(cells) + "</tr>")
-    body = (RAID_EXPLAIN + chips + f'<div class="table-scroll"><table class="sortable raid-table"><thead><tr>{"".join(head)}</tr></thead>'
-            f'<tbody>{"".join(rows)}</tbody></table></div>')
-    html = render_page(nav_active="raid", title="Raid", asset_prefix="", body=body, back_link="", title_class="hero-title",
+    body = (f'<div class="table-scroll"><table class="sortable raid-table"><thead><tr>{"".join(head)}</tr></thead>'
+            f'<tbody>{"".join(rows)}</tbody></table></div>' + RAID_EXPLAIN)
+    html = render_page(nav_active="raid", title="Raid", asset_prefix="", body=body, back_link=guild_crumb(), title_class="hero-title",
                        header_extra="", header_action="", v=ASSETS_VERSION)
     with open(os.path.join(DOCS_DIR, "raid.html"), "w", encoding="utf-8") as f:
         f.write(html)
@@ -2545,9 +2586,9 @@ def render_raid_pages(all_wars):
                     lo, hi = bb[k]
                     cells.append(f'<td{value_to_bg(v[0], lo, hi)} title="{v[1]} attaque{"s" if v[1] > 1 else ""}">{_fmt_rel(v[0])}</td>')
             rows.append(f'<tr{player_row_attrs(uid, "../")}>' + "".join(cells) + "</tr>")
-        body = (RAID_EXPLAIN + f'<div class="table-scroll"><table class="sortable raid-table"><thead><tr>{"".join(head)}</tr></thead>'
-                f'<tbody>{"".join(rows)}</tbody></table></div>')
-        html = render_page(nav_active="raid", title=f"Raid · saison {n}", asset_prefix="../", body=body,
+        body = (f'<div class="table-scroll"><table class="sortable raid-table"><thead><tr>{"".join(head)}</tr></thead>'
+                f'<tbody>{"".join(rows)}</tbody></table></div>' + RAID_EXPLAIN)
+        html = render_page(nav_active="raid", nav_sub=f"raid-{n}", title=f"Raid · saison {n}", asset_prefix="../", body=body,
                            back_link=back_link_html("../raid.html", "Raid"), title_class="", header_extra="", header_action="", v=ASSETS_VERSION)
         with open(os.path.join(DOCS_DIR, "raid", f"{n}.html"), "w", encoding="utf-8") as f:
             f.write(html)
@@ -2630,7 +2671,7 @@ def render_players_pages(war_rank=None, raid_rank=None, medals=None):
     roles = medals_mod.guild_roles()
     html = render_page(
         nav_active="players", title="Joueurs", asset_prefix="", body=rosters_mod.render_players_index_body(rosters),
-        back_link="", title_class="hero-title", header_extra="", header_action="", v=ASSETS_VERSION, bg="0",
+        back_link=guild_crumb(), title_class="hero-title", header_extra="", header_action="", v=ASSETS_VERSION, bg="0",
     )
     with open(os.path.join(DOCS_DIR, "joueurs.html"), "w", encoding="utf-8") as f:
         f.write(html)
@@ -2688,17 +2729,21 @@ def main():
             uid for uid, ps in last_war["result"]["player_stats"].items() if ps["team"] == our_idx
         )
 
-    for w in all_wars:
-        render_war_page(w["slug"], w["result"], w["season"], w.get("outcome"), active_uids, w.get("war_number"))
-
     seasons = defaultdict(list)
     for w in all_wars:
         seasons[w["season"]].append(w)
+    NAV_SEASONS["war"] = sorted(seasons, reverse=True)
+    NAV_SEASONS["raid"] = sorted(medals_mod.raid_seasons(), reverse=True) if medals_mod.season_files() else []
+
+    for w in all_wars:
+        render_war_page(w["slug"], w["result"], w["season"], w.get("outcome"), active_uids, w.get("war_number"))
+
     for season, season_wars in seasons.items():
         render_season_page(season, season_wars, active_uids)
 
     render_index(seasons, active_uids)
     render_strategy_index(all_wars)
+    render_defenses_page(all_wars)
     members = {r["uid"] for r in rosters_mod.load_rosters()}
     render_players_pages(compute_war_rank(seasons, active_uids), raid_rank=medals_mod.raid_ranking(members), medals=compute_medals(seasons))
     render_raid_pages(all_wars)

@@ -47,3 +47,19 @@
     }
   });
 })();
+
+// Medal tooltips: keep the bubble inside the medals row (on a phone the outer medals would push it off screen).
+(function () {
+  function fit(e) {
+    const item = e.target.closest && e.target.closest(".medal-item");
+    const tip = item && item.querySelector(".medal-tip");
+    const box = item && item.closest(".medals");
+    if (!tip || !box) return;
+    tip.style.setProperty("--tip-dx", "0px");
+    const t = tip.getBoundingClientRect(), b = box.getBoundingClientRect();
+    const dx = t.left < b.left ? b.left - t.left : (t.right > b.right ? b.right - t.right : 0);
+    tip.style.setProperty("--tip-dx", dx + "px");
+  }
+  document.addEventListener("mouseover", fit);
+  document.addEventListener("focusin", fit);
+})();
