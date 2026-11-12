@@ -60,7 +60,7 @@ Each player page opens with the raid metas (Lavistodes, Neuro, Battlesuit, Méch
 
 ### Menu
 
-Two rows, dark theme only. First row: Raid, War, Joueurs. The second row appears on the Raid pages (Records, then the raid seasons, latest first) and on the War pages (Stratégie, Défenses, then the war seasons, latest first); both rows scroll sideways on a phone. The War page is `war.html` (`index.html` only redirects to it). Season pages hold the table first, the points scale under it, then the Scores chart.
+Two rows (a third one on the war season, war and strategy pages: that season's wars), dark theme only. First row: Raid, War, Joueurs. The second row appears on the Raid pages (Records, then the raid seasons, latest first) and on the War pages (Stratégie, Défenses, then the war seasons, latest first); both rows scroll sideways on a phone. The War page is `war.html` (`index.html` only redirects to it). Season pages hold the table first, the points scale under it, then the Scores chart.
 
 ### Strategy and Défenses pages
 

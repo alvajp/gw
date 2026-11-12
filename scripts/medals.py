@@ -56,15 +56,6 @@ def slots():
 
 TOKENS_PER_SEASON = 27  # a player who plays fewer tokens than this in a season has lost the difference (and 1/27 of the damage per lost token)
 MEDAL_RANKS = 5  # boss medals go to the top 5 members of each boss
-MEDIAN_THRESHOLD = 1600
-RELIABILITY_THRESHOLD = 0.90
-
-
-def load_raid_entries():
-    entries = []
-    for _, season_entries in sorted(season_files().items()):
-        entries.extend(season_entries)
-    return entries
 
 
 def _medal_key(e):

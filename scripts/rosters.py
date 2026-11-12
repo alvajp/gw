@@ -11,7 +11,6 @@ API's progressionIndex and rank exactly as the planner does.
 import glob
 import collections
 import json
-import math
 import os
 import re
 from datetime import datetime
@@ -807,10 +806,6 @@ def render_insignias(war, prefix="../", raid=None, extra="", raid_known=False):
     return f'<div class="insignias">{raid_html}{_insignia("war", "War", war, prefix)}{extra}</div>'
 
 
-def _fmt_damage(n):
-    return f"{n / 1_000_000:.2f}".replace(".", ",") + " M"
-
-
 def _medal(kind, caption, sub, earned, tier, prefix, art=None, text=None, href=None):
     """One medal: Onslaught frame (mythic / legendary / epic / silver / bronze by rank 1-5, "challenge" for the thresholds), the boss portrait or a
     text inside, greyed out when not earned. Its name and figure appear in a tooltip when the mouse rests on it; a boss medal links to that boss's page."""
@@ -1011,15 +1006,6 @@ def _req_text(req):
     if relic and relic[1] > 1:
         txt += f" · {RELIC_NAMES.get(relic[0], relic[0])} niv. {relic[1]}"
     return txt
-
-
-def _req_short(req):
-    """Two short lines under a unit of the Metas detail page: rank and stars, then the ability levels."""
-    ab = "/".join(str(a) for a in req["ab"])
-    if req.get("mow"):
-        return f"{escape(stars_label(req['stars']))}<br>{ab}"
-    rank = {A2: "A2", D3: "D3", G1: "G1"}.get(req["rank"]) or rank_name(req["rank"])
-    return f"{rank} · {escape(stars_label(req['stars']))}<br>{ab}"
 
 
 def boss_metas(slot, rosters):

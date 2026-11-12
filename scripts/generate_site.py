@@ -142,12 +142,6 @@ def value_to_bg(val, lo, hi):
     return f' style="background-color: rgba(var(--heat-rgb), {0.05 + 0.33 * t:.2f})"'
 
 
-def slugify(name):
-    s = name.lower().strip()
-    s = re.sub(r"[^a-z0-9]+", "-", s)
-    return s.strip("-") or "guilde"
-
-
 def find_team_idx(guilds, name):
     for idx, g in guilds.items():
         if g["name"] == name:
@@ -254,33 +248,6 @@ def render_table(rows, hard_cols, easy_cols):
   <thead><tr>{thead}</tr></thead>
   <tbody>{''.join(body_rows)}</tbody>
 </table></div>"""
-
-
-def render_frise(items):
-    """items: list of (label, href, outcome, above). outcome is "win"/"loss"/
-    None and colors the dot green/red accordingly (None keeps the neutral
-    color — used for items that aren't a single war, e.g. the per-season
-    items on the homepage). above is an optional short string (e.g. the war
-    number within its season) rendered above the dot; pass None to omit it.
-    """
-    lis = []
-    for label, href, outcome, above in items:
-        if outcome == "win":
-            dot_class = "frise-dot frise-dot-win"
-        elif outcome == "loss":
-            dot_class = "frise-dot frise-dot-loss"
-        else:
-            dot_class = "frise-dot"
-        above_html = f'<span class="frise-above">{html_escape(above)}</span>' if above else ""
-        lis.append(
-            f'<a class="frise-item" href="{href}">{above_html}<span class="{dot_class}"></span>'
-            f'<span class="frise-label">{html_escape(label)}</span></a>'
-        )
-    return (
-        '<div class="frise-wrap"><div class="frise-scroll"><div class="frise" id="frise">'
-        + "".join(lis)
-        + "</div></div></div>"
-    )
 
 
 def render_result_badge(outcome, date_str=None):
@@ -443,13 +410,15 @@ PAGE_TEMPLATE = """<!doctype html>
 
 
 NAV_SEASONS = {"raid": [], "war": []}  # season numbers (latest first) shown in the second menu row; filled in main()
+NAV_WARS = {}  # war season -> [(slug, label, outcome)] in fight order: the third menu row of the season's pages; filled in main()
 NAV_SECTION = {"home": None, "ranking": "war", "strategy": "war", "defenses": "war", "raid": "raid", "boss": "raid", "metas": "raid", "players": "players"}
 
 
-def render_topbar(prefix, active, sub=None):
+def render_topbar(prefix, active, sub=None, wars=None):
     """Sticky top bar shared by every page. First row: Raid / War / Joueurs. Second row (Raid and War pages only): that section's
     own pages -- Boss resp. Stratégie, then its seasons latest first. `active` is the page kind (see NAV_SECTION), `sub` the
-    season item to highlight ("raid-113", "war-28"); both rows scroll sideways when they do not fit.
+    season item to highlight ("raid-113", "war-28"); `wars` = (season, slug | None) adds a third row with that season's wars (slug = the one to highlight);
+    the rows scroll sideways when they do not fit.
     """
     section = NAV_SECTION.get(active, "war")
 
@@ -475,6 +444,11 @@ def render_topbar(prefix, active, sub=None):
             items += '<span class="topsub-sep" aria-hidden="true"></span>'
             items += "".join(link(href, label, key == cur) for key, href, label in seasons)
         sub_html = f'<div class="topsub"><div class="topsub-inner">{items}</div></div>'
+    if wars and NAV_WARS.get(wars[0]):
+        w3 = "".join(
+            f'<a{" class=active" if slug == wars[1] else ""} href="{prefix}wars/{slug}.html">{html_escape(label)}</a>'
+            for slug, label, _outcome in NAV_WARS[wars[0]])
+        sub_html += f'<div class="topsub topsub3"><div class="topsub-inner">{w3}</div></div>'
 
     return (
         '<nav class="topbar"><div class="topbar-inner">'
@@ -519,7 +493,7 @@ def linkify_rows(html):
 
 def render_page(nav_active="ranking", **kw):
     """PAGE_TEMPLATE.format with the top bar (needs asset_prefix) filled in."""
-    kw["topbar"] = render_topbar(kw["asset_prefix"], nav_active, kw.get("nav_sub"))
+    kw["topbar"] = render_topbar(kw["asset_prefix"], nav_active, kw.get("nav_sub"), kw.get("nav_wars"))
     if "body" in kw:
         kw["body"] = linkify_rows(kw["body"])
     kw["subrow"] = "1" if NAV_SECTION.get(nav_active, "war") in ("raid", "war") else "0"  # does the topbar have its second row?
@@ -2063,7 +2037,7 @@ def render_war_page(slug, result, season, outcome=None, active_uids=frozenset(),
 
     title = ", ".join(opponent_names(result, our_idx)) or slug
     back_link = back_link_html(f"../seasons/{season}.html", f"Saison {season}")
-    html = render_page(nav_sub=f"war-{season}", title=title, asset_prefix="../", body=body, back_link=back_link, title_class="", header_extra="", header_action=header_action, v=ASSETS_VERSION)
+    html = render_page(nav_sub=f"war-{season}", nav_wars=(season, slug), title=title, asset_prefix="../", body=body, back_link=back_link, title_class="", header_extra="", header_action=header_action, v=ASSETS_VERSION)
     out_path = os.path.join(DOCS_DIR, "wars", slug + ".html")
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(html)
@@ -2083,7 +2057,7 @@ def render_war_strategy_page(slug, result, season):
     opp = ", ".join(opponent_names(result, our_idx)) or slug
     back_link = back_link_html(f"{slug}.html", opp)
     html = render_page(
-        nav_sub=f"war-{season}", title=f"Stratégie · {opp}", asset_prefix="../", body=body, back_link=back_link,
+        nav_sub=f"war-{season}", nav_wars=(season, slug), title=f"Stratégie · {opp}", asset_prefix="../", body=body, back_link=back_link,
         title_class="", header_extra="", header_action="", v=ASSETS_VERSION,
     )
     with open(os.path.join(DOCS_DIR, "wars", slug + "-strategie.html"), "w", encoding="utf-8") as f:
@@ -2094,27 +2068,19 @@ def render_war_strategy_page(slug, result, season):
 def render_season_page(season, wars_in_season, active_uids=frozenset()):
     wars_in_season = sorted(wars_in_season, key=lambda w: w["result"]["war_start"])
 
-    frise_items = []
-    for w in wars_in_season:
-        our_idx = find_team_idx(w["result"]["guilds"], OUR_GUILD)
-        opp = ", ".join(opponent_names(w["result"], our_idx)) or w["slug"]
-        above = str(w["war_number"]) if w.get("war_number") else None
-        frise_items.append((opp, f"../wars/{w['slug']}.html", w.get("outcome"), above))
-
     display_names, averages, win_rate, tokens, buffs, maps_ = compute_wars_averages(wars_in_season)
     score_display_names, score_distributions = compute_score_distributions(wars_in_season)
     agg_events, agg_display_names = aggregate_relative_battle_events(wars_in_season)
     agg_milestones = aggregate_ms_milestones(wars_in_season)
 
-    body = render_frise(frise_items)
-    body += f'<div id="table-wrap">{render_history_table(wars_in_season)}</div>' + BAREME_EXPLAIN
+    body = f'<div id="table-wrap">{render_history_table(wars_in_season)}</div>' + BAREME_EXPLAIN
     body += '<h2>Scores</h2>'
     body += render_average_chart(display_names, averages, win_rate, tokens, buffs, maps_, score_display_names, score_distributions, active_uids, scope="season")
     body += render_chronologie_section(agg_events, agg_milestones, agg_display_names, relative=True, n_wars=_n_event_wars(wars_in_season))
 
     header_action = ""
     back_link = back_link_html("../war.html", "War")
-    html = render_page(nav_sub=f"war-{season}", title=f"Guerre · saison {season}", asset_prefix="../", body=body, back_link=back_link, title_class="", header_extra="", header_action=header_action, v=ASSETS_VERSION)
+    html = render_page(nav_sub=f"war-{season}", nav_wars=(season, None), title=f"Guerre · saison {season}", asset_prefix="../", body=body, back_link=back_link, title_class="", header_extra="", header_action=header_action, v=ASSETS_VERSION)
     out_dir = os.path.join(DOCS_DIR, "seasons")
     os.makedirs(out_dir, exist_ok=True)
     with open(os.path.join(out_dir, f"{season}.html"), "w", encoding="utf-8") as f:
@@ -2970,6 +2936,12 @@ def main():
     for w in all_wars:
         seasons[w["season"]].append(w)
     NAV_SEASONS["war"] = sorted(seasons, reverse=True)
+    for season_n, season_wars in seasons.items():  # the third menu row: this season's wars, in the order they were fought, the opponent with a win / loss dot
+        NAV_WARS[season_n] = []
+        for w in sorted(season_wars, key=lambda w: w["result"]["war_start"]):
+            idx = find_team_idx(w["result"]["guilds"], OUR_GUILD)
+            opp = ", ".join(opponent_names(w["result"], idx)) or w["slug"]
+            NAV_WARS[season_n].append((w["slug"], opp, w.get("outcome")))
     NAV_SEASONS["raid"] = sorted(medals_mod.raid_seasons(), reverse=True) if medals_mod.season_files() else []
 
     for w in all_wars:

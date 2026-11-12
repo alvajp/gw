@@ -31,10 +31,9 @@ body {
   padding: 0;
   background: var(--bg);
   color: var(--text);
-  /* The frise line's 100vw full-bleed (see .frise-wrap::before) is wider
-     than the visible viewport by exactly the scrollbar's width on a page
-     tall enough to have one, which would otherwise poke out a few px and
-     add its own horizontal scrollbar -- clip it here instead. */
+  /* Full-bleed (100vw) elements are wider than the visible viewport by the
+     scrollbar's width on a page tall enough to have one, which would otherwise
+     poke out a few px and add a horizontal scrollbar -- clip it here instead. */
   overflow-x: hidden;
 }
 header, main {
@@ -91,7 +90,7 @@ h1 {
      height on every page shape, regardless of which title class is active
      -- otherwise index's bigger hero-title makes the header taller than a
      season/war page's, and swapping between them on nav shifts everything
-     below (the frise!) up or down. */
+     below up or down. */
   line-height: 3rem;
 }
 h1.hero-title { font-size: 2.5rem; }
@@ -146,99 +145,6 @@ tbody tr:hover td:not([style]) { background-color: var(--surface-hover); }
 tbody tr[data-active="false"] td:first-child { color: var(--text-muted); }  /* former members, now that the roster toggle is gone */
 ul { line-height: 1.8; }
 
-.frise-wrap {
-  position: relative;
-  /* Top margin trimmed by exactly the 1.1rem the war-number caption needs
-     (see .frise below): the caption floats in that reclaimed space via
-     absolute positioning, so the dot/label/line keep the exact page
-     position they had before captions existed -- nothing else shifts,
-     whether or not a given frise has captions. */
-  margin: 0.4rem 0 2.5rem;
-}
-.frise-wrap::before {
-  /* Full-bleeds past not just header/main's own gutter but main's own
-     max-width:1400px box too, so the line reaches the true viewport edge on
-     a wide screen instead of stopping at the centered container's edge --
-     .frise-scroll can't host this itself since its overflow-x:auto would
-     clip anything sticking out past its own box. The classic "break out of
-     a centered max-width container" trick: 50% + a negative 50vw margin
-     lands each edge at the viewport edge regardless of container width,
-     since main is itself centered in the viewport. Top offset must pass
-     through the dot's vertical center: .frise's own margin-top (1.1rem) +
-     .frise-scroll's padding-top (0.5rem) + half the dot's height
-     (14px/2 = 0.4375rem) = 2.0375rem. */
-  content: "";
-  position: absolute;
-  top: 2.0375rem;
-  left: 50%;
-  width: 100vw;
-  margin-left: -50vw;
-  height: 2px;
-  background: var(--border);
-}
-.frise-scroll {
-  overflow-x: auto;
-  /* Lives here rather than on .frise itself: .frise is the positioned
-     ancestor for .frise-old-layer (position:absolute), and an absolutely
-     positioned child's "top:0" ignores its containing block's own padding
-     -- so during the transition, the outgoing items would snap 0.5rem
-     higher than where they normally sit in-flow. Padding on this
-     non-positioned wrapper applies equally to both cases. */
-  padding: 0.5rem 0.5rem 0.5rem 0;
-}
-.frise {
-  display: flex;
-  align-items: flex-start;
-  gap: 1.5rem;
-  position: relative;
-  width: max-content;
-  min-width: 100%;
-  box-sizing: border-box;
-  /* Reserves room for .frise-above above the dots without pushing the dots
-     themselves down -- margin (unlike padding on this same element) doesn't
-     shift the padding-edge origin that .frise-old-layer's "top:0" resolves
-     against, so it can't reintroduce the padding-mismatch bug described
-     above. Also margin (unlike frise-scroll's padding) sits outside this
-     element's own box, so it isn't clipped by the "overflow:hidden" that
-     .frise-transitioning applies to this same element during a page
-     transition -- padding here would've made captions flicker-clip mid-animation. */
-  margin-top: 1.1rem;
-}
-.frise-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.5rem;
-  text-decoration: none;
-  color: var(--text);
-  flex-shrink: 0;
-  position: relative;
-}
-.frise-dot {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: var(--accent);
-  border: 2px solid var(--bg);
-  transition: transform 150ms ease;
-}
-.frise-dot.frise-dot-win { background: var(--win); }
-.frise-dot.frise-dot-loss { background: var(--loss); }
-.frise-item:hover .frise-dot { transform: scale(1.2); }
-.frise-above {
-  /* Absolutely positioned (not a normal flex child) so its presence/absence
-     never affects where the dot or label sit -- see .frise's margin-top
-     comment for where the space it floats in comes from. */
-  position: absolute;
-  top: -1.1rem;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 0.7rem;
-  line-height: 1;
-  color: var(--text-muted);
-  white-space: nowrap;
-}
-
 .result-badge {
   display: inline-block;
   border: 1px solid var(--border);
@@ -255,25 +161,6 @@ ul { line-height: 1.8; }
      it's metadata, not part of the win/loss statement itself. */
   margin-left: 0.5rem;
   color: var(--text-muted);
-}
-.frise-label {
-  /* Navigation idiom: a link, not a toggle -- deliberately kept visually
-     distinct from .chip (filter idiom, see below) so hovering a frise item
-     doesn't read as "selecting" it the way an active chip does. Border is
-     transparent (not var(--border)) so nothing shifts on hover, only the
-     background/dot react. */
-  position: relative;
-  font-size: 0.95rem;
-  white-space: nowrap;
-  text-align: center;
-  border: 1px solid transparent;
-  border-radius: 999px;
-  padding: 0.5rem 1.1rem;
-  background: var(--surface);
-  transition: background-color 150ms ease;
-}
-.frise-item:hover .frise-label {
-  background: var(--surface-hover);
 }
 
 .chips {
@@ -343,9 +230,8 @@ ul { line-height: 1.8; }
 .chart-box-group:hover .chart-median {
   /* --accent is set inline per-group (see render_boxplot_svg) so the glow
      matches that player's own indigo/green without a second CSS rule per
-     color -- same idea as .frise-dot-win/.frise-dot-loss but driven by a
-     custom property instead of a class, since the color here is chosen
-     per-player (active roster) rather than a fixed win/loss pair. Unrelated
+     color -- driven by a custom property instead of a class, since the
+     color here is chosen per-player (active roster). Unrelated
      to the page-wide --accent theme variable above despite the same name --
      this one is set inline per <g>, scoped to it. */
   filter: drop-shadow(0 0 4px var(--accent));
@@ -444,7 +330,7 @@ ul { line-height: 1.8; }
      above, so it wouldn't otherwise shrink on mobile -- left at 2.5rem, a
      long title like "Classement général" wraps to 2 lines, which breaks
      the fixed 3rem line-height's "same header height on every page" trick
-     (2 wrapped lines = 6rem, not 3rem) and shows up as the frise jumping
+     (2 wrapped lines = 6rem, not 3rem) and shows up as the content jumping
      when navigating to/from a season page. */
   h1.hero-title { font-size: 1.6rem; }
   table, th, td { font-size: 0.75rem; }
@@ -476,7 +362,7 @@ ul { line-height: 1.8; }
 .war-legend-swatch { width: 14px; height: 4px; border-radius: 2px; display: inline-block; }
 .war-legend-swatch.war-us { background: var(--team-us); }
 .war-legend-swatch.war-them { background: var(--team-them); }
-.war-chart-note { color: var(--text-muted); font-size: 0.85rem; margin: -1rem 0 2rem; }
+
 .war-tokens-wrap { margin-bottom: 1rem; }
 .war-tokens-svg { display: block; width: 100%; max-width: 1100px; height: auto; }
 
@@ -734,7 +620,7 @@ details.map-defense > summary:hover { background: var(--table-header-hover); }
   --r-common: #9aa3b2; --r-uncommon: #4cbf6b; --r-rare: #4a9df0; --r-epic: #a867e0; --r-legendary: #f2b134; --r-mythic: #f0506e;
   --st-gold: #f2b134; --st-red: #f0506e; --st-blue: #4aa3ff;
 }
-.player-chips { flex-wrap: wrap; overflow-x: visible; margin-top: 0.4rem; }
+
 .player-btn { text-decoration: none; padding: 0.5rem 1.1rem; font-size: 0.9rem; }
 
 .rsummary { display: flex; flex-wrap: wrap; align-items: stretch; gap: 0.6rem; margin: 0.4rem 0 1.2rem; }
@@ -869,7 +755,7 @@ dialog.placement-modal::backdrop { background: rgba(0, 0, 0, 0.55); }
 .mtable thead th:hover { background: var(--table-header-bg); }
 .mtable tbody tr + tr > * { border-top: 1px solid var(--border); }
 .mtable tbody th, .mtable tbody td:first-child { position: static; background: none; }
-.mteam-name { font-size: 0.9rem; white-space: nowrap; padding-top: 1.05rem; }
+
 .munits { display: flex; flex-wrap: wrap; gap: 0.35rem 0.9rem; padding-top: 0.45rem; }
 .mnone { color: var(--text-muted); padding-top: 0.4rem; }
 @media (max-width: 640px) {
@@ -878,7 +764,7 @@ dialog.placement-modal::backdrop { background: rgba(0, 0, 0, 0.55); }
   .mtable { background: none; border: none; }
   .mtable tbody tr { margin-bottom: 0.7rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
   .mtable tbody tr + tr > * { border-top: none; }
-  .mteam-name { padding: 0.7rem 0.8rem 0.2rem; }
+  
   .mtable td { padding: 0.2rem 0.8rem 0.5rem; }
   .mtable td[data-label]::before { content: attr(data-label); display: block; font-size: 0.68rem; font-weight: 600; color: var(--text-muted); }
   .mtable td:has(.mnone) { display: none; }
@@ -896,8 +782,8 @@ dialog.placement-modal::backdrop { background: rgba(0, 0, 0, 0.55); }
 .mu-missing .mu-name { color: var(--text-muted); opacity: 0.7; }
 
 /* Raid meta methodology dialog. */
-.mbadge:hover, .mteam-name[data-meta]:hover { border-color: var(--accent); }
-.mteam-name[data-meta] { cursor: pointer; }
+.mbadge:hover{ border-color: var(--accent); }
+
 dialog.meta-modal { width: min(1040px, calc(100vw - 2rem)); max-height: calc(100vh - 2rem); padding: 1.1rem 1.2rem 1.2rem; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); }
 dialog.meta-modal::backdrop { background: rgba(0, 0, 0, 0.6); }
 .meta-modal h3 { display: flex; align-items: center; gap: 0.6rem; margin: 0 2rem 0.6rem 0; font-size: 1.05rem; }
@@ -996,10 +882,10 @@ dialog.method-modal { width: min(640px, calc(100vw - 2rem)); }
 .mtable tbody tr[data-meta] { cursor: pointer; }
 /* same hover as the players list: accent tint + accent bar on the left */
 .mtable tbody tr[data-meta]:hover > *, .mtable tbody tr[data-meta]:focus-visible > * { background: color-mix(in srgb, var(--accent) 9%, var(--table-header-bg)); }
-.mtable tbody tr[data-meta]:hover > .mteam-name, .mtable tbody tr[data-meta]:focus-visible > .mteam-name { box-shadow: inset 3px 0 0 var(--accent); }
+
 @media (max-width: 640px) {
   .mtable tbody tr[data-meta]:hover { box-shadow: inset 3px 0 0 var(--accent); }
-  .mtable tbody tr[data-meta]:hover > .mteam-name { box-shadow: none; }
+  
 }
 .mtable tbody tr[data-meta]:focus-visible { outline: 1px solid var(--accent); outline-offset: -1px; }
 
@@ -1138,9 +1024,7 @@ body[data-page="players"]::before { background-image: linear-gradient(to bottom,
 
 /* Metas: the table carries the icon and the completion % of each row (desktop); phones keep the badge summary instead. */
 @media (min-width: 641px) { .mbadges { display: none; } }
-.mteam-name { display: table-cell; }
-.mteam-name .meta-ico { display: block; margin: 0 0 0.4rem; width: 2.6rem; height: 2.6rem; }
-.mteam-name span { display: block; font-size: 0.9rem; font-weight: 600; }
+
 .mrole-pct { display: inline-block; min-width: 3rem; margin: 0.1rem 0 0.35rem; padding: 0.15rem 0.5rem; text-align: center; border-radius: 6px; font-size: 0.8rem; font-weight: 700; font-variant-numeric: tabular-nums; }
 .mrole-pct.v-hi { color: var(--win); background: color-mix(in srgb, var(--win) 13%, transparent); }
 .mrole-pct.v-mid { color: #e0a43a; background: color-mix(in srgb, #e0a43a 13%, transparent); }
@@ -1172,10 +1056,10 @@ body[data-page="players"]::before { background-image: linear-gradient(to bottom,
 .raid-table th, .raid-table td { white-space: nowrap; }
 .raid-table td { font-variant-numeric: tabular-nums; }
 .raid-table .player-btn { text-decoration: none; }  /* same pill size as the War tables */
-.raid-go { margin-left: 0.3rem; font-size: 0.8rem; text-decoration: none; color: var(--accent); }
+
 .rb-ico { display: block; width: 2.2rem; height: 2.2rem; margin: 0 auto 0.15rem; object-fit: cover; border-radius: 6px; }
 .raid-table th span { display: block; max-width: 5.5rem; font-size: 0.66rem; line-height: 1.15; white-space: normal; text-align: center; }
-.ex-member { color: var(--text-muted); font-size: 0.82rem; }
+
 .raid-table { table-layout: auto; width: max-content; min-width: 100%; }
 .raid-table th, .raid-table td { width: auto; overflow: visible; text-overflow: clip; border-left: none; border-right: none; text-align: left; padding: 0.5rem 0.7rem; }
 .raid-table th:first-child, .raid-table td:first-child { position: static; background: none; }
@@ -1183,10 +1067,6 @@ body[data-page="players"]::before { background-image: linear-gradient(to bottom,
 .raid-table td:not(:nth-child(2)) { text-align: right; }
 .raid-table th:nth-child(n+3) { text-align: right; }
 .raid-table th img + span { margin: 0 auto; }
-.raid-chips { display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem 0.8rem; margin: 0 0 1rem; }
-.raid-chips-label { font-size: 0.78rem; font-weight: 600; color: var(--text-muted); }
-.raid-chips .chips { margin: 0; flex-wrap: wrap; overflow-x: visible; }
-.raid-chips .chip { text-decoration: none; }
 
 /* Page backgrounds: sharper (2x upscaled, sharpened sources); the picture fades into the page colour towards the bottom under a darkening veil. */
 body[data-page="players"], body[data-page="players"][data-bg=""] { --bg-img: url("bg/thousand-sons.webp"); }
@@ -1196,9 +1076,7 @@ body[data-page="players"]::before {
 }
 
 /* Boss section: chips (icon + name), podium cards, per-boss tables. */
-.boss-chips { flex-wrap: wrap; overflow-x: visible; margin: 0 0 1.2rem; gap: 0.5rem; }
-.boss-chip { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.25rem 0.9rem 0.25rem 0.3rem; text-decoration: none; }
-.boss-chip img { width: 1.9rem; height: 1.9rem; border-radius: 50%; object-fit: cover; }
+
 .boss-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: 0.8rem; }
 .boss-card { display: block; padding: 0.8rem 0.9rem; text-decoration: none; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); transition: border-color 120ms ease; }
 .boss-card:hover { border-color: var(--accent); }
@@ -1470,7 +1348,6 @@ details.adv-expand[open] > summary::before { content: "▾"; }
 details.adv-expand > summary:hover { background: var(--table-header-hover); }
 details.adv-expand > h2:first-of-type { margin-top: 1.6rem; }
 
-
 /* The War and Raid insignias link to the War and Raid pages. */
 a.insignia { color: inherit; text-decoration: none; transition: border-color 120ms ease, transform 120ms ease; }
 a.insignia:hover, a.insignia:focus-visible { border-color: var(--accent); transform: translateY(-1px); }
@@ -1489,14 +1366,7 @@ tbody tr[data-active="false"] .player-btn { color: var(--text-muted); }
    Plain slots under the row's stretched link, so the pointer is always on the name. */
 .pg-head, .pg-row { grid-template-columns: minmax(12.5rem, 14.5rem) repeat(4, minmax(0, 1fr)); }
 .pg-who { display: flex; align-items: center; gap: 0.4rem; min-width: 0; }
-.pg-badges { display: inline-flex; align-items: center; gap: 0.3rem; margin-left: 0.4rem; }
-.pg-slot { display: inline-flex; align-items: center; justify-content: center; width: 2.1rem; height: 2.1rem; }
-.pg-slot-count { width: 1.4rem; }
-.pg-slot .ins-frame { width: 2.1rem; }
-.pg-slot .ins-core b { font-size: 0.8rem; }
-.pg-slot .ins-core b::before { font-size: 0.5rem; margin-right: 0.02rem; vertical-align: 0.4em; }
-.pg-slot .medal { height: 2.1rem; }
-.pg-slot .medal-txt { font-size: 0.75rem; }
+
 .pg-who .player-btn { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 760px) {
   .pg-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -1508,13 +1378,10 @@ tbody tr[data-active="false"] .player-btn { color: var(--text-muted); }
 .ins-core b .rn { height: 0.72em; width: auto; display: block; filter: brightness(0.3) sepia(0.6); }  /* dark numerals on every disc: more readable */
 
 /* Players list: smaller laurels, no medal count. */
-.pg-slot { width: 1.7rem; height: 1.7rem; }
-.pg-slot .ins-frame { width: 1.7rem; }
-.pg-slot .ins-core b { font-size: 0.65rem; }
 
 /* Players list: the laurels sit right of the name (fixed name width so they line up). */
 .pg-who .player-btn { flex: 1 1 auto; }
-.pg-badges { margin-left: 0; }
+
 .pg-head, .pg-row { grid-template-columns: 12rem repeat(4, minmax(0, 1fr)); }
 @media (max-width: 760px) {
   .pg-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -1561,7 +1428,6 @@ body[data-page="home"] > header, body[data-page="home"] > main { width: 100%; bo
 body[data-subrow="0"] > header { padding-top: calc(1.25rem + 2.4rem + 1px); }
 
 /* Metas table: the "X Niche" cell (niche units are not counted in the %, the dialogs list them). */
-.mniche { display: inline-block; padding: 0.15rem 0.6rem; border: 1px solid var(--border); border-radius: 999px; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
 
 /* Player pages, metas table: Core and Flex each take half of the width */
 .rmetas .mtable { table-layout: fixed; }
@@ -1724,9 +1590,9 @@ a.cl::after { content: ""; position: absolute; inset: 0; }
 .boss-card .bp-rank { display: flex; align-items: center; }
 .mt-detail { margin-bottom: 2rem; }
 .mt-detail h2:first-child { margin-top: 0.6rem; }
-.mrole-reco { min-width: 0; color: var(--accent); background: none; box-shadow: inset 0 0 0 1px var(--accent); border-radius: 999px; font-size: 0.66rem; letter-spacing: 0.04em; text-transform: uppercase; }
+
 .mu-ab { margin-top: 0.1rem; font-size: 0.6rem; line-height: 1.2; color: var(--text-muted); font-variant-numeric: tabular-nums; }
-.mt-niche .mu { opacity: 0.6; }
+
 .mc-cards .boss-card { min-height: 7.8rem; box-sizing: border-box; }  /* as tall as a Records card (a boss and three lines) */
 /* Metas landing: the meta's icon sits centred under the boss's portrait and its name lines up with the boss's name */
 .mc-cards .boss-card li { grid-template-columns: 2.4rem 1fr; gap: 0 0.6rem; align-items: center; }
@@ -1775,3 +1641,7 @@ td[data-atk] { cursor: pointer; }
 .atk-table th.atk-n, .atk-table td.atk-n { text-align: right; }
 .atk-table th, .atk-table td { overflow: visible; text-overflow: clip; }  /* the general table cells clip their content, which crushed the 1 % columns */
 .atk-table { table-layout: auto; }  /* the general tables are fixed-layout, which ignored the content widths */
+
+/* Third menu row (war season pages: the season's wars) */
+.topsub3 { background: color-mix(in srgb, var(--bg) 40%, transparent); }
+.topsub3 a { font-size: 0.78rem; }
