@@ -2647,10 +2647,10 @@ def compute_badges(seasons, medals):
             uid = r["uid"]
             rank = ranks.get(uid)
             if rank is None:
-                out[uid].append({"caption": caption, "sub": "Pas de donnée", "earned": False, "art": WAR_ART[caption], "frameless": True})
+                out[uid].append({"caption": caption, "sub": "Pas de donnée", "earned": False, "art": WAR_ART[caption], "frameless": True, "href": "war.html"})
             else:
                 out[uid].append({"caption": caption, "sub": f"{_ord(rank)} sur {of} · {fmt(values[uid])}" + ("" if rank <= 5 else " · top 5 requis"),
-                                 "tier": rank if rank <= 5 else 0, "earned": rank <= 5, "art": WAR_ART[caption], "frameless": True})
+                                 "tier": rank if rank <= 5 else 0, "earned": rank <= 5, "art": WAR_ART[caption], "frameless": True, "href": "war.html"})
     for uid, mythic in mythics.items():
         out[uid].append({"caption": "Plus de 100 bouquins mythiques", "sub": f"{mythic} en stock" + ("" if mythic > 100 else " · pas encore"), "earned": mythic > 100,
                           "art": "badges/books.webp", "frameless": True})

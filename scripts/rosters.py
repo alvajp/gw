@@ -844,7 +844,8 @@ def meta_ranks(rosters):
 def _badge_html(b, prefix):
     """A player badge (see generate_site.compute_badges): the Onslaught frame of its rank for the top-5 ones, a generic dark grey one for the others,
     greyed out when not earned."""
-    return _medal("badge", b["caption"], b["sub"], b.get("earned", True), b.get("tier", 0), prefix, art=b.get("art"), text=b.get("text"), generic=not b.get("tier"), frameless=b.get("frameless", False))
+    return _medal("badge", b["caption"], b["sub"], b.get("earned", True), b.get("tier", 0), prefix, art=b.get("art"), text=b.get("text"), generic=not b.get("tier"), frameless=b.get("frameless", False),
+                  href=prefix + b["href"] if b.get("href") else None)
 
 
 def render_medals(m, prefix="../", badges=()):
