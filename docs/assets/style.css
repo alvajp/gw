@@ -1694,4 +1694,4 @@ td[data-war-atk] { cursor: pointer; }
 .medal-frameless .medal-art.medal-icon[src$="badges/books.webp"], .medal-frameless .medal-art.medal-icon[src$="badges/whale.webp"] { left: -4%; top: 50%; width: 108%; height: auto; transform: translateY(-50%); }
 
 /* Always reserve the scrollbar's room: the Home page is short (no scrollbar) while the others scroll, which shifted the centred header and content by half a scrollbar. */
-html { overflow-y: scroll; scrollbar-gutter: stable; }
+html { scrollbar-gutter: stable; }  /* not overflow-y: scroll: body has overflow-x: hidden, so it would then become a scroll container of its own (a second scrollbar) */
