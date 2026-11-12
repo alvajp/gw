@@ -2,7 +2,7 @@
 Medals shown on the player pages (Onslaught badge art) and the raid ranking:
   * best all-time relative damage per raid boss and sub-boss (every season and difficulty, the % above the guild average, no bombs,
     finishes, from Legendary 4 up; one-shots count) -> top 5 members (orange / teal / gold / grey / brown = Onslaught mythic / legendary / epic frames, then the epic frame recoloured), from the raid
-    history in data/raid/ (fetch_raid.py, guild key, seasons 97 to the latest);
+    history in data/raid/ (fetch_raid.py, guild key, seasons 100 to the latest);
   * median guild-war battle score >= 1600 (1600 is the score cap, so "above 1600" can never happen) and
   * guild-war reliability > 90 % ((wins + finishes) / all tokens), both with the Onslaught "challenge" frame.
 Every medal is shown on every page; the ones a player did not earn are greyed out.
@@ -15,7 +15,7 @@ from collections import defaultdict
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RAID_DIR = os.path.join(ROOT, "data", "raid")
-FIRST_SEASON = 97  # the raid history kept for the medals, the ranking and the Raid / Boss pages starts here
+FIRST_SEASON = 100  # the raid history kept for the medals, the ranking and the Raid / Boss pages starts here
 
 # raid boss (API type, display name, [(sub-boss unitId, our unit id or art name, display name)]); the order is the order of the
 # medals: each boss followed by its sub-bosses. Sub-boss art = the unit portrait (docs/assets/units) or docs/assets/bosses/<name>.
@@ -285,4 +285,20 @@ def season_attacks():
                          "heroes": [h["unitId"] for h in e.get("heroDetails") or []], "mow": (e.get("machineOfWarDetails") or {}).get("unitId"),
                          "at": e.get("completedOn") or 0, "map": attack_map(season, e)})
         out[season] = rows
+    return out
+
+
+def bomb_records():
+    """{"max": {uid: [seasons]}, "min": {uid: [seasons]}}: who dealt the biggest and who the smallest bomb of each stored season (the biggest / smallest `damageDealt` of a
+    Bomb attack of that season; players who tie share it)."""
+    out = {"max": defaultdict(list), "min": defaultdict(list)}
+    for season, entries in season_files().items():
+        bombs = [e for e in entries if e.get("damageType") == "Bomb" and e.get("damageDealt")]
+        if not bombs:
+            continue
+        hi, lo = max(e["damageDealt"] for e in bombs), min(e["damageDealt"] for e in bombs)
+        for uid in {e["userId"] for e in bombs if e["damageDealt"] == hi}:
+            out["max"][uid].append(season)
+        for uid in {e["userId"] for e in bombs if e["damageDealt"] == lo}:
+            out["min"][uid].append(season)
     return out

@@ -54,6 +54,7 @@ Rapid Assault|Niche|Biovore||skulled|60/60||Baraquiel,Actus,Tankrazeur,Eldryon
 Rapid Assault|Niche|Abaddon|A2|1 étoile bleue|60/60||Actus,Tankrazeur
 Rapid Assault|Niche|Helbrecht|A2|1 étoile bleue|60/60||Eldryon
 Rapid Assault|Niche|Aunshi|D3|1 étoile bleue|50/50||Baraquiel
+Rapid Assault|Flex|Boss G|A2|1 étoile bleue|60/60||Baraquiel
 Forcasmo|Niche|Ragnar|A2|1 étoile bleue|60/60||Corrodius
 Forcasmo|Niche|Forcas|A2|1 étoile bleue|35/60||Corrodius
 Forcasmo|Niche|Asmodai|D3|1 étoile bleue|50/50||Corrodius

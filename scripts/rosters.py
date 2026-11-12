@@ -712,6 +712,12 @@ def meta_pcts(owned, roles):
             for role in ROLES if roles.get(role)]
 
 
+def meta_key(owned, roles):
+    """What ranks and sorts the players on a meta: the Core completion first, then the Flex one (a single number: Core % x 1000 + Flex %)."""
+    got = dict(meta_pcts(owned, roles))
+    return got.get("Core", 0) * 1000 + got.get("Flex", 0)
+
+
 def boss_completion(owned, key):
     """The best meta available for a boss: (completion 0..1, team, [(unit id, completion)] of that team, {team: completion}). A boss is fought
     with one of the teams the sheet lists for it, so what counts is the team the player is closest to having ready."""
@@ -803,22 +809,45 @@ def render_insignias(war, prefix="../", raid=None, extra="", raid_known=False):
     raid_html = (_insignia("raid", "Raid", raid, prefix) if raid_known else
                  f'<a class="insignia" href="{prefix}raid.html" title="Classement de raid : bientôt"><span class="ins-medal tier-none">X</span>'
                  '<span class="ins-text"><b>Raid</b><small>À venir</small></span></a>')
-    return f'<div class="insignias">{raid_html}{_insignia("war", "War", war, prefix)}{extra}</div>'
+    return f'<div class="insignias"><div class="ins-stack">{raid_html}{_insignia("war", "War", war, prefix)}</div>{extra}</div>'
 
 
-def _medal(kind, caption, sub, earned, tier, prefix, art=None, text=None, href=None):
+def _medal(kind, caption, sub, earned, tier, prefix, art=None, text=None, href=None, generic=False, frameless=False):
     """One medal: Onslaught frame (mythic / legendary / epic / silver / bronze by rank 1-5, "challenge" for the thresholds), the boss portrait or a
     text inside, greyed out when not earned. Its name and figure appear in a tooltip when the mouse rests on it; a boss medal links to that boss's page."""
-    frame = "challenge" if kind == "challenge" else {1: "mythic", 2: "legendary", 3: "epic", 4: "silver", 5: "bronze"}.get(tier, "mythic")
-    art_html = f'<img class="medal-art" src="{prefix}assets/{art}" alt="" loading="lazy">' if art else ""
-    text_html = f'<b class="medal-txt">{text}</b>' if text else ""
+    frame = "challenge" if kind == "challenge" else "silver" if generic else {1: "mythic", 2: "legendary", 3: "epic", 4: "silver", 5: "bronze"}.get(tier, "mythic")
+    icon = bool(art) and art.startswith("badges/")  # a full icon (docs/assets/badges/): shown whole in the middle, not cropped to the frame like a portrait
+    art_html = f'<img class="medal-art{" medal-icon" if icon else ""}" src="{prefix}assets/{art}" alt="" loading="lazy">' if art else ""
+    text_html = f'<b class="medal-txt{" low" if icon else ""}">{text}</b>' if text else ""
     tag, attrs = ("a", f' href="{href}"') if href else ("div", ' tabindex="0"')
     return (f'<{tag} class="medal-item {"earned" if earned else "grey"}"{attrs}>'
-            f'<span class="medal medal-{kind}">{art_html}<img class="medal-frame" src="{prefix}assets/ui/onslaught_{frame}.png" alt="" loading="lazy">{text_html}</span>'
+            f'<span class="medal medal-{kind}{" medal-generic" if generic else ""}{" medal-frameless" if frameless else ""}">{art_html}'
+            + ("" if frameless else f'<img class="medal-frame" src="{prefix}assets/ui/onslaught_{frame}.png" alt="" loading="lazy">') + f'{text_html}</span>'
             f'<span class="medal-tip"><b>{escape(caption)}</b><small>{escape(sub)}</small></span></{tag}>')
 
 
-def render_medals(m, prefix="../"):
+def meta_ranks(rosters):
+    """uid -> {meta: (rank, Core % x 1000 + Flex %, players)} for every member and every meta of the Metas view (ranked by Core %, then Flex %; ties share a rank)."""
+    scores = {}
+    for r in rosters:
+        owned = {u["id"]: u for u in r["units"]}
+        for team, roles in RAID_METAS:
+            scores[(r["uid"], team)] = meta_key(owned, roles)
+    out = collections.defaultdict(dict)
+    for team, _roles in RAID_METAS:
+        vals = {uid: v for (uid, t), v in scores.items() if t == team}
+        for uid, v in vals.items():
+            out[uid][team] = (1 + sum(1 for w in vals.values() if w > v), v, len(vals))
+    return out
+
+
+def _badge_html(b, prefix):
+    """A player badge (see generate_site.compute_badges): the Onslaught frame of its rank for the top-5 ones, a generic dark grey one for the others,
+    greyed out when not earned."""
+    return _medal("badge", b["caption"], b["sub"], b.get("earned", True), b.get("tier", 0), prefix, art=b.get("art"), text=b.get("text"), generic=not b.get("tier"), frameless=b.get("frameless", False))
+
+
+def render_medals(m, prefix="../", badges=()):
     """Medals band to the right of the insignias, in two lines: the main raid bosses, then the primes (sub-bosses). All are
     shown; the ones the player did not earn are greyed out."""
     m = m or {}
@@ -835,11 +864,13 @@ def render_medals(m, prefix="../"):
         (primes if " (" in slot["name"] else items).append(
             _medal("boss", f"{slot['name']} · relatif", sub, bool(rank), rank or 0, prefix, art=slot["art"],
                    href=f"{prefix}records/{slot['key']}.html"))
-    return ('<div class="medals"><div class="medals-row">' + "".join(items) + '</div>'
+    badges_row = "".join('<div class="medals-row badges-row">' + "".join(_badge_html(b, prefix) for b in badges if b.get("row", 1) == n) + "</div>"
+                         for n in (0, 1) if any(b.get("row", 1) == n for b in badges))  # row 0 (the bombs) above row 1
+    return ('<div class="medals">' + badges_row + '<div class="medals-row">' + "".join(items) + '</div>'
             '<div class="medals-row">' + "".join(primes) + "</div></div>")
 
 
-def render_player_body(r, prefix="../", war=None, medals=None, raid=None, raid_known=False):
+def render_player_body(r, prefix="../", war=None, medals=None, raid=None, raid_known=False, badges=()):
     units = r["units"]
     heroes = [u for u in units if not is_mow(u)]
     machines = sorted((u for u in units if is_mow(u)), key=_sort_key)
@@ -892,7 +923,7 @@ def render_player_body(r, prefix="../", war=None, medals=None, raid=None, raid_k
         f'<div class="chips">{chips}</div></div>'
     )
     return (
-        render_insignias(war, prefix, raid=raid, raid_known=raid_known, extra=render_medals(medals, prefix)) + render_raid_metas(units, prefix) + summary + render_resources(r["inventory"], prefix)
+        render_insignias(war, prefix, raid=raid, raid_known=raid_known, extra=render_medals(medals, prefix, badges)) + render_raid_metas(units, prefix) + summary + render_resources(r["inventory"], prefix)
         + controls + '<div class="roster-zone">'
         + '<div id="roster" class="roster">' + "".join(sections)
         + '<section class="rs rs-flat" hidden><div class="rs-grid"></div></section></div>'
@@ -964,8 +995,8 @@ def render_players_index_body(rosters, war=None, raid=None, medals=None):
             for i, (team, roles) in metas
         )
         avgs = "".join(
-            f' data-m{i}="{sum(v for _, v in meta_pcts(owned, roles)) / len(meta_pcts(owned, roles)):.2f}"' for i, (team, roles) in metas
-        )  # sort key per meta: mean of its Core / Flex %
+            f' data-m{i}="{meta_key(owned, roles)}"' for i, (team, roles) in metas
+        )  # sort key per meta: Core % first, then Flex %
         bcells, best_pcts = "", {}
         for k, s in bosses:
             icon = f'<img class="pg-bicon" src="assets/{s["art"]}" alt="" loading="lazy">'  # shown on phones only (the cards)

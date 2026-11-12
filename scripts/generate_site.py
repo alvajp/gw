@@ -2569,17 +2569,17 @@ def render_defenses_page(all_wars):
 
 
 def player_background(war, raid):
-    """Backdrop of a player's page: the podium of the guild war ranking gets the War pages' picture (1st) or the Stratégie /
-    Défenses one (2nd, 3rd), the raid podium the Raid pages' picture (1st) or the Boss pages' one (2nd, 3rd); everybody else the
+    """Backdrop of a player's page: the top of the guild war ranking gets the War pages' picture (1st) or the Stratégie /
+    Défenses one (2nd to 4th), the top of the raid ranking the Raid pages' picture (1st) or the Boss pages' one (2nd to 5th); everybody else the
     default Joueurs picture. War takes priority."""
     w, r = (war or {}).get("rank"), (raid or {}).get("rank")
     if w == 1:
         return "war-1"
-    if w in (2, 3):
+    if w in (2, 3, 4):
         return "war-podium"
     if r == 1:
         return "raid-1"
-    if r in (2, 3):
+    if r in (2, 3, 4, 5):
         return "raid-podium"
     return ""
 
@@ -2591,6 +2591,76 @@ def compute_medals(seasons):
     win_rate = compute_season_averages(seasons)[5]
     members = {r["uid"] for r in rosters_mod.load_rosters()}
     return medals_mod.compute(scores, win_rate, members)
+
+
+def _ord(n):
+    return "1er" if n == 1 else f"{n}e"
+
+
+def _top5(values, members, tiebreak=None):
+    """uid -> rank (1 = highest, ties share a rank) of the current members, and how many members have a value. `tiebreak` (uid -> number) orders the
+    players whose values are equal (the median of a war score stops at the 1600 cap, many players share it)."""
+    vals = {u: v for u, v in values.items() if u in members and v is not None}
+    key = {u: (v, (tiebreak or {}).get(u, 0)) for u, v in vals.items()}
+    ranks = {u: 1 + sum(1 for w in key.values() if w > k) for u, k in key.items()}
+    return ranks, len(vals)
+
+
+BOMB_ART = {"max": "badges/bomb.webp", "min": "badges/poop.webp"}  # docs/assets/badges/: icons of the game (bomb, guild wars emblem, trophy, power fist, XP book) and two made ones (poop emoji, whale emoji in the power-level frame)
+WAR_ART = {"Fiabilité en war": "badges/guildwars.webp", "Médiane en war": "badges/achievements.webp", "Téméraire en war": "badges/power.webp"}
+
+
+def compute_badges(seasons, medals):
+    """uid -> the badges shown at the top of the player page (see rosters.render_medals), all greyed out until earned, in two lines: the biggest / smallest bomb of a
+    season (row 0), then the five best of each of the main metas, the five most reliable, with the highest median and most daring (mean points
+    of buffs + maps per war) in war, more than 100 mythic XP books and the five biggest accounts by power (row 1). {caption, sub (the tooltip), tier (the rank 1-5 of a top-five badge, 0 = generic grey frame), text / art (the inside, left
+    empty while there is no asset)}."""
+    rosters = rosters_mod.load_rosters()
+    members = {r["uid"] for r in rosters}
+    out = defaultdict(list)
+    bombs = medals_mod.bomb_records()
+    for key, caption in (("max", "Plus grosse bombe de la saison"), ("min", "Plus petite bombe de la saison")):  # these add up: the count shows under the icon
+        for r in rosters:
+            ss = bombs[key].get(r["uid"])
+            if ss:
+                out[r["uid"]].append({"caption": caption, "sub": f"{len(ss)} fois · " + ", ".join(f"S{x}" for x in sorted(ss, reverse=True)), "text": f"×{len(ss)}", "row": 0, "art": BOMB_ART[key]})
+            else:
+                out[r["uid"]].append({"caption": caption, "sub": "Jamais", "earned": False, "row": 0, "art": BOMB_ART[key]})
+    meta_all = rosters_mod.meta_ranks(rosters)
+    mythics = {}
+    for r in rosters:
+        uid = r["uid"]
+        mythics[uid] = next((b["amount"] for b in (r["inventory"].get("xpBooks") or []) if b["rarity"] == "Mythic"), 0)
+        for team, _roles in rosters_mod.RAID_METAS:
+            uid_art = rosters_mod.META_ICON.get(team)
+            rank, key, of = meta_all[uid][team]
+            out[uid].append({"caption": f"Meta {team}", "sub": f"{_ord(rank)} sur {of} · Core {key // 1000} % · Flex {key % 1000} %" + ("" if rank <= 5 else " · top 5 requis"),
+                             "tier": rank if rank <= 5 else 0, "earned": rank <= 5, "art": f"units/{uid_art}.webp" if uid_art else None})
+    _, _, _, _, averages, win_rate, _, buffs, maps_ = compute_season_averages(seasons)
+    for caption, values, fmt, tiebreak in (
+        ("Fiabilité en war", {u: (medals.get(u) or {}).get("reliability") for u in members}, lambda v: f"{100 * v:.0f} % de jetons réussis", None),
+        ("Médiane en war", {u: (medals.get(u) or {}).get("median") for u in members}, lambda v: f"médiane {v:.0f}", averages),  # equal medians (the 1600 cap): the average points per war decide
+        ("Téméraire en war", {u: buffs.get(u, 0) + maps_.get(u, 0) for u in members if u in buffs or u in maps_}, lambda v: f"{v:.1f} pts de buffs et de maps par guerre", None),
+    ):
+        ranks, of = _top5(values, members, tiebreak)
+        for r in rosters:
+            uid = r["uid"]
+            rank = ranks.get(uid)
+            if rank is None:
+                out[uid].append({"caption": caption, "sub": "Pas de donnée", "earned": False, "art": WAR_ART[caption], "frameless": True})
+            else:
+                out[uid].append({"caption": caption, "sub": f"{_ord(rank)} sur {of} · {fmt(values[uid])}" + ("" if rank <= 5 else " · top 5 requis"),
+                                 "tier": rank if rank <= 5 else 0, "earned": rank <= 5, "art": WAR_ART[caption], "frameless": True})
+    for uid, mythic in mythics.items():
+        out[uid].append({"caption": "Plus de 100 bouquins mythiques", "sub": f"{mythic} en stock" + ("" if mythic > 100 else " · pas encore"), "earned": mythic > 100,
+                          "art": "badges/books.webp", "frameless": True})
+    # the five biggest accounts: the account's power level (coarse, 75-77 at the top), equal levels ordered by the total XP of their characters
+    size = {r["uid"]: (r["power"], sum(u.get("xp") or 0 for u in r["units"])) for r in rosters}
+    for r in rosters:
+        rank = 1 + sum(1 for v in size.values() if v > size[r["uid"]])
+        out[r["uid"]].append({"caption": "Plus gros comptes en puissance", "sub": f"{_ord(rank)} sur {len(size)} · puissance {size[r['uid']][0]}"
+                              + ("" if rank <= 5 else " · top 5 requis"), "tier": rank if rank <= 5 else 0, "earned": rank <= 5, "art": "badges/whale.webp", "frameless": True})
+    return out
 
 
 def compute_war_rank(seasons, active_uids):
@@ -2774,13 +2844,14 @@ def best_attacks_html(key, attacks, names, members, unit_names, prefix):
         dmg = f"{a['dmg']:,}".replace(",", "\u202f")  # thin spaces between the thousands
         who = f'<a class="chip player-btn" href="{prefix}joueurs/{rosters_mod.player_slug(a["uid"])}.html">{html_escape(names[a["uid"]])}</a>'
         board = a["map"]
+        atk = f' data-atk="{a["uid"]}|{season}|{key}"'  # every cell but Joueur and Saison opens the attacks dialog
         # the row opens the player (row-link.js, linkify_rows); the season cell opens that season, like a season column does in the other tables
         body += (f'<tr{player_row_attrs(a["uid"], prefix)} data-map="{board.lower() if board else ""}"{" data-top" if id(a) in top else " hidden"}>'
                  f'<td>{who}</td>'
                  f'<td class="alt-link" data-sort="{season}.{["L4", "L5", "M1", "M2", "M3"].index(a["lvl"]) + 1}" title="Boucle {a["tier"]}"><a class="cl" href="{prefix}raid/{season}.html">S{season} · {a["lvl"]}</a></td>'
-                 f'<td data-sort="{board or ""}">{map_thumb(board) if board else "—"}</td><td><div class="atk-team">{team}</div></td>'
-                 f'<td data-sort="{a["dmg"]}">{dmg}</td><td><span class="atk-kind{kind_cls}">{a["kind"]}</span></td>'
-                 f'<td{value_to_bg(rel, lo, hi)} data-sort="{rel:.4f}" data-atk="{a["uid"]}|{season}|{key}">{_fmt_rel(rel)}</td></tr>')
+                 f'<td data-sort="{board or ""}"{atk}>{map_thumb(board) if board else "—"}</td><td{atk}><div class="atk-team">{team}</div></td>'
+                 f'<td data-sort="{a["dmg"]}"{atk}>{dmg}</td><td{atk}><span class="atk-kind{kind_cls}">{a["kind"]}</span></td>'
+                 f'<td{value_to_bg(rel, lo, hi)} data-sort="{rel:.4f}"{atk}>{_fmt_rel(rel)}</td></tr>')
     head = "".join(f"<th>{h}</th>" for h in ("Joueur", "Saison", "Map", "Compo", "Dégâts", "Type", "Relatif"))
     chips = ""
     if per_map:  # the maps this boss was played on, latest season first
@@ -2792,8 +2863,7 @@ def best_attacks_html(key, attacks, names, members, unit_names, prefix):
         chips = ('<div class="map-filter" role="group" aria-label="Filtrer par map"><button type="button" class="map-chip" data-map="" aria-pressed="true"><span>Toutes</span></button>'
                  + "".join(f'<button type="button" class="map-chip" data-map="{b.lower()}" aria-pressed="false" title="{html_escape(medals_mod.map_label(b))} · {", ".join("S" + str(x) for x in sorted(set(ss), reverse=True))}">'
                            f'{map_thumb(b, "map-chip-img")}</button>' for b, ss in used.items()) + "</div>")
-    return (f'<h2>Meilleures attaques</h2>{chips}<div class="table-scroll"><table class="sortable raid-table atk-top" data-atk-base="{prefix}data/"><thead><tr>{head}</tr></thead><tbody>{body}</tbody></table></div>'
-            '<p class="raid-explain">Dégâts relatifs à la moyenne de la guilde sur la saison (même boss, même boucle), saisons enregistrées, boss L4, L5, M1, M2 et M3, membres actuels</p>')
+    return (f'<h2>Meilleures attaques</h2>{chips}<div class="table-scroll"><table class="sortable raid-table atk-top" data-atk-base="{prefix}data/"><thead><tr>{head}</tr></thead><tbody>{body}</tbody></table></div>')
 
 
 def render_metas_page(all_wars):
@@ -2890,7 +2960,7 @@ def render_boss_pages(all_wars):
     print(f"Generated records.html + {len(slots)} boss page(s)")
 
 
-def render_players_pages(war_rank=None, raid_rank=None, medals=None):
+def render_players_pages(war_rank=None, raid_rank=None, medals=None, badges=None):
     """docs/joueurs.html (member list) + docs/joueurs/<id>.html (one roster each),
     from the API payloads in data/rosters/ (see fetch_rosters.py). Skipped when there are none."""
     rosters = rosters_mod.load_rosters()
@@ -2908,7 +2978,7 @@ def render_players_pages(war_rank=None, raid_rank=None, medals=None):
     for r in rosters:
         html = render_page(
             nav_active="players", title=r["name"], asset_prefix="../", body=rosters_mod.render_player_body(r, "../", war=(war_rank or {}).get(r["uid"]), medals=(medals or {}).get(r["uid"]),
-                                                raid=(raid_rank or {}).get(r["uid"]), raid_known=bool(raid_rank)),
+                                                raid=(raid_rank or {}).get(r["uid"]), raid_known=bool(raid_rank), badges=(badges or {}).get(r["uid"], ())),
             back_link=back_link_html("../joueurs.html", "Joueurs"), title_class="", header_extra="",
             header_action=(f'<span class="role-inline">· {roles[r["uid"]]}</span>' if r["uid"] in roles else ""), v=ASSETS_VERSION,
             bg=player_background((war_rank or {}).get(r["uid"]), (raid_rank or {}).get(r["uid"])),
@@ -2984,7 +3054,8 @@ def main():
     render_strategy_index(all_wars)
     render_defenses_page(all_wars)
     members = {r["uid"] for r in rosters_mod.load_rosters()}
-    render_players_pages(war_rank, raid_rank=medals_mod.raid_ranking(members), medals=compute_medals(seasons))
+    medals = compute_medals(seasons)
+    render_players_pages(war_rank, raid_rank=medals_mod.raid_ranking(members), medals=medals, badges=compute_badges(seasons, medals))
     render_raid_pages(all_wars)
     render_boss_pages(all_wars)
     render_metas_page(all_wars)
