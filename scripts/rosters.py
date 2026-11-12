@@ -9,6 +9,7 @@ level, ability levels and equipment. Rarity / stars / rank are decoded from the
 API's progressionIndex and rank exactly as the planner does.
 """
 import glob
+import collections
 import json
 import math
 import os
@@ -246,6 +247,7 @@ RELIC_NAMES = {
     "R_Defensive_Thrydderghyre": "Thrydderghyre", "R_Booster_Crit_KardiocoreGalvanus": "Kardiocore Galvanus",
     "R_Booster_Crit_PhasalSubjugator": "Phasal Subjugator", "R_Booster_Crit_NetherRealmCasket": "Nether-Realm Casket",
     "R_Crit_Dw02AdvancedBurstCannon": "DW-02 Advanced Burst Cannon", "R_Crit_DawnBlade": "Dawn Blade",
+    "R_Booster_Crit_IntoxicatingElixir": "Intoxicating Elixir", "R_Booster_Crit_TalismanOfRage": "Talisman of Rage",
 }
 KILLCHOPPA, NORN_CROWN, BOOK_OF_FATE = "R_Crit_HeadwoppasKillchoppa", "R_Booster_Block_NornCrown", "R_Booster_Crit_BookOfFate"
 TALON_OF_HORUS, VITARUS, THRYDDERGHYRE = "R_Crit_TalonOfHorus", "R_Crit_Vitarus", "R_Defensive_Thrydderghyre"
@@ -270,32 +272,74 @@ def _m(uid, ab):
     return (uid, {"ab": ab[:2], "stars": MYTHIC_ABILITY_STARS[ab[2]], "mow": True})
 
 
+def _ms(uid, ab, stars):
+    """Machine of war given by its star count (ability levels ab)."""
+    return (uid, {"ab": ab, "stars": stars, "mow": True})
+
+
+# "Niche" units do not count in the completion %, and the metas table only shows how many of them the player has complete
+# ("X Niche", X = how many units the meta lists as niche); the meta dialogs list them all. Units with a known relic must carry it at level 1 at least when no level is given.
 RAID_METAS = [
     ("Lavistodes", {
         "Core": [_h("emperExultant", [60, 36], W), _h("custoBladeChampion", [60, 60], W), _h("custoTrajann", [50, 60], 13),
                  _h("orksWarboss", [60, 60], 13, relic=(KILLCHOPPA, 1)), _h("custoVexilusPraetor", [60, 50], 13), _h("custoAtlacoya", [60, 36], 11)],
-        "Flex": [_h("bloodDante", [36, 60], 11), _h("worldKharn", [60, 60], 13), _h("admecDominus", [50, 60], 13),
-                 _h("worldExecutions", [60, 60], 13), _h("adeptCanoness", [50, 60], 11)],
-        "Machines": [_m("tyranBiovore", [60, 60, 4]), _m("deathCrawler", [1, 36, 4])]}),
+        "Flex": [_h("bloodDante", [36, 60], 11), _h("worldKharn", [60, 60], 13), _h("admecDominus", [50, 60], 13)],
+        "Machines": [_m("tyranBiovore", [60, 60, 4]), _m("deathCrawler", [1, 36, 4])],
+        "Niche": [_h("worldExecutions", [60, 60], 13), _h("adeptCanoness", [50, 60], 11), _h("spaceBlackmane", [60, 60], 11),
+                  _h("templHelbrecht", [60, 60], 11), _h("blackAbaddon", [60, 60], 11, relic=(TALON_OF_HORUS, 1)),
+                  _ms("blackForgefiend", [50, 35], 8)]}),
     ("Neuro", {
         "Core": [_h("tyranNeurothrope", [36, 60], 11, relic=(NORN_CROWN, 10)), _h("thousAhriman", [50, 60], 11), _h("thousInfernalMaster", [60, 60], 11, relic=(BOOK_OF_FATE, 10)),
                  _h("blackPossession", [60, 35], 11, relic=(BOOK_OF_FATE, 10)), _h("blackAbaddon", [60, 60], 11, relic=(TALON_OF_HORUS, 1))],
-        "Flex": [_h("thousTzaangor", [35, 35], 11, relic=(THRYDDERGHYRE, 1)), _h("bloodMephiston", [36, 60], 11, relic=(VITARUS, 1))],
-        "Machines": [_m("thousDaemonPrince", [60, 35, 4])]}),
+        "Machines": [_m("thousDaemonPrince", [60, 35, 4])],
+        "Niche": [_h("thousTzaangor", [35, 35], 11, relic=(THRYDDERGHYRE, 1)), _h("bloodMephiston", [36, 60], 11, relic=(VITARUS, 1))]}),
     ("Battlesuit", {
         "Core": [_h("tauCrisis", [50, 60], W, relic=(DW02, 10)), _h("tauFarsight", [60, 60], 11, relic=(DAWN_BLADE, 10)), _h("eldarLhykhis", [35, 60], 12),
                  _h("admecManipulus", [50, 50], 11), _h("tauDarkstrider", [35, 60], 12)],
-        "Machines": [_m("necroReanimator", [50, 60, 4]), _m("deathCrawler", [1, 36, 4])]}),
+        "Machines": [_m("necroReanimator", [50, 60, 4])],
+        "Niche": [_m("deathCrawler", [1, 36, 4])]}),
     ("Méchas", {
         "Core": [_h("admecRuststalker", [60, 60], W, relic=(KARDIOCORE, 10)), _h("admecMarshall", [50, 60], 11, relic=(KARDIOCORE, 1)), _h("necroOverlord", [60, 50], 11, relic=(PHASAL, 10)),
                  _h("votanMemnyr", [60, 60], 11), _h("admecDominus", [35, 60], 11)],
         "Flex": [_h("custoTrajann", [36, 60], 11, D3), _h("templHelbrecht", [60, 60], 11, D3), _h("tauMarksman", [50, 60], 11),
-                 _h("necroSpyder", [50, 50], 11, D3, relic=(NETHER_CASKET, 1)), _h("admecManipulus", [50, 50], 11, D3)],
-        "Machines": [_m("necroReanimator", [50, 60, 4]), _m("tyranBiovore", [60, 60, 4])]}),
+                 _h("admecManipulus", [50, 50], 11, D3)],
+        "Machines": [_m("necroReanimator", [50, 60, 4]), _m("tyranBiovore", [60, 60, 4])],
+        "Niche": [_h("necroSpyder", [50, 50], 11, D3, relic=(NETHER_CASKET, 1)), _h("tauCrisis", [60, 60], 11, relic=(DW02, 1)),
+                  _ms("blackForgefiend", [50, 35], 8)]}),
 ]
+UNIT_RELIC = {}  # unit -> the relic it can carry, as far as the metas and the rosters show
+
+
+def apply_default_relics(rosters=None):
+    """A unit of a meta that can carry a relic (the metas name it, or players have it equipped) must carry it at level 1 at least when the
+    meta gives no relic level: the requirement is added here (and counts like any relic requirement)."""
+    seen = {}
+    for r in (load_rosters() if rosters is None else rosters):
+        for u in r["units"]:
+            for it in u.get("items", []):
+                if it["id"].startswith("R_"):
+                    seen.setdefault(u["id"], collections.Counter())[it["id"]] += 1
+    UNIT_RELIC.clear()
+    for _team, roles in RAID_METAS:
+        for entries in roles.values():
+            for uid, req in entries:
+                if req.get("relic"):
+                    UNIT_RELIC.setdefault(uid, req["relic"][0])
+    for uid, c in seen.items():
+        UNIT_RELIC.setdefault(uid, c.most_common(1)[0][0])
+    for team, roles in RAID_METAS:
+        for role, entries in roles.items():
+            for uid, req in entries:
+                if not req.get("relic") and uid in UNIT_RELIC:
+                    req["relic"] = (UNIT_RELIC[uid], 1)
+                    print(f"[rosters] relic level 1 required: {team} / {role} / {uid} ({UNIT_RELIC[uid]})")
+
+
 ARROW_RIGHT = ('<svg class="arrow" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" '
                'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>')
 ROLES = ["Core", "Flex", "Machines"]
+NICHE = "Niche"  # key of the extra role of a meta (units that are not counted in the completion %); shown as ULTRA_FLEX
+ULTRA_FLEX = "Ultra-Flex"
 # Unit whose portrait symbolises each meta
 META_ICON = {"Lavistodes": "custoBladeChampion", "Neuro": "tyranNeurothrope", "Battlesuit": "tauCrisis", "Méchas": "admecRuststalker"}
 ROLE_SHORT = {"Core": "Core", "Flex": "Flex", "Machines": "MOW"}
@@ -435,7 +479,7 @@ def _mini_relic(req, owned, prefix):
     if not has_relic(owned, rid):  # not carried by the unit: nothing shown
         return ""
     have = relic_level(owned, rid)
-    return (f'<span class="mu-relic" title="{escape(RELIC_NAMES.get(rid, rid))} : niveau {have} sur {need}">{relic_icon(rid, prefix)}'
+    return (f'<span class="mu-relic" title="{escape(RELIC_NAMES.get(rid, rid))} : niveau {have}{f" sur {need}" if need > 1 else ""}">{relic_icon(rid, prefix)}'
             f'<span class="mu-relic-lvl">{have}</span></span>')
 
 
@@ -497,7 +541,8 @@ def _relic_cell(req, u, prefix):
     if not has_relic(u, rid):  # not carried: just the icon, no "level / required"
         return relic_icon(rid, prefix)
     have = relic_level(u, rid)
-    return f'{relic_icon(rid, prefix)}<span class="mm-have {"ok" if have >= need else "ko"}">{have}</span><small class="mm-relic-need">{need}</small>'
+    required = f'<small class="mm-relic-need">{need}</small>' if need > 1 else ""  # a level 1 is never shown as a requirement
+    return f'{relic_icon(rid, prefix)}<span class="mm-have {"ok" if have >= need else "ko"}">{have}</span>{required}'
 
 
 # Worked examples for the method block: (label, progression index, level, API rank, ability levels), judged against the maximum requirement.
@@ -540,11 +585,11 @@ def _meta_modal(idx, team, roles, owned, names, prefix, who=None, href=None):
     relic, and the unit's completion; `who` (the player's name) goes next to the meta's name, with a "Voir le roster" button
     to their page (`href`) when given (players list)."""
     body = ""
-    for role in ROLES:
+    for role in ["Core", "Flex", NICHE, "Machines"]:  # Niche: listed here (above the MOW), but not counted in the % and not shown in the table
         entries = roles.get(role)
         if not entries:
             continue
-        label = ROLE_SHORT[role] if role == "Machines" else role
+        label = ROLE_SHORT[role] if role == "Machines" else ULTRA_FLEX if role == NICHE else role
         body += f'<tr class="mm-role"><th>{label}</th><th></th><th></th><th></th><th></th><th></th></tr>'
         for uid, req in entries:
             name = escape(names.get(uid, uid))
@@ -598,11 +643,14 @@ def render_raid_metas(units, prefix="../"):
                    f'<div class="mbadge-body"><span class="mbadge-name">{escape(team)}</span><div class="mpcts">{pcts}</div></div></div>')
         got = dict(meta_pcts(owned, roles))
         cells = ""
+        niche = roles.get(NICHE, [])  # "X Ultra-Flex": how many units the meta lists as niche (not how many the player has); it follows the Flex %
         for role in ROLES:
             inner = "".join(_mini_unit(i, owned.get(i), names, prefix, req) for i, req in roles.get(role, [])) or '<span class="mnone">—</span>'
             pct = f'<span class="mrole-pct {_pct_class(got[role])}">{got[role]}%</span>' if role in got else ""
             title = f'<span class="mteam-title">{escape(team)}</span>' if role == ROLES[0] else ""  # the meta's name leads the Core cell
-            cells += f'<td data-label="{role}"><div class="mcell-head">{title}{pct}</div><div class="munits">{inner}</div></td>'
+            chip = (f'<span class="mniche" title="{len(niche)} unité{"s" if len(niche) > 1 else ""} {ULTRA_FLEX}, détaillée{"s" if len(niche) > 1 else ""} '
+                    f'dans la méta">{len(niche)} plus</span>') if role == "Flex" and niche else ""
+            cells += f'<td data-label="{role}"><div class="mcell-head">{title}{pct}{chip}</div><div class="munits">{inner}</div></td>'
         rows += (f'<tr role="button" tabindex="0" data-meta="meta-{idx}" title="Voir le détail de {escape(team)}">{cells}</tr>')
         modals += _meta_modal(idx, team, roles, owned, names, prefix)
     head = "".join(f"<th>{role}</th>" for role in ROLES)

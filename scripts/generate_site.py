@@ -418,7 +418,7 @@ PAGE_TEMPLATE = """<!doctype html>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230d1014'/%3E%3Cpath d='M16 6l8 10-8 10-8-10z' fill='%23f2b134'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="{asset_prefix}assets/style.css?v={v}">
 </head>
-<body data-page="{page}" data-bg="{bg}">
+<body data-page="{page}" data-bg="{bg}" data-subrow="{subrow}">
 {topbar}
 <header><div class="breadcrumb" id="breadcrumb">{back_link}</div><div id="title-row">{title_icon}<h1 id="page-title" class="{title_class}">{title}</h1><div id="header-action">{header_action}</div></div><div id="header-extra">{header_extra}</div></header>
 <main>
@@ -473,8 +473,7 @@ def render_topbar(prefix, active, sub=None):
             items += '<span class="topsub-sep" aria-hidden="true"></span>'
             items += "".join(link(href, label, key == cur) for key, href, label in seasons)
         sub_html = f'<div class="topsub"><div class="topsub-inner">{items}</div></div>'
-    else:  # no second row for this section: an empty one keeps the topbar (and so the page content) at the same height
-        sub_html = '<div class="topsub topsub-empty" aria-hidden="true"><div class="topsub-inner"></div></div>'
+
     return (
         '<nav class="topbar"><div class="topbar-inner">'
         f'<a class="brand" href="{prefix}index.html"><span class="brand-mark"></span>'
@@ -487,6 +486,7 @@ def render_topbar(prefix, active, sub=None):
 def render_page(nav_active="ranking", **kw):
     """PAGE_TEMPLATE.format with the top bar (needs asset_prefix) filled in."""
     kw["topbar"] = render_topbar(kw["asset_prefix"], nav_active, kw.get("nav_sub"))
+    kw["subrow"] = "1" if NAV_SECTION.get(nav_active, "war") in ("raid", "war") else "0"  # does the topbar have its second row?
     kw["page"] = kw.pop("page_kind", nav_active)  # data-page of <body> (CSS hooks); defaults to the menu entry
     kw.setdefault("title_icon", "")  # optional icon left of the title (boss pages)
     kw.setdefault("bg", "")  # Joueurs pages: which event banner (0-3) sits behind the page, see style.css
@@ -2837,6 +2837,7 @@ def main():
 
     all_wars = load_wars()
     PLAYER_SLUGS.update({r["uid"]: rosters_mod.player_slug(r["uid"]) for r in rosters_mod.load_rosters()})
+    rosters_mod.apply_default_relics()
 
     active_uids = frozenset()
     if all_wars:
