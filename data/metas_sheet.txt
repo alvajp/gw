@@ -1,0 +1,68 @@
+# Snapshot of the Google Sheet "Feuille d'armée JP" > tab "metas par boss" (the source of truth for the raid metas and the per-boss unit lists).
+# team|type (Core / Flex / Niche)|unit (sheet name)|rank (blank = machine of war)|stars|abilities|relic level|bosses that need the unit (sheet column names)
+# Niche units are not shown in the Metas view nor on the player pages, but they count for the bosses and primes that need them. Teams Rapid Assault, Forcasmo and Fire only feed the bosses.
+Lavistodes|Core|Laviscus|A2|skulled|60/36||Magnus,Mortarion,Lion,Szarekh,Cawl,Dorn,Avatar,Screamer
+Lavistodes|Core|Kariyan|A2|skulled|60/60||Magnus,Mortarion,Lion,Szarekh,Cawl,Dorn,Avatar,Screamer
+Lavistodes|Core|Trajann|A2|3 étoiles bleues|50/60||Magnus,Mortarion,Lion,Szarekh,Cawl,Dorn,Avatar,Screamer
+Lavistodes|Core|Aesoth|A2|2 étoiles bleues|60/36||Magnus,Lion,Szarekh,Avatar,Screamer
+Lavistodes|Core|Boss G|A2|3 étoiles bleues|60/60||Mortarion,Szarekh,Dorn,Avatar,Screamer
+Lavistodes|Core|Atlacoya|A2|1 étoile bleue|60/36||Magnus,Mortarion
+Lavistodes|Core|Biovore||skulled|60/60||Magnus,Mortarion,Lion,Szarekh,Cawl,Dorn,Avatar
+Lavistodes|Flex|Kharn|A2|3 étoiles bleues|60/60||Magnus,Cawl,Dorn,Avatar
+Lavistodes|Flex|Dante|A2|1 étoile bleue|36/60||Lion,Cawl
+Lavistodes|Flex|Vitruvius|A2|3 étoiles bleues|50/60||Dorn,Avatar
+Lavistodes|Flex|Roswitha|A2|1 étoile bleue|60/60||Magnus,Mortarion
+Lavistodes|Flex|PBC||skulled|1/36||Screamer
+Battlesuit|Core|Revas|A2|skulled|60/60|10|Magnus,Szarekh,Gazhghkull
+Battlesuit|Core|Farsight|A2|1 étoile bleue|60/60|10|Magnus,Szarekh,Gazhghkull
+Battlesuit|Core|Darkstrider|A2|2 étoiles bleues|35/60||Magnus,Szarekh,Gazhghkull
+Battlesuit|Core|Actus|A2|1 étoile bleue|50/50||Magnus,Szarekh,Gazhghkull
+Battlesuit|Core|Lhykhis|A2|2 étoiles bleues|36/60||Magnus,Szarekh,Gazhghkull
+Battlesuit|Core|Réa||skulled|50/60||Magnus
+Battlesuit|Flex|PBC||skulled|1/36||Szarekh,Gazhghkull
+Neuro|Core|Abaddon|A2|1 étoile bleue|60/60||Lion,Forcas,Menhirs,Sybill,Riptide
+Neuro|Core|Neuro|A2|1 étoile bleue|35/60|10|Lion,Forcas,Menhirs,Tangida,Sybill,Riptide
+Neuro|Core|Abraxas|A2|1 étoile bleue|60/60|10|Lion,Forcas,Menhirs,Tangida,Sybill,Riptide
+Neuro|Core|Archimatos|A2|1 étoile bleue|60/35|10|Lion,Forcas,Menhirs,Tangida,Sybill,Riptide
+Neuro|Core|Ahriman|A2|1 étoile bleue|50/60||Lion,Forcas,Menhirs,Tangida,Sybill,Riptide
+Neuro|Core|Zkar||skulled|60/35||Lion,Forcas,Menhirs,Tangida,Sybill,Riptide
+Neuro|Flex|Yazaghor|A2|1 étoile bleue|35/35||Tangida
+Neuro|Flex|Mephiston|A2|1 étoile bleue|36/60||Tangida
+Neuro|Flex|FF||3 étoiles rouges|50/35||
+Méchas|Core|Rho|A2|skulled|60/60|10|Abraxas,Thaumacus,Rotbone,Gibbascrapz,Dorn,Thaddeus,Aethana,Riptide,Sho,Re'vas,Screamer,Neuro,Tyrant,Tervigon,Primes
+Méchas|Core|Tan|A2|1 étoile bleue|50/60||Abraxas,Thaumacus,Rotbone,Gibbascrapz,Dorn,Thaddeus,Aethana,Riptide,Sho,Re'vas,Screamer,Neuro,Tyrant,Tervigon,Primes
+Méchas|Core|Anuphet|A2|1 étoile bleue|60/50|10|Rotbone,Gibbascrapz,Dorn,Thaddeus,Riptide,Re'vas,Screamer,Neuro,Tyrant,Tervigon,Primes
+Méchas|Core|Ammuk|A2|1 étoile bleue|60/60||Gibbascrapz,Dorn,Thaddeus,Riptide,Sho,Screamer,Neuro,Tyrant,Tervigon,Primes
+Méchas|Core|Vitruvius|A2|1 étoile bleue|35/60||Rotbone,Gibbascrapz,Dorn,Thaddeus,Screamer,Primes
+Méchas|Core|Réa||skulled|50/60||Rotbone,Gibbascrapz,Thaddeus,Riptide,Sho,Re'vas,Screamer,Neuro,Tyrant,Tervigon,Primes
+Méchas|Core|Biovore||skulled|60/60||Thaumacus,Rotbone,Dorn,Aethana
+Méchas|Flex|Trajann|D3|1 étoile bleue|36/60||Riptide
+Méchas|Flex|Actus|D3|1 étoile bleue|50/50||Abraxas,Thaumacus,Aethana
+Méchas|Flex|Sho|A2|1 étoile bleue|50/60||Rotbone,Aethana
+Méchas|Niche|Re'vas|D3|1 étoile bleue|60/60||Abraxas
+Méchas|Niche|Aleph Null|D3|1 étoile bleue|50/50||Sho
+Méchas|Flex|Helbrecht|D3|1 étoile bleue|60/60||Abraxas,Thaumacus,Neuro,Tyrant,Tervigon
+Méchas|Niche|Sybill|G1|3 étoiles rouges|35/35||Re'vas
+Méchas|Niche|Boss G|A2|1 étoile bleue|60/60||Thaumacus,Aethana,Sho,Re'vas
+Méchas|Niche|FF||3 étoiles rouges|50/35||Abraxas
+Rapid Assault|Niche|Ragnar|A2|1 étoile bleue|60/60||Tankrazeur,Eldryon
+Rapid Assault|Niche|Kariyan|A2|1 étoile bleue|60/60||Baraquiel,Actus,Tankrazeur,Eldryon
+Rapid Assault|Niche|Trajann|A2|1 étoile bleue|50/60||Baraquiel,Actus
+Rapid Assault|Niche|Kharn|A2|1 étoile bleue|60/60||Baraquiel,Actus,Tankrazeur,Eldryon
+Rapid Assault|Niche|Dante|A2|1 étoile bleue|36/60||Baraquiel,Actus,Tankrazeur,Eldryon
+Rapid Assault|Niche|Biovore||skulled|60/60||Baraquiel,Actus,Tankrazeur,Eldryon
+Rapid Assault|Niche|Abaddon|A2|1 étoile bleue|60/60||Actus,Tankrazeur
+Rapid Assault|Niche|Helbrecht|A2|1 étoile bleue|60/60||Eldryon
+Rapid Assault|Niche|Aunshi|D3|1 étoile bleue|50/50||Baraquiel
+Forcasmo|Niche|Ragnar|A2|1 étoile bleue|60/60||Corrodius
+Forcasmo|Niche|Forcas|A2|1 étoile bleue|35/60||Corrodius
+Forcasmo|Niche|Asmodai|D3|1 étoile bleue|50/50||Corrodius
+Forcasmo|Niche|Aunshi|D3|1 étoile bleue|50/50||Corrodius
+Forcasmo|Niche|Calgar|D3|1 étoile bleue|50/50||Corrodius
+Forcasmo|Niche|FF||3 étoiles rouges|50/35||Corrodius
+Fire|Niche|Vindicta|D3|1 étoile bleue|50/50||WTP
+Fire|Niche|Thaddeus|D3|1 étoile bleue|35/35||WTP
+Fire|Niche|Re'vas|A2|1 étoile bleue|60/60||WTP
+Fire|Niche|Abraxas|A2|1 étoile bleue|60/60||WTP
+Fire|Niche|Ahriman|A2|1 étoile bleue|60/60||WTP
+Fire|Niche|Zkar||skulled|60/35||WTP

@@ -13,6 +13,7 @@ import collections
 import json
 import math
 import os
+import re
 from datetime import datetime
 from html import escape
 
@@ -66,7 +67,7 @@ def stars_html(stars, prefix="../"):
     return "".join(f'<img class="st-img st-blue" src="{ui}star_blue.png" alt="">' for _ in range(stars - 10))
 
 
-def rank_label(rank):
+def rank_name(rank):
     """API rank 0 = Stone I ... 20 = Adamantine III."""
     tier = min(rank // 3, len(RANK_TIERS) - 1)
     return f"{RANK_TIERS[tier]} {ROMAN[rank % 3]}"
@@ -162,7 +163,7 @@ def unit_card(u, order, prefix):
             else:
                 items += '<i class="it it-empty"></i>'
         items = f'<div class="rc-items">{items}</div>'
-    title = f'{u["name"]} — {RARITIES[rarity]}' + ("" if mow else f', {rank_label(u["rank"])}') + f', niveau {u["xpLevel"]}'
+    title = f'{u["name"]} — {RARITIES[rarity]}' + ("" if mow else f', {rank_name(u["rank"])}') + f', niveau {u["xpLevel"]}'
     return (
         f'<div class="rc rar-{RARITY_KEYS[rarity]}" data-i="{order}" data-name="{escape(u["name"].lower())}" '
         f'data-rar="{rarity}" data-stars="{stars}" data-rank="{0 if mow else u["rank"] + 1}" data-level="{u["xpLevel"]}" '
@@ -255,9 +256,9 @@ KARDIOCORE, PHASAL, NETHER_CASKET = "R_Booster_Crit_KardiocoreGalvanus", "R_Boos
 DW02, DAWN_BLADE = "R_Crit_Dw02AdvancedBurstCannon", "R_Crit_DawnBlade"
 
 
-def _h(uid, ab, stars, rank=A2, relic=None):
-    """Hero requirement; the level needed is the cap of the rank (A2 -> 60, Diamond 3 -> 50). relic = (relic id, minimum level)."""
-    req = {"ab": ab, "stars": stars, "rank": rank, "level": 60 if rank >= A2 else 50}
+def _h(uid, ab, stars, rank=A2, relic=None, level=None):
+    """Hero requirement; the level needed is the cap of the rank (A2 -> 60, Diamond 3 -> 50) unless given. relic = (relic id, minimum level)."""
+    req = {"ab": ab, "stars": stars, "rank": rank, "level": level or (60 if rank >= A2 else 50)}
     if relic:
         req["relic"] = relic
     return (uid, req)
@@ -277,36 +278,75 @@ def _ms(uid, ab, stars):
     return (uid, {"ab": ab, "stars": stars, "mow": True})
 
 
-# "Niche" units do not count in the completion %, and the metas table only shows how many of them the player has complete
-# ("X Niche", X = how many units the meta lists as niche); the meta dialogs list them all. Units with a known relic must carry it at level 1 at least when no level is given.
-RAID_METAS = [
-    ("Lavistodes", {
-        "Core": [_h("emperExultant", [60, 36], W), _h("custoBladeChampion", [60, 60], W), _h("custoTrajann", [50, 60], 13),
-                 _h("orksWarboss", [60, 60], 13, relic=(KILLCHOPPA, 1)), _h("custoVexilusPraetor", [60, 50], 13), _h("custoAtlacoya", [60, 36], 11)],
-        "Flex": [_h("bloodDante", [36, 60], 11), _h("worldKharn", [60, 60], 13), _h("admecDominus", [50, 60], 13)],
-        "Machines": [_m("tyranBiovore", [60, 60, 4]), _m("deathCrawler", [1, 36, 4])],
-        "Niche": [_h("worldExecutions", [60, 60], 13), _h("adeptCanoness", [50, 60], 11), _h("spaceBlackmane", [60, 60], 11),
-                  _h("templHelbrecht", [60, 60], 11), _h("blackAbaddon", [60, 60], 11, relic=(TALON_OF_HORUS, 1)),
-                  _ms("blackForgefiend", [50, 35], 8)]}),
-    ("Neuro", {
-        "Core": [_h("tyranNeurothrope", [36, 60], 11, relic=(NORN_CROWN, 10)), _h("thousAhriman", [50, 60], 11), _h("thousInfernalMaster", [60, 60], 11, relic=(BOOK_OF_FATE, 10)),
-                 _h("blackPossession", [60, 35], 11, relic=(BOOK_OF_FATE, 10)), _h("blackAbaddon", [60, 60], 11, relic=(TALON_OF_HORUS, 1))],
-        "Machines": [_m("thousDaemonPrince", [60, 35, 4])],
-        "Niche": [_h("thousTzaangor", [35, 35], 11, relic=(THRYDDERGHYRE, 1)), _h("bloodMephiston", [36, 60], 11, relic=(VITARUS, 1))]}),
-    ("Battlesuit", {
-        "Core": [_h("tauCrisis", [50, 60], W, relic=(DW02, 10)), _h("tauFarsight", [60, 60], 11, relic=(DAWN_BLADE, 10)), _h("eldarLhykhis", [35, 60], 12),
-                 _h("admecManipulus", [50, 50], 11), _h("tauDarkstrider", [35, 60], 12)],
-        "Machines": [_m("necroReanimator", [50, 60, 4])],
-        "Niche": [_m("deathCrawler", [1, 36, 4])]}),
-    ("Méchas", {
-        "Core": [_h("admecRuststalker", [60, 60], W, relic=(KARDIOCORE, 10)), _h("admecMarshall", [50, 60], 11, relic=(KARDIOCORE, 1)), _h("necroOverlord", [60, 50], 11, relic=(PHASAL, 10)),
-                 _h("votanMemnyr", [60, 60], 11), _h("admecDominus", [35, 60], 11)],
-        "Flex": [_h("custoTrajann", [36, 60], 11, D3), _h("templHelbrecht", [60, 60], 11, D3), _h("tauMarksman", [50, 60], 11),
-                 _h("admecManipulus", [50, 50], 11, D3)],
-        "Machines": [_m("necroReanimator", [50, 60, 4]), _m("tyranBiovore", [60, 60, 4])],
-        "Niche": [_h("necroSpyder", [50, 50], 11, D3, relic=(NETHER_CASKET, 1)), _h("tauCrisis", [60, 60], 11, relic=(DW02, 1)),
-                  _ms("blackForgefiend", [50, 35], 8)]}),
-]
+# "Niche" units (the sheet's type) are not shown in the Metas view nor on the player pages and do not count in a meta's %; they only serve the bosses and
+# primes that need them. Units with a known relic must carry it at level 1 at least when no level is given.
+G1 = 12  # Gold I (level cap 35)
+
+# --- the metas and the per-boss unit lists come from the Google Sheet "Feuille d'armée JP" > "metas par boss" (snapshot: data/metas_sheet.txt) ---
+SHEET_PATH = os.path.join(ROOT, "data", "metas_sheet.txt")
+SHEET_RANKS = {"A2": (A2, 60), "D3": (D3, 50), "G1": (G1, 35)}  # rank -> (API rank, level cap)
+SHEET_UNITS = {  # the sheet's unit names -> unit ids
+    "Laviscus": "emperExultant", "Kariyan": "custoBladeChampion", "Trajann": "custoTrajann", "Aesoth": "custoVexilusPraetor", "Boss G": "orksWarboss",
+    "Atlacoya": "custoAtlacoya", "Biovore": "tyranBiovore", "Kharn": "worldKharn", "Dante": "bloodDante", "Vitruvius": "admecDominus",
+    "Roswitha": "adeptCanoness", "PBC": "deathCrawler", "Revas": "tauCrisis", "Re'vas": "tauCrisis", "Farsight": "tauFarsight",
+    "Darkstrider": "tauDarkstrider", "Actus": "admecManipulus", "Lhykhis": "eldarLhykhis", "Réa": "necroReanimator", "Abaddon": "blackAbaddon",
+    "Neuro": "tyranNeurothrope", "Abraxas": "thousInfernalMaster", "Archimatos": "blackPossession", "Ahriman": "thousAhriman",
+    "Zkar": "thousDaemonPrince", "Yazaghor": "thousTzaangor", "Mephiston": "bloodMephiston", "FF": "blackForgefiend", "Rho": "admecRuststalker",
+    "Tan": "admecMarshall", "Anuphet": "necroOverlord", "Ammuk": "votanMemnyr", "Sho": "tauMarksman", "Aleph Null": "necroSpyder",
+    "Helbrecht": "templHelbrecht", "Sybill": "astraPrimarisPsy", "Ragnar": "spaceBlackmane", "Aunshi": "tauAunShi", "Forcas": "darkaCompanion",
+    "Asmodai": "darkaAsmodai", "Calgar": "ultraCalgar", "Vindicta": "adeptRetributor", "Thaddeus": "astraOrdnance",
+}
+SHEET_RELICS = {  # the relic each unit carries when the sheet asks for one (the sheet only gives the level)
+    "tauCrisis": DW02, "tauFarsight": DAWN_BLADE, "tyranNeurothrope": NORN_CROWN, "thousInfernalMaster": BOOK_OF_FATE,
+    "blackPossession": BOOK_OF_FATE, "admecRuststalker": KARDIOCORE, "necroOverlord": PHASAL,
+}
+SHEET_BOSSES = {  # the sheet's boss columns -> the keys of the site's boss slots (medals.slots())
+    "Magnus": "Magnus", "Thaumacus": "GuildBoss9MiniBoss1ThousSorcerer", "Abraxas": "GuildBoss9MiniBoss2ThousInfernalMaster",
+    "Lion": "Lion", "Baraquiel": "GuildBoss12MiniBoss1DarkaTerminator", "Forcas": "GuildBoss12MiniBoss2DarkaCompanion",
+    "Szarekh": "SilentKing", "Menhirs": "GuildBoss3Minion3NecroMenhir", "Mortarion": "Mortarion",
+    "Rotbone": "GuildBoss5MiniBoss1DeathRotbone", "Corrodius": "GuildBoss5MiniBoss2DeathBlightbringer", "Gazhghkull": "Ghazghkull",
+    "Gibbascrapz": "GuildBoss4MiniBoss1OrksBigMek", "Tankrazeur": "GuildBoss4MiniBoss2OrksNob", "Cawl": "BelisariusRW",
+    "Tangida": "GuildBoss10MiniBoss1AdmecMarshall", "Actus": "GuildBoss10MiniBoss2AdmecManipulus", "Riptide": "Riptide",
+    "Sho": "GuildBoss11MiniBoss1TauMarksman", "Re'vas": "GuildBoss11MiniBoss2TauCrisis", "Screamer": "ScreamerKiller",
+    "Neuro": "GuildBoss6MiniBoss1TyranNeurothrope", "WTP": "GuildBoss6MiniBoss2TyranWingedPrime", "Dorn": "RogalDorn",
+    "Sybill": "GuildBoss7MiniBoss1AstraPrimarisPsy", "Thaddeus": "GuildBoss7MiniBoss2AstraOrdnance", "Avatar": "AvatarOfKhaine",
+    "Aethana": "GuildBoss8MiniBoss1EldarAutarch", "Eldryon": "GuildBoss8MiniBoss2EldarFarseer", "Tervigon": "Tervigon",
+    "Primes": "TyranPrimus", "Tyrant": "HiveTyrant",
+}
+SHOWN_METAS = ["Lavistodes", "Neuro", "Battlesuit", "Méchas"]  # the other teams of the sheet only feed the bosses for now
+
+
+def _sheet_stars(label):
+    n = int(label.split()[0]) if label[0].isdigit() else 1
+    return 14 if label == "skulled" else 10 + n if "bleue" in label else 5 + n
+
+
+def load_sheet():
+    """-> (teams {team: {"Core": [(unit id, requirement)], "Flex": [...]}}, boss rows {slot key: [(unit id, requirement)]}, boss groups
+    {slot key: [((team, role), [(unit id, requirement)])]} for the dialogs). A unit with no
+    rank is a machine of war; the same requirement object serves its team and every boss that needs it."""
+    teams, boss_rows, groups = {}, collections.defaultdict(list), collections.defaultdict(dict)
+    with open(SHEET_PATH, encoding="utf-8") as f:
+        for line in f:
+            line = line.rstrip("\n")
+            if not line or line.startswith("#"):
+                continue
+            team, role, name, rank, stars, abilities, relic, bosses = line.split("|")
+            uid, ab, st = SHEET_UNITS[name], [int(x) for x in abilities.split("/")], _sheet_stars(stars)
+            if rank:
+                r, level = SHEET_RANKS[rank]
+                entry = _h(uid, ab, st, r, relic=(SHEET_RELICS[uid], int(relic)) if relic else None, level=level)
+            else:
+                entry = _m(uid, ab + [st - 10]) if st >= 11 else _ms(uid, ab, st)
+            teams.setdefault(team, {}).setdefault(role, []).append(entry)
+            for b in filter(None, bosses.split(",")):
+                boss_rows[SHEET_BOSSES[b]].append(entry)
+                groups[SHEET_BOSSES[b]].setdefault((team, role), []).append(entry)
+    return teams, dict(boss_rows), {k: list(v.items()) for k, v in groups.items()}
+
+
+ALL_TEAMS, BOSS_ROWS, BOSS_GROUPS = load_sheet()
+RAID_METAS = [(team, ALL_TEAMS[team]) for team in SHOWN_METAS]
 UNIT_RELIC = {}  # unit -> the relic it can carry, as far as the metas and the rosters show
 
 
@@ -320,14 +360,14 @@ def apply_default_relics(rosters=None):
                 if it["id"].startswith("R_"):
                     seen.setdefault(u["id"], collections.Counter())[it["id"]] += 1
     UNIT_RELIC.clear()
-    for _team, roles in RAID_METAS:
+    for _team, roles in ALL_TEAMS.items():
         for entries in roles.values():
             for uid, req in entries:
                 if req.get("relic"):
                     UNIT_RELIC.setdefault(uid, req["relic"][0])
     for uid, c in seen.items():
         UNIT_RELIC.setdefault(uid, c.most_common(1)[0][0])
-    for team, roles in RAID_METAS:
+    for team, roles in ALL_TEAMS.items():
         for role, entries in roles.items():
             for uid, req in entries:
                 if not req.get("relic") and uid in UNIT_RELIC:
@@ -337,12 +377,12 @@ def apply_default_relics(rosters=None):
 
 ARROW_RIGHT = ('<svg class="arrow" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" '
                'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>')
-ROLES = ["Core", "Flex", "Machines"]
-NICHE = "Niche"  # key of the extra role of a meta (units that are not counted in the completion %); shown as ULTRA_FLEX
-ULTRA_FLEX = "Ultra-Flex"
+ROLES = ["Core", "Flex"]
+NICHE = "Niche"  # the sheet's third type: units kept for the bosses and primes only
 # Unit whose portrait symbolises each meta
-META_ICON = {"Lavistodes": "custoBladeChampion", "Neuro": "tyranNeurothrope", "Battlesuit": "tauCrisis", "Méchas": "admecRuststalker"}
-ROLE_SHORT = {"Core": "Core", "Flex": "Flex", "Machines": "MOW"}
+META_ICON = {"Lavistodes": "custoBladeChampion", "Neuro": "tyranNeurothrope", "Battlesuit": "tauCrisis", "Méchas": "admecRuststalker",
+             "Rapid Assault": "spaceBlackmane", "Forcasmo": "darkaCompanion", "Fire": "adeptRetributor"}
+ROLE_SHORT = {"Core": "Core", "Flex": "Flex"}
 
 
 def _unit_names():
@@ -494,7 +534,7 @@ def _mini_unit(uid, owned, names, prefix, req=None):
         return f'<div class="mu mu-missing" title="{escape(name)} — non possédé">{art}<span class="mu-name">{escape(name)}</span>{relic}</div>'
     mow = is_mow(owned)
     rarity, stars = rarity_stars(owned["progressionIndex"])
-    title = f'{name} — {RARITIES[rarity]}' + ("" if mow else f', {rank_label(owned["rank"])}') + f', niveau {owned["xpLevel"]}'
+    title = f'{name} — {RARITIES[rarity]}' + ("" if mow else f', {rank_name(owned["rank"])}') + f', niveau {owned["xpLevel"]}'
     return (f'<div class="mu" title="{escape(title)}">{_portrait(owned, rarity, mow, stars, prefix)}'
             f'<span class="mu-name">{escape(name)}</span>{relic}</div>')
 
@@ -508,7 +548,7 @@ def _meta_icon(team, prefix):
 
 def rank_badge(rank, prefix):
     """The game's rank medal (assets/ui/rank_1..21.png = API rank 0..20) with its name as tooltip."""
-    return f'<img class="mm-rank" src="{prefix}assets/ui/rank_{min(max(rank, 0), 20) + 1}.png" alt="{rank_label(rank)}" title="{rank_label(rank)}">'
+    return f'<img class="mm-rank" src="{prefix}assets/ui/rank_{min(max(rank, 0), 20) + 1}.png" alt="{rank_name(rank)}" title="{rank_name(rank)}">'
 
 
 def stars_badge(stars, prefix):
@@ -580,17 +620,14 @@ def method_html():
     )
 
 
-def _meta_modal(idx, team, roles, owned, names, prefix, who=None, href=None):
-    """Per-meta dialog for one player (`owned` = their units by id): every unit's requirement next to what they have, the
-    relic, and the unit's completion; `who` (the player's name) goes next to the meta's name, with a "Voir le roster" button
-    to their page (`href`) when given (players list)."""
+def _modal_body(groups, owned, names, prefix):
+    """Table rows of a dialog: `groups` = [(label, [(unit id, requirement)])]; every unit's requirement next to what the player has, the relic
+    and the unit's completion."""
     body = ""
-    for role in ["Core", "Flex", NICHE, "Machines"]:  # Niche: listed here (above the MOW), but not counted in the % and not shown in the table
-        entries = roles.get(role)
+    for label, entries in groups:
         if not entries:
             continue
-        label = ROLE_SHORT[role] if role == "Machines" else ULTRA_FLEX if role == NICHE else role
-        body += f'<tr class="mm-role"><th>{label}</th><th></th><th></th><th></th><th></th><th></th></tr>'
+        body += f'<tr class="mm-role"><th>{escape(label)}</th><th></th><th></th><th></th><th></th><th></th></tr>'
         for uid, req in entries:
             name = escape(names.get(uid, uid))
             u = owned.get(uid)
@@ -599,7 +636,8 @@ def _meta_modal(idx, team, roles, owned, names, prefix, who=None, href=None):
             else:
                 need = req["ab"]
                 have = _levels(u, len(need))
-                ab = " / ".join(f'<span class="mm-have {"ok" if h >= n else "ko"}">{h}</span><small>{n}</small>' for h, n in zip(have, need))
+                ab = (" ".join(f'<span class="mm-have {"ok" if h >= n else "ko"}">{h}</span>' for h, n in zip(have, need))
+                      + ' <span class="mm-sep">/</span> ' + " ".join(f'<span class="mm-need">{n}</span>' for n in need))  # what the player has / what is required
                 st = rarity_stars(u["progressionIndex"])[1]
                 stars = _pair(stars_badge(st, prefix), stars_badge(req["stars"], prefix), st >= req["stars"])
                 if "rank" in req:
@@ -609,15 +647,64 @@ def _meta_modal(idx, team, roles, owned, names, prefix, who=None, href=None):
                 cells = f"<td>{ab}</td><td>{rank}</td><td>{stars}</td><td>{_relic_cell(req, u, prefix)}</td>"
             pc = round(100 * unit_completion(u, req))
             body += f'<tr><td class="mm-unit">{name}</td>{cells}<td class="mm-pct">{pc}%</td></tr>'
+    return body
+
+
+def _modal(dialog_id, icon, title, body, who=None, href=None, table_class=""):
     return (
-        f'<dialog class="meta-modal" id="meta-{idx}"><button type="button" class="mm-close" aria-label="Fermer">×</button>'
-        f'<h3>{_meta_icon(team, prefix)}<span class="mm-title">{escape(team)}'
+        f'<dialog class="meta-modal" id="{dialog_id}"><button type="button" class="mm-close" aria-label="Fermer">×</button>'
+        f'<h3>{icon}<span class="mm-title">{escape(title)}'
         + (f'<small class="mm-who">{escape(who)}</small>' if who else "")
         + (f'<a class="mm-roster-btn" href="{href}">Voir le roster{ARROW_RIGHT}</a>' if href else "")
         + '</span></h3>'
-        '<div class="mm-scroll"><table class="mm-table"><thead><tr><th>Unité</th><th>Capacités</th>'
+        f'<div class="mm-scroll"><table class="mm-table {table_class}"><thead><tr><th>Unité</th><th>Capacités</th>'
         f'<th>Rang</th><th>Étoiles</th><th>Relique</th><th>% {METHOD_BTN}</th></tr></thead><tbody>{body}</tbody></table></div></dialog>'
     )
+
+
+def _meta_modal(idx, team, roles, owned, names, prefix, who=None, href=None):
+    """Per-meta dialog for one player (`owned` = their units by id); `who` (the player's name) goes next to the meta's name, with a "Voir le
+    roster" button to their page (`href`) when given (players list). Niche units are not listed."""
+    groups = [(role, roles.get(role)) for role in ROLES]
+    return _modal(f"meta-{idx}", _meta_icon(team, prefix), team, _modal_body(groups, owned, names, prefix), who, href)
+
+
+def _boss_modal(dialog_id, slot, key, owned, names, prefix, who=None, href=None):
+    """Per-boss dialog for one player: the units the sheet lists for this boss, one block per team they come from (the meta's icon, name and
+    completion for this boss, like the meta table), each split into its roles."""
+    teams = collections.OrderedDict()
+    for (team, role), entries in sorted(BOSS_GROUPS.get(key, []), key=lambda g: ["Core", "Flex", NICHE].index(g[0][1])):
+        teams.setdefault(team, []).append((role, entries))
+    body = ""
+    best = boss_completion(owned, key)[1]
+    if best in teams:  # the best meta leads the dialog (the other teams keep the sheet's order)
+        teams = collections.OrderedDict([(best, teams[best])] + [(t, r) for t, r in teams.items() if t != best])
+    for team, roles in teams.items():
+        rows = [(uid, req) for _, entries in roles for uid, req in entries]
+        pct = round(100 * sum(unit_completion(owned.get(uid), req) for uid, req in rows) / len(rows))
+        mark = '<span class="mm-best">Meilleure meta</span>' if team == best else ""
+        if body:  # a fixed gap between two metas
+            body += '<tr class="mm-role mm-gap"><th colspan="6"></th></tr>'
+        body += (f'<tr class="mm-role mm-team"><th colspan="6"><span class="mcell-head">{_meta_icon(team, prefix)}<span class="mteam-title">{escape(team)}</span>'
+                 f'{mark}<span class="mrole-pct {_pct_class(pct)}">{pct}%</span></span></th></tr>')
+        body += _modal_body(roles, owned, names, prefix)
+    icon = f'<img class="meta-ico" src="{prefix}assets/{slot["art"]}" alt="" loading="lazy">'
+    return _modal(dialog_id, icon, slot["name"].split(" (")[0], body, who, href, table_class="mm-boss")
+
+
+def write_boss_modals(rosters, docs_dir):
+    """docs/joueurs/boss/<slug>.html: the 32 boss dialogs of one player, fetched by the players list when a boss percentage is clicked (960
+    dialogs would weigh the list page down). Ids bm-<row>-<boss>, the row being the player's place in the alphabetical list."""
+    names = _unit_names()
+    slots = list(enumerate(medals_mod.slots()))
+    out_dir = os.path.join(docs_dir, "joueurs", "boss")
+    os.makedirs(out_dir, exist_ok=True)
+    for pi, r in enumerate(sorted(rosters, key=lambda r: (r["name"].casefold(), r["name"]))):
+        owned = {u["id"]: u for u in r["units"]}
+        href = f'joueurs/{player_slug(r["uid"])}.html'
+        html = "".join(_boss_modal(f"bm-{pi}-{k}", s, s["key"], owned, names, "", who=r["name"], href=href) for k, s in slots if BOSS_GROUPS.get(s["key"]))
+        with open(os.path.join(out_dir, f'{player_slug(r["uid"])}.html'), "w", encoding="utf-8") as f:
+            f.write(html)
 
 
 def meta_pcts(owned, roles):
@@ -626,14 +713,27 @@ def meta_pcts(owned, roles):
             for role in ROLES if roles.get(role)]
 
 
+def boss_completion(owned, key):
+    """The best meta available for a boss: (completion 0..1, team, [(unit id, completion)] of that team, {team: completion}). A boss is fought
+    with one of the teams the sheet lists for it, so what counts is the team the player is closest to having ready."""
+    per_team = collections.OrderedDict()
+    for (team, _role), entries in BOSS_GROUPS.get(key, []):
+        per_team.setdefault(team, []).extend((uid, unit_completion(owned.get(uid), req)) for uid, req in entries)
+    if not per_team:
+        return None, None, [], {}
+    fracs = {t: sum(c for _, c in parts) / len(parts) for t, parts in per_team.items()}
+    best = max(fracs, key=fracs.get)  # first team on a tie (sheet order)
+    return fracs[best], best, per_team[best], fracs
+
+
 def _pct_html(pcts):
     return "".join(f'<span class="mpct"><small>{ROLE_SHORT[r]}</small><b>{v}%</b></span>' for r, v in pcts)
 
 
 def render_raid_metas(units, prefix="../"):
-    """Raid metas: a table (one row per meta, columns Core / Flex / Machines, each with its completion % above the units this
+    """Raid metas: a table (one row per meta, columns Core / Flex, each with its completion % above the units this
     player owns; the meta's name leads the Core cell, next to its %; click a row = methodology dialog). On phones the table is hidden and the completion badges
-    (icon + % for Core / Flex / MOW per meta) take its place."""
+    (icon + % for Core / Flex per meta) take its place."""
     owned = {u["id"]: u for u in units}
     names = _unit_names()
     badges, rows, modals = "", "", ""
@@ -643,14 +743,11 @@ def render_raid_metas(units, prefix="../"):
                    f'<div class="mbadge-body"><span class="mbadge-name">{escape(team)}</span><div class="mpcts">{pcts}</div></div></div>')
         got = dict(meta_pcts(owned, roles))
         cells = ""
-        niche = roles.get(NICHE, [])  # "X Ultra-Flex": how many units the meta lists as niche (not how many the player has); it follows the Flex %
         for role in ROLES:
             inner = "".join(_mini_unit(i, owned.get(i), names, prefix, req) for i, req in roles.get(role, [])) or '<span class="mnone">—</span>'
             pct = f'<span class="mrole-pct {_pct_class(got[role])}">{got[role]}%</span>' if role in got else ""
             title = f'<span class="mteam-title">{escape(team)}</span>' if role == ROLES[0] else ""  # the meta's name leads the Core cell
-            chip = (f'<span class="mniche" title="{len(niche)} unité{"s" if len(niche) > 1 else ""} {ULTRA_FLEX}, détaillée{"s" if len(niche) > 1 else ""} '
-                    f'dans la méta">{len(niche)} plus</span>') if role == "Flex" and niche else ""
-            cells += f'<td data-label="{role}"><div class="mcell-head">{title}{pct}{chip}</div><div class="munits">{inner}</div></td>'
+            cells += f'<td data-label="{role}"><div class="mcell-head">{title}{pct}</div><div class="munits">{inner}</div></td>'
         rows += (f'<tr role="button" tabindex="0" data-meta="meta-{idx}" title="Voir le détail de {escape(team)}">{cells}</tr>')
         modals += _meta_modal(idx, team, roles, owned, names, prefix)
     head = "".join(f"<th>{role}</th>" for role in ROLES)
@@ -742,7 +839,7 @@ def render_medals(m, prefix="../"):
             sub = "pas d'attaque"
         (primes if " (" in slot["name"] else items).append(
             _medal("boss", f"{slot['name']} · relatif", sub, bool(rank), rank or 0, prefix, art=slot["art"],
-                   href=f"{prefix}boss/{slot['key']}.html"))
+                   href=f"{prefix}records/{slot['key']}.html"))
     return ('<div class="medals"><div class="medals-row">' + "".join(items) + '</div>'
             '<div class="medals-row">' + "".join(primes) + "</div></div>")
 
@@ -813,7 +910,7 @@ def _pct_class(v):
 
 
 def _pct_slots(owned, roles):
-    """Three fixed Core / Flex / MOW slots (so columns line up across metas); a missing role shows a dash."""
+    """Two fixed Core / Flex slots (so columns line up across metas); a missing role shows a dash."""
     got = dict(meta_pcts(owned, roles))
     return "".join(
         f'<span class="pg-v {_pct_class(got[r])}" data-r="{ROLE_SHORT[r]}">{got[r]}%</span>' if r in got
@@ -832,29 +929,37 @@ def table_badge(kind, info, prefix):
             f'<img class="ins-frame-img" src="{prefix}assets/ui/avatar_frame_{kind}.png" alt="{rank}"></span>')
 
 
-def _mini_rank(kind, info):
-    """The War / Raid laurel (see _insignia) shrunk for the players list, only for the top 5; an empty slot otherwise so
-    the names stay aligned. Plain spans: the pointer is always on the name's row, which reacts as a whole."""
-    if not info or info["rank"] > 5:
-        return '<span class="pg-slot"></span>'
-    rank = info["rank"]
-    return (f'<span class="pg-slot"><span class="ins-frame tier-{badge_tier(rank)}"><span class="ins-core"><b>{rank_label(rank)}</b></span>'
-            f'<img class="ins-frame-img" src="assets/ui/avatar_frame_{kind}.png" alt=""></span></span>')
+def _kind(slot):
+    """Boss slots are the main bosses (Boss view) or their primes, i.e. sub-bosses (Primes view)."""
+    return "pg-k-prime" if " (" in slot["name"] else "pg-k-boss"
 
 
 def render_players_index_body(rosters, war=None, raid=None, medals=None):
     """Players list as a grid (not a real table, so each name stays a primary button): one row per member, in alphabetical
-    order, with the member's completion for every raid meta in columns (Core / Flex / MOW); clicking a column head sorts the players by that meta; clicking a
-    meta's percentages opens that player's dialog."""
+    order. A toggle above it chooses the columns: Metas (the member's completion for every raid meta, Core / Flex; clicking a meta's percentages
+    opens that player's dialog) or Boss (the completion of the units the sheet lists for each boss); clicking a column head sorts the players by it."""
     names = _unit_names()
     labels = "".join(f'<span>{ROLE_SHORT[r]}</span>' for r in ROLES)
     metas = list(enumerate(RAID_METAS))
-    head = '<div class="pg-head"><span></span>' + "".join(
+    bosses = list(enumerate(medals_mod.slots()))
+    toggle = ('<div class="pg-toggle" role="group" aria-label="Colonnes">'
+              '<button type="button" data-view="metas" aria-pressed="true">Metas</button>'
+              '<button type="button" data-view="boss" aria-pressed="false">Bosses</button>'
+              '<button type="button" data-view="primes" aria-pressed="false">Primes</button></div>')
+    gap = f'<div class="pg-head-gap">{toggle}</div>'  # the toggle sits in the head, above the names
+    head = f'<div class="pg-head pg-head-metas">{gap}' + "".join(
         f'<div class="pg-meta-col"><div class="mbadge pg-meta" role="button" tabindex="0" data-sort="{i}" title="Trier par {escape(team)}">'
         f'{_meta_icon(team, "")}<span class="mbadge-name">{escape(team)}</span><span class="pg-arrow" aria-hidden="true">▼</span></div>'
         f'<div class="pg-sub">{labels}</div></div>'
         for i, (team, _) in metas
     ) + "</div>"
+    head += f'<div class="pg-head pg-head-boss">{gap}<div class="pg-bwrap">' + "".join(
+        f'<div class="pg-boss {_kind(s)}" role="button" tabindex="0" data-sort="b{k}" title="Trier par {escape(s["name"])}">'
+        f'<img src="assets/{s["art"]}" alt="" loading="lazy"><span class="pg-boss-name">{escape(s["name"].split(" (")[0])}</span>'
+        f'<span class="pg-arrow" aria-hidden="true">▼</span></div>'
+        for k, s in bosses
+    ) + "</div></div>"
+    toolbar = f'<div class="pg-toolbar">{toggle}</div>'  # phones: the meta head is hidden (the rows are cards), so the toggle stands above them
     rows, player_modals = "", ""
     for pi, r in enumerate(sorted(rosters, key=lambda r: (r["name"].casefold(), r["name"]))):
         owned = {u["id"]: u for u in r["units"]}
@@ -865,11 +970,135 @@ def render_players_index_body(rosters, war=None, raid=None, medals=None):
         )
         avgs = "".join(
             f' data-m{i}="{sum(v for _, v in meta_pcts(owned, roles)) / len(meta_pcts(owned, roles)):.2f}"' for i, (team, roles) in metas
-        )  # sort key per meta: mean of its Core / Flex / MOW %
+        )  # sort key per meta: mean of its Core / Flex %
+        bcells, best_pcts = "", {}
+        for k, s in bosses:
+            icon = f'<img class="pg-bicon" src="assets/{s["art"]}" alt="" loading="lazy">'  # shown on phones only (the cards)
+            frac, team, parts, fracs = boss_completion(owned, s["key"])
+            if frac is None:
+                bcells += f'<div class="pg-bcell {_kind(s)}" data-col="b{k}" style="--o:__O{k}__">{icon}<span class="pg-v v-none">—</span></div>'
+                avgs += f' data-mb{k}="0"'
+                best_pcts[k] = -1
+                continue
+            pct = round(100 * frac)
+            lacking = ", ".join(f'{names.get(u, u)} {round(100 * c)} %' for u, c in parts if c < 0.995)
+            others = " · ".join(f"{t} {round(100 * f)} %" for t, f in fracs.items() if t != team)
+            tip = (f'{r["name"]} — {s["name"].split(" (")[0]} : meilleure meta {team}, ' + (f"manque {lacking}" if lacking else "toutes les unités sont prêtes")
+                   + (f" (autres : {others})" if others else ""))
+            best_pcts[k] = frac
+            bcells += (f'<div class="pg-bcell {_kind(s)}" role="button" tabindex="0" data-col="b{k}" data-bm="bm-{pi}-{k}" data-src="joueurs/boss/{player_slug(r["uid"])}.html" '
+                       f'style="--o:__O{k}__" title="{escape(tip)}">{icon}<span class="pg-v {_pct_class(pct)}">{pct}%</span></div>')
+            avgs += f' data-mb{k}="{frac * 100:.2f}"'
+        for place, k in enumerate(sorted(best_pcts, key=lambda k: (-best_pcts[k], k))):  # --o: the boss's place when the cards of a phone list the best ones first
+            bcells = bcells.replace(f"__O{k}__", str(place))
         href = f'joueurs/{player_slug(r["uid"])}.html'
-        badges = _mini_rank("raid", (raid or {}).get(r["uid"])) + _mini_rank("war", (war or {}).get(r["uid"]))
-        rows += (f'<div class="pg-row" data-i="{pi}"{avgs}><div class="pg-who"><a class="chip player-btn" href="{href}">{escape(r["name"])}</a>'
-                 f'<span class="pg-badges">{badges}</span></div>{cells}</div>')
+        rows += (f'<div class="pg-row" data-i="{pi}"{avgs}><a class="pg-rowlink" href="{href}" tabindex="-1" aria-hidden="true"></a><div class="pg-who"><a class="chip player-btn" href="{href}">{escape(r["name"])}</a>'
+                 f'</div>{cells}<div class="pg-bwrap">{bcells}</div></div>')
         # this player's own dialog for every meta (their values next to the requirements)
         player_modals += "".join(_meta_modal(f"{pi}-{i}", team, roles, owned, names, "", who=r["name"], href=f'joueurs/{player_slug(r["uid"])}.html') for i, (team, roles) in metas)
-    return f'<div class="pgrid">{head}<div class="pg-rows">{rows}</div></div>{player_modals}{method_modal()}'
+    return (f'<div class="pgrid" data-view="metas" style="--nb:{len(bosses)}">{toolbar}<div class="pg-scroll"><div class="pg-inner">{head}'
+            f'<div class="pg-rows">{rows}</div></div></div></div>{player_modals}{method_modal()}')
+
+
+def _req_text(req):
+    """What a unit has to be, in words (tooltip of the Metas pages)."""
+    ab = "/".join(str(a) for a in req["ab"])
+    if req.get("mow"):
+        txt = f"machine · {stars_label(req['stars'])} · capacités {ab}"
+    else:
+        txt = f"{rank_name(req['rank'])} · {stars_label(req['stars'])} · niv. {req['level']} · capacités {ab}"
+    relic = req.get("relic")
+    if relic and relic[1] > 1:
+        txt += f" · {RELIC_NAMES.get(relic[0], relic[0])} niv. {relic[1]}"
+    return txt
+
+
+def _req_short(req):
+    """Two short lines under a unit of the Metas detail page: rank and stars, then the ability levels."""
+    ab = "/".join(str(a) for a in req["ab"])
+    if req.get("mow"):
+        return f"{escape(stars_label(req['stars']))}<br>{ab}"
+    rank = {A2: "A2", D3: "D3", G1: "G1"}.get(req["rank"]) or rank_name(req["rank"])
+    return f"{rank} · {escape(stars_label(req['stars']))}<br>{ab}"
+
+
+def boss_metas(slot, rosters):
+    """[(guild average, team, [(role, [(unit id, requirement)])])] for a boss or prime: the metas the sheet lists for it, the one the guild is closest to
+    having ready first (the average, over the members, of the completion of the meta's units for this boss)."""
+    owned_all = [{u["id"]: u for u in r["units"]} for r in rosters]
+    teams = collections.OrderedDict()
+    for (team, role), entries in BOSS_GROUPS.get(slot["key"], []):
+        teams.setdefault(team, []).append((role, entries))
+    out = []
+    for team, roles in teams.items():
+        rows = [(uid, req) for _, entries in roles for uid, req in entries]
+        avg = sum(sum(unit_completion(o.get(uid), req) for uid, req in rows) / len(rows) for o in owned_all) / max(len(owned_all), 1)
+        out.append((avg, team, sorted(roles, key=lambda g: ["Core", "Flex", NICHE].index(g[0]))))
+    return sorted(out, key=lambda c: -c[0])
+
+
+def render_metas_index_body(rosters):
+    """Metas landing: the same small cards as the Records page (a boss and its primes on a line), each listing the names of the metas for that boss
+    (with the icon that stands for the meta) and opening the detail page metas/<key>.html."""
+    cards = ""
+    for slot in medals_mod.slots():
+        if " (" not in slot["name"]:
+            cards += ("</div>" if cards else "") + '<div class="boss-group">'
+        lines = "".join(
+            f'<li><span class="bp-rank">{_meta_icon(team, "").replace("meta-ico", "meta-ico mc-ico")}</span><span class="bp-name">{escape(team)}</span></li>'
+            for _, team, _ in boss_metas(slot, rosters)) or '<li class="bp-none">Pas de meta</li>'
+        cards += (f'<a class="boss-card" href="metas/{slot["key"]}.html"><span class="boss-card-head"><img src="assets/{slot["art"]}" alt="">'
+                  f'<b>{escape(slot["name"].split(" (")[0])}</b></span><ol>{lines}</ol></a>')
+    return f'<div class="boss-cards mc-cards">{cards}</div></div>'
+
+
+def _unit_rarities(rosters):
+    """unit id -> its rarity (the most common one among the members who have it; Mythic when nobody does), for the frames of the Metas detail pages."""
+    seen = collections.defaultdict(collections.Counter)
+    for r in rosters:
+        for u in r["units"]:
+            seen[u["id"]][rarity_stars(u["progressionIndex"])[0]] += 1
+    return {uid: c.most_common(1)[0][0] for uid, c in seen.items()}
+
+
+def _crit_unit(uid, req, names, prefix, rarity):
+    """A unit of the Metas detail table: the portrait of the unit as it has to be (rarity frame, required stars and rank medal), its name, the ability
+    levels it needs and the relic when one is asked at more than level 1."""
+    ab = list(req["ab"])
+    relic = req.get("relic")
+    shown = dict(req)
+    items = []
+    if relic and relic[1] > 1:
+        items = [{"id": relic[0], "level": relic[1]}]
+    else:
+        shown.pop("relic", None)
+    unit = {"id": uid, "progressionIndex": min(req["stars"] + rarity, 19), "xpLevel": req.get("level", 1), "rank": req.get("rank", 0),
+            "abilities": [{"level": a} for a in ab] + ([{"level": 1}] if req.get("mow") else []), "items": items}
+    html = _mini_unit(uid, unit, names, prefix, shown)
+    html = re.sub(r'title="[^"]*"', 'title="' + escape(f"{names.get(uid, uid)} — {_req_text(req)}") + '"', html, count=1)  # the tooltip gives the criteria
+    ab_html = f'<span class="mu-ab">{" / ".join(str(a) for a in ab)}</span>'
+    return html[:-len("</div>")] + ab_html + "</div>"
+
+
+def render_boss_metas_body(slot, rosters, prefix="../"):
+    """Detail page of a boss: the same table as the metas of a player page (one row per meta, one column: every unit of the meta together, no Core / Flex split), but the
+    units are shown as they have to be (the criteria) instead of as the player has them. The meta the guild is closest to having ready comes first,
+    under the title "Meta(s) recommandée(s)" (the two closest share the first table), the others after it."""
+    names = _unit_names()
+    rarity_of = _unit_rarities(rosters)
+
+    def table(metas):
+        rows = ""
+        for _avg, team, roles in metas:
+            by_role = dict(roles)
+            entries = [e for role in ["Core", "Flex", NICHE] for e in by_role.get(role, [])]  # no Core / Flex split: every unit of the meta in one cell
+            inner = "".join(_crit_unit(uid, req, names, prefix, rarity_of.get(uid, 5)) for uid, req in entries)
+            rows += (f'<tr><td><div class="mcell-head"><span class="mteam-title">{escape(team)}</span></div><div class="munits">{inner}</div></td></tr>')
+        return f'<table class="mtable"><tbody>{rows}</tbody></table>'
+
+    metas = boss_metas(slot, rosters)
+    top = metas[:2]  # one or two recommended metas share the first table
+    out = f"<h2>{'Metas recommandées' if len(top) > 1 else 'Meta recommandée'}</h2>" + table(top) if metas else ""
+    if len(metas) > 2:
+        out += f"<h2>{'Autre meta' if len(metas) == 3 else 'Autres metas'}</h2>" + table(metas[2:])
+    return f'<div class="mt-detail">{out}</div>'

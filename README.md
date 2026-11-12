@@ -56,11 +56,11 @@ To add or replace a key: edit `keys.json`, then `gh secret set ROSTER_KEYS --rep
 
 ### Raid metas
 
-Each player page opens with the raid metas (Lavistodes, Neuro, Battlesuit, Méchas). They are defined in `RAID_METAS` in `scripts/rosters.py`: per unit its requirement (ability levels, stars, rank, optional relic level; machines of war: abilities and the stars that set their mythic ability). The completion % of a unit is the share of resources already spent (stars / level + rank / abilities, a third each; a required relic takes 10 %), measured with `data/progression_costs.json`; Core / Flex / MOW are the mean of their units. The "Méthodologie" dialog on the site explains it with worked examples; the list on `joueurs.html` can be sorted by meta.
+Each player page opens with the raid metas (Lavistodes, Neuro, Battlesuit, Méchas). They come from the Google Sheet "Feuille d'armée JP" > "metas par boss" (snapshot in `data/metas_sheet.txt`, read by `load_sheet()` in `scripts/rosters.py`; the same sheet lists which units each boss needs, which gives the Boss columns of `joueurs.html`, toggled with Metas / Bosses / Primes above the list; units typed "Niche" in the sheet are left out of the Metas view and the player pages and only count for the bosses and primes): per unit its requirement (ability levels, stars, rank, optional relic level; machines of war: abilities and the stars that set their mythic ability). The completion % of a unit is the share of resources already spent (stars / level + rank / abilities, a third each; a required relic takes 10 %), measured with `data/progression_costs.json`; Core / Flex are the mean of their units (machines of war sit in Core or Flex like in the source Google Sheet "metas par boss"). The "Méthodologie" dialog on the site explains it with worked examples; the list on `joueurs.html` can be sorted by meta.
 
 ### Menu
 
-Two rows, dark theme only. First row: Raid, War, Joueurs. The second row appears on the Raid pages (Boss, then the raid seasons, latest first) and on the War pages (Stratégie, Défenses, then the war seasons, latest first); both rows scroll sideways on a phone. The War page is `war.html` (`index.html` only redirects to it). Season pages hold the table first, the points scale under it, then the Scores chart.
+Two rows, dark theme only. First row: Raid, War, Joueurs. The second row appears on the Raid pages (Records, then the raid seasons, latest first) and on the War pages (Stratégie, Défenses, then the war seasons, latest first); both rows scroll sideways on a phone. The War page is `war.html` (`index.html` only redirects to it). Season pages hold the table first, the points scale under it, then the Scores chart.
 
 ### Strategy and Défenses pages
 
@@ -74,8 +74,15 @@ Each player page shows medals built with the Onslaught badge art (`docs/assets/u
 
 The Raid insignia (`scripts/medals.py`, `raid_ranking`) works season by season on the raid history (seasons 97 on). Only attacks from Legendary 4 up count (`MIN_LEGENDARY_SET` in `scripts/medals.py`: a season has 5 Legendary bosses, the API's `set` 0-4 in the order they are fought, and 3 Mythic ones, so it is the 4th and 5th Legendary bosses and every Mythic one; the API's `tier` is only the loop count). Bombs and finishing blows are left out; every other attack (one token, one-shots included) is compared with the guild's average hit on the same boss or sub-boss and difficulty tier that season, which gives the relative damage per token (% above the guild average). A player's season score is the mean over their attacks (no minimum), then cut for the tokens they did not play: a season counts 27 tokens (`TOKENS_PER_SEASON`; every attack that is not a bomb is a token), each token short of 27 is a "lost token" and removes 1/27 of the damage, i.e. the score becomes (1 + relative) x tokens / 27 - 1; more than 27 tokens gives no bonus, and a season in progress (nobody at 27 tokens yet) is neither cut nor shows lost tokens. The Raid and season tables have a "Jetons perdus" column, everybody who played the season is ranked on it (former members included), and the insignia shows the member's rank by their Score, the mean of those season scores (lost tokens included; no minimum number of seasons). The guild average is taken over the whole season.
 
-### Raid and Boss tabs
+### Raid and Records tabs
 
-`raid.html` ranks the members on the raid ranking above, one column per season (relative damage, % above the guild average), with the seasons in the menu's second row leading to `raid/<season>.html` (everybody who played the season, one column per boss). `boss.html` has the podium of every boss and sub-boss; `boss/<key>.html` ranks the members on their all-time relative damage against that boss, one column per season it was fought. Both read `data/raid/` through `scripts/medals.py`.
+`raid.html` ranks the members on the raid ranking above, one column per season (relative damage, % above the guild average), with the seasons in the menu's second row leading to `raid/<season>.html` (everybody who played the season, one column per boss). `records.html` has the podium of every boss and sub-boss; `boss/<key>.html` ranks the members on their all-time relative damage against that boss, one column per season it was fought. Both read `data/raid/` through `scripts/medals.py`.
 
 One-shots: every one-shot counts (a kill from full HP in one attack, at the boss's full HP); only finishing blows (a kill after earlier damage) and bombs are left out.
+
+### Attack dialogs and best attacks
+
+A click on a relative-damage cell of the Raid tables (`raid.html`, `raid/<season>.html`, `records/<boss>.html`) opens a dialog with that player's attacks of the season (on that boss for
+a boss cell): level, team, damage, type (Attaque / Finish / OS) and the damage relative to the guild's average hit (same base as the ranking, none for a finishing blow). Only L4, L5
+and M1-M3 attacks are kept (`medals.season_attacks`). The attacks are written to `docs/data/raid-<season>.json` (+ `raid-meta.json`) by `generate_site.write_raid_data` and read
+by `docs/assets/raid-attacks.js`. Every `metas/<boss>.html` page ends with a table of the 20 best attacks on that boss (relative damage, current members, stored seasons).

@@ -436,12 +436,14 @@ PAGE_TEMPLATE = """<!doctype html>
 <script src="{asset_prefix}assets/opp-filter.js?v={v}"></script>
 <script src="{asset_prefix}assets/chip-scroll.js?v={v}"></script>
 <script src="{asset_prefix}assets/row-link.js?v={v}"></script>
+<script src="{asset_prefix}assets/drag-scroll.js?v={v}"></script>
+<script src="{asset_prefix}assets/raid-attacks.js?v={v}"></script>
 </body>
 </html>"""
 
 
 NAV_SEASONS = {"raid": [], "war": []}  # season numbers (latest first) shown in the second menu row; filled in main()
-NAV_SECTION = {"home": None, "ranking": "war", "strategy": "war", "defenses": "war", "raid": "raid", "boss": "raid", "players": "players"}
+NAV_SECTION = {"home": None, "ranking": "war", "strategy": "war", "defenses": "war", "raid": "raid", "boss": "raid", "metas": "raid", "players": "players"}
 
 
 def render_topbar(prefix, active, sub=None):
@@ -459,7 +461,7 @@ def render_topbar(prefix, active, sub=None):
                   (("raid", "raid.html", "Raid"), ("war", "war.html", "War"), ("players", "joueurs.html", "Joueurs")))
     sub_html = ""
     if section == "raid":
-        first = [("boss", "boss.html", "Boss")]
+        first = [("metas", "metas.html", "Metas"), ("boss", "records.html", "Records")]
         seasons = [(f"raid-{n}", f"raid/{n}.html", f"S{n}") for n in NAV_SEASONS["raid"]]
     elif section == "war":
         first = [("strategy", "strategie.html", "Stratégie"), ("defenses", "defenses.html", "Défenses")]
@@ -467,7 +469,7 @@ def render_topbar(prefix, active, sub=None):
     else:
         first = seasons = []
     if first:
-        cur = active if active in ("boss", "strategy", "defenses") else sub
+        cur = active if active in ("boss", "metas", "strategy", "defenses") else sub
         items = "".join(link(href, label, key == cur) for key, href, label in first)
         if seasons:
             items += '<span class="topsub-sep" aria-hidden="true"></span>'
@@ -483,9 +485,43 @@ def render_topbar(prefix, active, sub=None):
     )
 
 
+def linkify_rows(html):
+    """Makes every cell of a clickable table row a real link (see player_row_attrs): the cell leads to its column head's page when the head has a
+    data-href (a season, a war, a boss), to the player's page otherwise. The browser then shows the address when the pointer is anywhere on the
+    row, exactly as for a name pill; the link is stretched over its cell by CSS (a.cl). Cells that already hold a link or a button are left alone."""
+    def table(m):
+        t = m.group(0)
+        heads = []  # the href of each column head of the first head row (None = not a link column)
+        first = re.search(r"<thead>.*?<tr\b.*?</tr>", t, re.S)
+        if first:
+            heads = [(re.search(r'data-href="([^"]*)"', th) or [None, None])[1] for th in re.findall(r"<th\b[^>]*>", first.group(0))]
+
+        def row(rm):
+            r = rm.group(0)
+            href = re.match(r'<tr\b[^>]*\bdata-href="([^"]*)"', r)
+            if not href or "colspan" in r:
+                return r
+            idx = [-1]
+
+            def cell(cm):
+                idx[0] += 1
+                if "<a " in cm.group(2) or "<button" in cm.group(2) or "data-atk" in cm.group(1):  # (data-atk cells open a dialog, see raid-attacks.js)
+                    return cm.group(0)
+                target = heads[idx[0]] if idx[0] < len(heads) and heads[idx[0]] else href.group(1)
+                return f'{cm.group(1)}<a class="cl" href="{target}" tabindex="-1">{cm.group(2)}</a></td>'
+
+            return re.sub(r"(<td\b[^>]*>)(.*?)</td>", cell, r, flags=re.S)
+
+        return re.sub(r"<tr\b.*?</tr>", row, t, flags=re.S)
+
+    return re.sub(r"<table\b.*?</table>", table, html, flags=re.S)
+
+
 def render_page(nav_active="ranking", **kw):
     """PAGE_TEMPLATE.format with the top bar (needs asset_prefix) filled in."""
     kw["topbar"] = render_topbar(kw["asset_prefix"], nav_active, kw.get("nav_sub"))
+    if "body" in kw:
+        kw["body"] = linkify_rows(kw["body"])
     kw["subrow"] = "1" if NAV_SECTION.get(nav_active, "war") in ("raid", "war") else "0"  # does the topbar have its second row?
     kw["page"] = kw.pop("page_kind", nav_active)  # data-page of <body> (CSS hooks); defaults to the menu entry
     kw.setdefault("title_icon", "")  # optional icon left of the title (boss pages)
@@ -2626,12 +2662,36 @@ RAID_EXPLAIN = ('<p class="raid-explain">Dégâts par attaque relativement à la
 BOSS_EXPLAIN = '<p class="raid-explain">Dégâts par attaque relativement à la moyenne de la guilde sur la saison, sans finishs, à partir de Legendary 4</p>'  # no lost tokens here: per boss, per attack; the individual boss pages have no text
 
 
+def write_raid_data():
+    """docs/data/raid-<season>.json (every L4 / L5 / M1-M3 attack of the season, see medals.season_attacks) and docs/data/raid-meta.json (unit and boss
+    names / art): what the attack dialogs of the raid tables (raid-attacks.js) read when a cell is clicked."""
+    attacks = medals_mod.season_attacks()
+    out_dir = os.path.join(DOCS_DIR, "data")
+    os.makedirs(out_dir, exist_ok=True)
+    used = set()
+    for season, rows in attacks.items():
+        arr = []
+        for a in rows:
+            used.update(a["heroes"])
+            if a["mow"]:
+                used.add(a["mow"])
+            arr.append([a["uid"], a["key"], a["lvl"], a["tier"], a["dmg"], a["kind"], None if a["rel"] is None else round(a["rel"], 6), a["heroes"], a["mow"], a["at"]])
+        with open(os.path.join(out_dir, f"raid-{season}.json"), "w", encoding="utf-8") as f:
+            json.dump({"a": arr}, f, separators=(",", ":"))
+    unit_names = rosters_mod._unit_names()
+    meta = {"units": {u: unit_names.get(u, u) for u in sorted(used)},
+            "bosses": {sl["key"]: {"n": sl["name"].split(" (")[0], "a": sl["art"]} for sl in medals_mod.slots()}}
+    with open(os.path.join(out_dir, "raid-meta.json"), "w", encoding="utf-8") as f:
+        json.dump(meta, f, ensure_ascii=False, separators=(",", ":"))
+
+
 def render_raid_pages(all_wars):
     """docs/raid.html (members x seasons, relative damage; column heads link to the seasons) and docs/raid/<season>.html (everybody
     who played the season x bosses, relative damage per boss)."""
     rosters = rosters_mod.load_rosters()
     if not rosters or not medals_mod.season_files():
         return
+    write_raid_data()
     members = {r["uid"]: r for r in rosters}
     names = raid_names(all_wars, rosters)
     seasons = medals_mod.raid_seasons()
@@ -2662,9 +2722,9 @@ def render_raid_pages(all_wars):
                 cells.append("<td>-</td>")
             else:
                 lo, hi = bounds[n]
-                cells.append(f'<td{value_to_bg(p["score"], lo, hi)} title="Rang {p["rank"]} sur {seasons[n]["field"]} · {p["n"]} attaques">{_fmt_rel(p["score"])}</td>')
+                cells.append(f'<td{value_to_bg(p["score"], lo, hi)} data-atk="{uid}|{n}|" title="Rang {p["rank"]} sur {seasons[n]["field"]} · {p["n"]} attaques">{_fmt_rel(p["score"])}</td>')
         rows.append(f'<tr{player_row_attrs(uid, "")}>' + "".join(cells) + "</tr>")
-    body = (f'<div class="table-scroll"><table class="sortable raid-table"><thead><tr>{"".join(head)}</tr></thead>'
+    body = (f'<div class="table-scroll"><table class="sortable raid-table" data-atk-base="data/"><thead><tr>{"".join(head)}</tr></thead>'
             f'<tbody>{"".join(rows)}</tbody></table></div>' + RAID_EXPLAIN)
     html = render_page(nav_active="raid", title="Raid", asset_prefix="", body=body, back_link=guild_crumb(), title_class="hero-title",
                        header_extra="", header_action="", v=ASSETS_VERSION)
@@ -2682,7 +2742,7 @@ def render_raid_pages(all_wars):
         for k in keys:
             slot = slots[k]
             label = slot["name"].split(" (")[0]
-            head.append(f'<th data-href="../boss/{k}.html" title="{html_escape(slot["name"])}"><img class="rb-ico" src="../assets/{slot["art"]}" alt=""><span>{html_escape(label)}</span></th>')
+            head.append(f'<th data-href="../records/{k}.html" title="{html_escape(slot["name"])}"><img class="rb-ico" src="../assets/{slot["art"]}" alt=""><span>{html_escape(label)}</span></th>')
         rows = []
         for uid, p in sorted(data["players"].items(), key=lambda kv: kv[1]["rank"]):
             name = html_escape(names.get(uid, "Ancien membre"))
@@ -2699,9 +2759,9 @@ def render_raid_pages(all_wars):
                     cells.append("<td>-</td>")
                 else:
                     lo, hi = bb[k]
-                    cells.append(f'<td{value_to_bg(v[0], lo, hi)} title="{v[1]} attaque{"s" if v[1] > 1 else ""}">{_fmt_rel(v[0])}</td>')
+                    cells.append(f'<td{value_to_bg(v[0], lo, hi)} data-atk="{uid}|{n}|{k}" title="{v[1]} attaque{"s" if v[1] > 1 else ""}">{_fmt_rel(v[0])}</td>')
             rows.append(f'<tr{player_row_attrs(uid, "../")}>' + "".join(cells) + "</tr>")
-        body = (f'<div class="table-scroll"><table class="sortable raid-table"><thead><tr>{"".join(head)}</tr></thead>'
+        body = (f'<div class="table-scroll"><table class="sortable raid-table" data-atk-base="../data/"><thead><tr>{"".join(head)}</tr></thead>'
                 f'<tbody>{"".join(rows)}</tbody></table></div>' + RAID_EXPLAIN)
         html = render_page(nav_active="raid", nav_sub=f"raid-{n}", title=f"Raid · saison {n}", asset_prefix="../", body=body,
                            back_link=back_link_html("../raid.html", "Raid"), title_class="", header_extra="", header_action="", v=ASSETS_VERSION)
@@ -2710,8 +2770,66 @@ def render_raid_pages(all_wars):
     print(f"Generated raid.html + {len(season_order)} season page(s)")
 
 
+BEST_ATTACKS = 20  # rows of the "Meilleures attaques" table of a Metas page
+
+
+def best_attacks_html(key, attacks, names, members, unit_names, prefix):
+    """Table of the best attacks (relative damage, best first) on a boss or prime over the stored seasons, L4 / L5 / M1-M3 only, by the current
+    members: season, boss level, player, team, damage, type, relative damage. Finishing blows have no relative figure and are left out."""
+    rows = [(a["rel"], season, a) for season, atks in attacks.items() for a in atks if a["key"] == key and a["rel"] is not None and a["uid"] in members]
+    rows.sort(key=lambda r: -r[0])
+    rows = rows[:BEST_ATTACKS]
+    if not rows:
+        return ""
+    lo, hi = rows[-1][0], rows[0][0]
+
+    def unit(uid, cls=""):
+        return f'<img class="atk-u{cls}" src="{prefix}assets/units/{uid}.webp" alt="" title="{html_escape(unit_names.get(uid, uid))}" loading="lazy">'
+
+    body = ""
+    for rel, season, a in rows:
+        team = "".join(unit(h) for h in a["heroes"]) + (unit(a["mow"], " atk-mow") if a["mow"] else "")
+        kind_cls = " atk-os" if a["kind"] == "OS" else ""
+        dmg = f"{a['dmg']:,}".replace(",", "\u202f")  # thin spaces between the thousands
+        who = f'<a class="chip player-btn" href="{prefix}joueurs/{rosters_mod.player_slug(a["uid"])}.html">{html_escape(names[a["uid"]])}</a>'
+        # the row opens the player (row-link.js, linkify_rows); the season cell opens that season, like a season column does in the other tables
+        body += (f'<tr{player_row_attrs(a["uid"], prefix)}><td>{who}</td>'
+                 f'<td class="alt-link" data-sort="{season}.{["L4", "L5", "M1", "M2", "M3"].index(a["lvl"]) + 1}" title="Boucle {a["tier"]}"><a class="cl" href="{prefix}raid/{season}.html">S{season} · {a["lvl"]}</a></td>'
+                 f'<td><div class="atk-team">{team}</div></td>'
+                 f'<td data-sort="{a["dmg"]}">{dmg}</td><td><span class="atk-kind{kind_cls}">{a["kind"]}</span></td><td{value_to_bg(rel, lo, hi)} data-sort="{rel:.4f}" data-atk="{a["uid"]}|{season}|{key}">{_fmt_rel(rel)}</td></tr>')
+    head = "".join(f"<th>{h}</th>" for h in ("Joueur", "Saison", "Compo", "Dégâts", "Type", "Relatif"))
+    return (f'<h2>Meilleures attaques</h2><div class="table-scroll"><table class="sortable raid-table atk-top" data-atk-base="{prefix}data/"><thead><tr>{head}</tr></thead><tbody>{body}</tbody></table></div>'
+            '<p class="raid-explain">Dégâts relatifs à la moyenne de la guilde sur la saison (même boss, même boucle), saisons enregistrées, boss L4, L5, M1, M2 et M3, membres actuels</p>')
+
+
+def render_metas_page(all_wars):
+    """docs/metas.html (the Records page's small cards, listing each boss's metas) and docs/metas/<key>.html (the detail of those metas, then the best
+    attacks on that boss); same wallpaper as the Records pages."""
+    rosters = rosters_mod.load_rosters()
+    if not rosters:
+        return
+    os.makedirs(os.path.join(DOCS_DIR, "metas"), exist_ok=True)
+    html = render_page(nav_active="metas", page_kind="boss", title="Metas", asset_prefix="", body=rosters_mod.render_metas_index_body(rosters),
+                       back_link=back_link_html("raid.html", "Raid"), title_class="hero-title", header_extra="", header_action="", v=ASSETS_VERSION)
+    with open(os.path.join(DOCS_DIR, "metas.html"), "w", encoding="utf-8") as f:
+        f.write(html)
+    attacks = medals_mod.season_attacks()
+    names = raid_names(all_wars, rosters)
+    members = {r["uid"] for r in rosters}
+    unit_names = rosters_mod._unit_names()
+    slots = medals_mod.slots()
+    for slot in slots:
+        body = rosters_mod.render_boss_metas_body(slot, rosters) + best_attacks_html(slot["key"], attacks, names, members, unit_names, "../")
+        html = render_page(nav_active="metas", page_kind="boss", title=slot["name"], asset_prefix="../", body=body,
+                           back_link=back_link_html("../metas.html", "Metas"), title_class="", header_extra="", header_action="", v=ASSETS_VERSION,
+                           title_icon=f'<img class="title-ico" src="../assets/{slot["art"]}" alt="">')
+        with open(os.path.join(DOCS_DIR, "metas", f"{slot['key']}.html"), "w", encoding="utf-8") as f:
+            f.write(html)
+    print(f"Generated metas.html + {len(slots)} boss page(s)")
+
+
 def render_boss_pages(all_wars):
-    """docs/boss.html (a podium card per boss / sub-boss, each opening that boss's page) and docs/boss/<key>.html (the members
+    """docs/records.html (a podium card per boss / sub-boss, each opening that boss's page) and docs/records/<key>.html (the members
     ranked on their all-time relative damage against that boss, one column per season it was fought)."""
     rosters = rosters_mod.load_rosters()
     if not rosters or not medals_mod.season_files():
@@ -2721,7 +2839,7 @@ def render_boss_pages(all_wars):
     seasons = medals_mod.raid_seasons()
     relative = medals_mod.boss_relative(set(members))
     slots = medals_mod.slots()
-    os.makedirs(os.path.join(DOCS_DIR, "boss"), exist_ok=True)
+    os.makedirs(os.path.join(DOCS_DIR, "records"), exist_ok=True)
 
     # --- landing: the podium card of every boss (each card opens the boss page) ---------------------------------------------------------------------------
     cards = ""  # one line per boss: the boss, then its primes (sub-bosses) on the same line
@@ -2733,12 +2851,12 @@ def render_boss_pages(all_wars):
             f'<li><span class="bp-rank">{i}</span><span class="bp-name">{html_escape(names[u])}</span><span class="bp-val">{_fmt_rel(v[0])}</span></li>'
             for i, (u, v) in enumerate(field, 1)
         ) or '<li class="bp-none">Pas encore d\'attaque</li>'
-        cards += (f'<a class="boss-card" href="boss/{slot["key"]}.html"><span class="boss-card-head"><img src="assets/{slot["art"]}" alt="">'
+        cards += (f'<a class="boss-card" href="records/{slot["key"]}.html"><span class="boss-card-head"><img src="assets/{slot["art"]}" alt="">'
                   f'<b>{html_escape(slot["name"].split(" (")[0])}</b></span><ol>{rows}</ol></a>')  # a prime sits on its boss's line: no need to name the boss
     body = f'<div class="boss-cards">{cards}</div></div>' + BOSS_EXPLAIN
-    html = render_page(nav_active="boss", title="Boss", asset_prefix="", body=body, back_link=back_link_html("raid.html", "Raid"), title_class="hero-title",
+    html = render_page(nav_active="boss", title="Records", asset_prefix="", body=body, back_link=back_link_html("raid.html", "Raid"), title_class="hero-title",
                        header_extra="", header_action="", v=ASSETS_VERSION)
-    with open(os.path.join(DOCS_DIR, "boss.html"), "w", encoding="utf-8") as f:
+    with open(os.path.join(DOCS_DIR, "records.html"), "w", encoding="utf-8") as f:
         f.write(html)
 
     # --- one page per boss: members ranked all-time, one column per season the boss was fought ---------------------------------
@@ -2765,17 +2883,17 @@ def render_boss_pages(all_wars):
                     cells.append("<td>-</td>")
                 else:
                     blo, bhi = bounds[n]
-                    cells.append(f'<td{value_to_bg(v[0], blo, bhi)} title="{v[1]} attaque{"s" if v[1] > 1 else ""}">{_fmt_rel(v[0])}</td>')
+                    cells.append(f'<td{value_to_bg(v[0], blo, bhi)} data-atk="{uid}|{n}|{key}" title="{v[1]} attaque{"s" if v[1] > 1 else ""}">{_fmt_rel(v[0])}</td>')
             rows.append(f'<tr{player_row_attrs(uid, "../")}>' + "".join(cells) + "</tr>")
-        table = (f'<div class="table-scroll"><table class="sortable raid-table"><thead><tr>{"".join(head)}</tr></thead>'
+        table = (f'<div class="table-scroll"><table class="sortable raid-table" data-atk-base="../data/"><thead><tr>{"".join(head)}</tr></thead>'
                  f'<tbody>{"".join(rows)}</tbody></table></div>') if rows else '<p class="raid-explain">Aucun membre n\'a encore attaqué ce boss.</p>'
         body = table
         html = render_page(nav_active="boss", title=slot["name"], asset_prefix="../", body=body,
-                           back_link=back_link_html("../boss.html", "Boss"), title_class="", header_extra="", header_action="", v=ASSETS_VERSION,
+                           back_link=back_link_html("../records.html", "Records"), title_class="", header_extra="", header_action="", v=ASSETS_VERSION,
                            title_icon=f'<img class="title-ico" src="../assets/{slot["art"]}" alt="">')
-        with open(os.path.join(DOCS_DIR, "boss", f"{key}.html"), "w", encoding="utf-8") as f:
+        with open(os.path.join(DOCS_DIR, "records", f"{key}.html"), "w", encoding="utf-8") as f:
             f.write(html)
-    print(f"Generated boss.html + {len(slots)} boss page(s)")
+    print(f"Generated records.html + {len(slots)} boss page(s)")
 
 
 def render_players_pages(war_rank=None, raid_rank=None, medals=None):
@@ -2792,6 +2910,7 @@ def render_players_pages(war_rank=None, raid_rank=None, medals=None):
     )
     with open(os.path.join(DOCS_DIR, "joueurs.html"), "w", encoding="utf-8") as f:
         f.write(html)
+    rosters_mod.write_boss_modals(rosters, DOCS_DIR)
     for r in rosters:
         html = render_page(
             nav_active="players", title=r["name"], asset_prefix="../", body=rosters_mod.render_player_body(r, "../", war=(war_rank or {}).get(r["uid"]), medals=(medals or {}).get(r["uid"]),
@@ -2868,6 +2987,7 @@ def main():
     render_players_pages(war_rank, raid_rank=medals_mod.raid_ranking(members), medals=compute_medals(seasons))
     render_raid_pages(all_wars)
     render_boss_pages(all_wars)
+    render_metas_page(all_wars)
     for w in all_wars:
         render_war_strategy_page(w["slug"], w["result"], w["season"])
     print(f"Generated {len(all_wars)} war page(s), {len(seasons)} season page(s) + index.html into {DOCS_DIR}")

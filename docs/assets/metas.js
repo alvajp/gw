@@ -11,7 +11,7 @@
     if (!grid) return;
     const col = head.dataset.sort;
     const dir = head.dataset.dir === "desc" ? "asc" : "desc";
-    grid.querySelectorAll(".pg-meta[data-sort]").forEach(function (h) { delete h.dataset.dir; });
+    grid.querySelectorAll(".pg-meta[data-sort], .pg-boss[data-sort]").forEach(function (h) { delete h.dataset.dir; });
     head.dataset.dir = dir;
     const rows = Array.prototype.slice.call(grid.querySelectorAll(".pg-row"));
     rows.sort(function (a, b) {
@@ -21,8 +21,37 @@
     const holder = grid.querySelector(".pg-rows") || grid; // the rows live in the panel
     rows.forEach(function (r) { holder.appendChild(r); });
   }
+  // Players list: a boss percentage opens that player's dialog for the boss; the 32 dialogs of a player live in their own file, fetched once.
+  const loaded = {};
+  function openBoss(cell) {
+    const id = cell.dataset.bm, src = cell.dataset.src;
+    if (document.getElementById(id)) return open(id);
+    loaded[src] = loaded[src] || fetch(src).then(function (r) { return r.text(); }).then(function (h) { document.body.insertAdjacentHTML("beforeend", h); });
+    loaded[src].then(function () { open(id); });
+  }
+  // Players list: the toggle above the grid chooses the columns (Metas / Boss); the sort restarts with the new columns.
+  function setView(btn) {
+    const grid = btn.closest(".pgrid");
+    if (!grid || btn.disabled) return;
+    // Boss and Primes are the same table with another set of columns: data-view stays "boss", data-kind tells which.
+    const v = btn.dataset.view;
+    grid.dataset.view = v === "primes" ? "boss" : v;
+    grid.dataset.kind = v === "primes" ? "primes" : "boss";
+    grid.querySelectorAll(".pg-toggle button").forEach(function (b) { b.setAttribute("aria-pressed", b.dataset.view === btn.dataset.view ? "true" : "false"); });
+    const sc = grid.querySelector(".pg-scroll");
+    if (sc) { sc.scrollLeft = 0; sc.style.setProperty("--sl", "0px"); }
+  }
+  // Boss view: what has scrolled under the sticky first column is clipped away (see .pg-bwrap).
+  document.addEventListener("scroll", function (e) {
+    const sc = e.target;
+    if (sc && sc.classList && sc.classList.contains("pg-scroll")) sc.style.setProperty("--sl", sc.scrollLeft + "px");
+  }, true);
   document.addEventListener("click", function (e) {
-    const head = e.target.closest(".pg-meta[data-sort]");
+    const bc = e.target.closest(".pg-bcell[data-bm]");
+    if (bc) return openBoss(bc);
+    const tog = e.target.closest(".pg-toggle button[data-view]");
+    if (tog) return setView(tog);
+    const head = e.target.closest(".pg-meta[data-sort], .pg-boss[data-sort]");
     if (head) return sortBy(head);
     const trigger = e.target.closest("[data-meta]");
     if (trigger) return open(trigger.dataset.meta);
@@ -32,17 +61,18 @@
   });
   // Players list: hovering a meta's three percentages also highlights that meta's column head.
   function hover(e, on) {
-    const cell = e.target.closest && e.target.closest(".pg-cell[data-meta]");
+    const cell = e.target.closest && e.target.closest(".pg-cell[data-meta], .pg-bcell[data-bm]");
     if (!cell) return;
-    const head = document.querySelector('.pg-meta[data-sort="' + cell.dataset.col + '"]');
+    const head = document.querySelector('.pg-meta[data-sort="' + cell.dataset.col + '"], .pg-boss[data-sort="' + cell.dataset.col + '"]');
     if (head) head.classList.toggle("is-hover", on);
   }
   document.addEventListener("mouseover", function (e) { hover(e, true); });
   document.addEventListener("mouseout", function (e) { hover(e, false); });
   document.addEventListener("keydown", function (e) {
-    if ((e.key === "Enter" || e.key === " ") && e.target.matches && e.target.matches(".mbadge[data-meta], .pg-cell[data-meta], .mtable tr[data-meta], .pg-meta[data-sort]")) {
+    if ((e.key === "Enter" || e.key === " ") && e.target.matches && e.target.matches(".mbadge[data-meta], .pg-cell[data-meta], .mtable tr[data-meta], .pg-bcell[data-bm], .pg-meta[data-sort], .pg-boss[data-sort]")) {
       e.preventDefault();
-      if (e.target.matches(".pg-meta[data-sort]")) sortBy(e.target);
+      if (e.target.matches(".pg-meta[data-sort], .pg-boss[data-sort]")) sortBy(e.target);
+      else if (e.target.matches(".pg-bcell[data-bm]")) openBoss(e.target);
       else open(e.target.dataset.meta);
     }
   });

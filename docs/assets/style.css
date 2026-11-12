@@ -142,7 +142,6 @@ th {
 }
 th:first-child { background: var(--table-header-bg); z-index: 2; }
 th:hover { background: var(--table-header-hover); color: var(--text); }
-tbody tr:nth-child(even) td { background-color: var(--table-row-alt); }
 tbody tr:hover td:not([style]) { background-color: var(--surface-hover); }
 tbody tr[data-active="false"] td:first-child { color: var(--text-muted); }  /* former members, now that the roster toggle is gone */
 ul { line-height: 1.8; }
@@ -527,7 +526,6 @@ ul { line-height: 1.8; }
   padding: 0.3rem 0;
   border-bottom: 1px solid var(--border);
 }
-.rc-row:nth-child(even) { background: var(--table-row-alt); }
 .rc-bar-wrap { display: flex; height: 6px; }
 .rc-bar-wrap.rc-left { justify-content: flex-end; }
 .rc-bar-wrap.rc-right { justify-content: flex-start; }
@@ -921,7 +919,7 @@ dialog.meta-modal::backdrop { background: rgba(0, 0, 0, 0.6); }
 .mm-role th.mm-pct, .mm-pct { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
 @media (max-width: 640px) { .mm-table th, .mm-table td { padding: 0.3rem 0.35rem; white-space: normal; } }
 
-/* Players list: grid with one row per member (primary button) and raid-meta completion columns (Core / Flex / MOW). */
+/* Players list: grid with one row per member (primary button) and raid-meta completion columns (Core / Flex). */
 .pgrid { display: flex; flex-direction: column; margin-top: 0.6rem; }
 .pg-head, .pg-row { display: grid; grid-template-columns: minmax(8.5rem, 12rem) repeat(4, minmax(0, 1fr)); align-items: center; column-gap: 0.4rem; }
 .pg-head { align-items: end; padding: 0 0 0.5rem; border-bottom: 1px solid var(--border); }
@@ -930,7 +928,7 @@ dialog.meta-modal::backdrop { background: rgba(0, 0, 0, 0.6); }
 .pg-meta .meta-ico { position: absolute; left: 0.35rem; top: 50%; transform: translateY(-50%); }
 .pg-meta .mbadge-name { text-align: center; }
 .pg-meta:hover { background: var(--table-header-bg); }
-.pg-sub, .pg-cell { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.3rem; width: 100%; text-align: center; }
+.pg-sub, .pg-cell { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.3rem; width: 100%; text-align: center; }
 .pg-sub span { font-size: 0.64rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-muted); }
 .pg-row { padding: 0; border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent); transition: background 120ms ease; }
 .pg-row:hover { background: var(--table-header-bg); }
@@ -1262,7 +1260,6 @@ tr[data-href]:focus-visible { outline: none; }
 th.rk, td.rk { width: 2.6em; min-width: 2.6em; text-align: right; padding-right: 0.7em; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 th.rk + th, td.rk + td { position: sticky; left: 2.6em; z-index: 1; text-align: left; width: 10em; background: var(--table-bg); }
 th.rk + th { background: var(--table-header-bg); z-index: 2; }
-tbody tr:nth-child(even) td.rk + td { background-color: var(--table-row-alt); }
 tbody tr[data-active="false"] td.rk + td { color: var(--text-muted); }
 tbody tr[data-active="false"] td.rk:first-child { color: var(--text-muted); }
 
@@ -1516,9 +1513,9 @@ tbody tr[data-active="false"] .player-btn { color: var(--text-muted); }
 .pg-slot .ins-core b { font-size: 0.65rem; }
 
 /* Players list: the laurels sit right of the name (fixed name width so they line up). */
-.pg-who .player-btn { flex: 0 0 8rem; }
+.pg-who .player-btn { flex: 1 1 auto; }
 .pg-badges { margin-left: 0; }
-.pg-head, .pg-row { grid-template-columns: minmax(13rem, 15rem) repeat(4, minmax(0, 1fr)); }
+.pg-head, .pg-row { grid-template-columns: 12rem repeat(4, minmax(0, 1fr)); }
 @media (max-width: 760px) {
   .pg-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .pg-who { grid-column: 1 / -1; }
@@ -1551,10 +1548,8 @@ th.rk, td.rk { text-align: center; padding-left: 0.45em; padding-right: 0.45em; 
 /* The # and Joueur columns never move when a table scrolls sideways: both are sticky, # at the left edge and Joueur right after it. */
 .table-scroll table th.rk, .table-scroll table td.rk { position: sticky; left: 0; z-index: 3; width: 3rem; min-width: 3rem; max-width: 3rem; box-sizing: border-box; background: var(--table-bg); }
 .table-scroll table thead th.rk { background: var(--table-header-bg); z-index: 5; }
-.table-scroll table tbody tr:nth-child(even) td.rk { background-color: var(--table-row-alt); }
 .table-scroll table th.rk + th, .table-scroll table td.rk + td { position: sticky; left: 3rem; z-index: 2; background: var(--table-bg); }
 .table-scroll table thead th.rk + th { background: var(--table-header-bg); z-index: 4; }
-.table-scroll table tbody tr:nth-child(even) td.rk + td { background-color: var(--table-row-alt); }
 
 /* Home: the three cards sit at the bottom of the screen (sticky), the wallpaper above them. */
 body[data-page="home"] { display: flex; flex-direction: column; min-height: 100vh; }
@@ -1567,3 +1562,216 @@ body[data-subrow="0"] > header { padding-top: calc(1.25rem + 2.4rem + 1px); }
 
 /* Metas table: the "X Niche" cell (niche units are not counted in the %, the dialogs list them). */
 .mniche { display: inline-block; padding: 0.15rem 0.6rem; border: 1px solid var(--border); border-radius: 999px; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+/* Player pages, metas table: Core and Flex each take half of the width */
+.rmetas .mtable { table-layout: fixed; }
+.rmetas .mtable th, .rmetas .mtable td { width: 50%; }
+
+/* Players list: Metas / Boss / Badges toggle. The Boss view is the same table: same panel, same rows, same hover; only the head and the cells change.
+   The boss columns can be wider than the page, so the table scrolls sideways while the first column (toggle / names) stays put; what slides under
+   it is clipped (--sl = the scroll offset, set by metas.js) so it needs no fill of its own. */
+.pg-toolbar { display: none; margin: 0.2rem 0 0.7rem; }
+@media (max-width: 760px) { .pgrid[data-view="metas"] .pg-toolbar { display: flex; } }
+.pg-toggle { display: inline-flex; gap: 2px; padding: 3px; border: 1px solid var(--border); border-radius: 999px; background: color-mix(in srgb, var(--bg) 86%, transparent); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.pg-toggle button { appearance: none; border: 0; background: none; color: var(--text-muted); font: inherit; font-size: 0.82rem; font-weight: 600; padding: 0.35rem 1.05rem; border-radius: 999px; cursor: pointer; transition: background 120ms ease, color 120ms ease; }
+.pg-toggle button:hover:not(:disabled):not([aria-pressed="true"]) { color: var(--text); background: var(--table-header-bg); }
+.pg-toggle button[aria-pressed="true"] { color: var(--text); background: color-mix(in srgb, var(--accent) 24%, var(--table-header-bg)); box-shadow: inset 0 0 0 1px var(--accent); }
+.pg-toggle button:disabled { opacity: 0.4; cursor: not-allowed; }
+.pg-head-gap { display: flex; align-items: center; align-self: stretch; min-width: 0; }
+.pg-head .pg-toggle { flex-wrap: wrap; width: max-content; max-width: 100%; border-radius: 14px; }
+.pg-head .pg-toggle button { font-size: 0.72rem; padding: 0.28rem 0.6rem; }
+.pg-head { box-sizing: border-box; height: 5.6rem; align-items: end; }
+.pg-row { min-height: 3.1rem; }
+.pg-inner { display: flex; flex-direction: column; }
+.pg-bwrap { display: grid; grid-template-columns: repeat(var(--nb), 4.8rem); column-gap: 0.3rem; clip-path: inset(0 0 0 var(--sl, 0px)); }
+.pgrid[data-view="metas"] .pg-head-boss, .pgrid[data-view="metas"] .pg-bwrap { display: none; }
+.pgrid[data-view="boss"] .pg-head-metas, .pgrid[data-view="boss"] .pg-cell { display: none; }
+.pgrid[data-view="boss"] .pg-head-boss { display: grid; }
+.pgrid[data-view="boss"] .pg-scroll { overflow-x: auto; }
+.pgrid[data-view="boss"] .pg-inner { width: max-content; min-width: 100%; }
+.pgrid[data-view="boss"] .pg-head, .pgrid[data-view="boss"] .pg-row { grid-template-columns: 12rem auto; }
+.pgrid[data-view="boss"] .pg-who, .pgrid[data-view="boss"] .pg-head-gap { position: sticky; left: 1.1rem; z-index: 2; }
+.pg-boss { position: relative; display: flex; flex-direction: column; align-items: center; gap: 0.25rem; padding: 0.4rem 0.2rem 0.3rem; border: 1px solid transparent; border-radius: 10px; cursor: pointer; user-select: none; }
+.pg-boss img { width: 2.4rem; height: 2.4rem; object-fit: cover; border-radius: 8px; }
+.pg-boss-name { font-size: 0.62rem; font-weight: 600; line-height: 1.15; text-align: center; overflow-wrap: anywhere; }
+.pg-boss:hover { background: var(--table-header-bg); }
+.pg-boss[data-dir] { border-color: var(--accent); }
+.pg-boss .pg-arrow { top: 0.3rem; right: 0.3rem; transform: none; }
+.pg-boss:hover .pg-arrow { color: var(--text); }
+.pg-boss[data-dir] .pg-arrow { color: var(--accent); }
+.pg-boss[data-dir="asc"] .pg-arrow { transform: rotate(180deg); }
+.pg-bcell { display: flex; align-items: center; justify-content: center; align-self: stretch; padding: 0.4rem 0.15rem; box-sizing: border-box; }
+.pg-bcell .pg-v { width: 100%; box-sizing: border-box; }
+@media (max-width: 760px) {
+  .pg-head { display: none; }
+  .pg-row { min-height: 0; }
+  .pgrid[data-view="boss"] .pg-head-boss { display: grid; padding: 0 0.5rem 0.1rem 0.5rem; }
+  .pgrid[data-view="boss"] .pg-head, .pgrid[data-view="boss"] .pg-row { grid-template-columns: 9rem auto; }
+  .pgrid[data-view="boss"] .pg-bwrap { grid-template-columns: repeat(var(--nb), 4.4rem); }
+  .pgrid[data-view="boss"] .pg-row { min-height: 3.1rem; padding: 0 0.5rem; background: none; border: 0; border-radius: 0; gap: 0 0.3rem; border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent); }
+  .pgrid[data-view="boss"] .pg-row:hover { background: color-mix(in srgb, var(--accent) 9%, var(--surface)); }
+  .pgrid[data-view="boss"] .pg-who { grid-column: auto; left: 0.5rem; }
+  .pgrid[data-view="boss"] .pg-head-gap { left: 0.5rem; }
+  .pgrid[data-view="boss"] .pg-who .player-btn { flex: 1 1 auto; }
+  .pgrid[data-view="boss"] .pg-rows { padding: 0.4rem 0; }
+}
+
+/* Boss percentages: same hover as the meta percentages, a click opens the dialog of the boss */
+.pg-bcell[data-bm] { cursor: pointer; border-radius: 8px; transition: background 120ms ease, box-shadow 120ms ease; }
+.pg-bcell[data-bm]:hover, .pg-bcell[data-bm]:focus-visible { background: color-mix(in srgb, var(--accent) 14%, transparent); box-shadow: inset 0 0 0 1px var(--accent); outline: none; }
+.pg-boss.is-hover { border-color: var(--accent); background: var(--table-header-bg); }
+
+/* Boss dialog: one strongly separated block per meta (the meta table's icon, name and % lead it), its Core / Flex rows underneath */
+.mm-boss .mm-team th { box-sizing: border-box; height: 3.2rem; padding: 0 0.7rem; vertical-align: middle; background: color-mix(in srgb, var(--accent) 8%, var(--table-header-bg)); border-top: none; box-shadow: inset 3px 0 0 var(--accent); }
+.mm-boss .mm-gap th { height: 1.1rem; padding: 0; border: 0; background: none; box-shadow: none; }
+.mm-boss .mm-team .mcell-head { min-height: 0; }
+.mm-boss .mm-team .mrole-pct { margin-left: auto; }
+.mm-boss .mm-team + .mm-role th { border-top: none; }
+.mm-boss .mm-role:not(.mm-team) th { padding-top: 0.6rem; font-size: 0.68rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); }
+.mm-boss .mm-team .mteam-title { color: var(--text); font-size: 1rem; }
+.mm-boss .mm-best { align-self: center; padding: 0.1rem 0.5rem; border-radius: 999px; font-size: 0.62rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.mm-sep { margin: 0 0.15rem; color: var(--text-muted); }
+.mm-need { font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text-muted); }
+.mm-need { font-size: 0.72rem; font-weight: 500; }
+.mm-sep { font-size: 0.72rem; }
+/* the first boss column lines up with the first meta column (same left edge for the head and for the percentages) */
+.pg-bwrap { padding-left: 0.4rem; }
+/* the toggle matches the meta buttons of the head: same height (3rem), same width (10.5rem), same corner radius and fill, same row */
+.pg-toggle { display: flex; box-sizing: border-box; height: 3rem; gap: 3px; padding: 3px; border-radius: 6px; background: var(--surface); backdrop-filter: none; -webkit-backdrop-filter: none; }
+.pg-toggle button { flex: 1 1 0; min-width: 0; padding: 0 0.25rem; border-radius: 4px; font-size: 0.74rem; white-space: nowrap; }
+.pg-head-gap { align-items: flex-end; }
+.pg-head .pg-toggle { flex-wrap: nowrap; width: 10.5rem; max-width: none; margin-bottom: 1rem; border-radius: 6px; }
+.pg-head .pg-toggle button { padding: 0 0.25rem; font-size: 0.74rem; }
+.pg-toolbar .pg-toggle { width: min(100%, 22rem); }
+.pg-head .pg-toggle { flex: none; width: calc(100% - 0.2rem); margin-left: calc(0.2rem + 1px); }  /* as wide as the player buttons below (same left edge) */
+/* Joueurs list: the head starts right under the title like the Raid / War tables (no empty strip above the buttons); metas and boss heads share the height */
+.pgrid { margin-top: 0.1rem; }
+.pgrid[data-view] .pg-head { height: 4.9rem; align-items: start; }
+.pg-head-gap { align-items: flex-start; }
+.pg-head .pg-toggle { margin-bottom: 0; }
+/* head just as tall as the Core / Flex labels (the boss head is compacted to fit), so the table follows right under it */
+.pgrid[data-view] .pg-head { height: 4.2rem; }
+.pg-boss { gap: 0.15rem; padding: 0.2rem 0.2rem; }
+.pg-boss img { width: 2.1rem; height: 2.1rem; }
+.pg-boss-name { font-size: 0.6rem; line-height: 1.1; }
+
+/* Phones: the Boss view is made of cards too (the first bosses that fit on one line), the switch spans the width */
+.pg-bicon { display: none; width: 2rem; height: 2rem; object-fit: cover; border-radius: 8px; }
+@media (max-width: 760px) {
+  .pgrid[data-view] .pg-toolbar { display: flex; }
+  .pg-toolbar .pg-toggle { width: 100%; border-radius: 999px; }
+  .pg-toolbar .pg-toggle button { border-radius: 999px; }
+  .pg-rows { display: flex; flex-direction: column; gap: 0.6rem; }
+  .pgrid[data-view="boss"] .pg-head-boss { display: none; }
+  .pgrid[data-view="boss"] .pg-scroll { overflow: visible; }
+  .pgrid[data-view="boss"] .pg-inner { width: auto; min-width: 0; }
+  .pgrid[data-view="boss"] .pg-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.6rem; min-height: 0; padding: 0.7rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+  .pgrid[data-view="boss"] .pg-row:hover { background: color-mix(in srgb, var(--accent) 9%, var(--surface)); }
+  .pgrid[data-view="boss"] .pg-who { position: static; padding: 0; grid-column: auto; }
+  .pgrid[data-view="boss"] .pg-bwrap { display: grid; grid-template-columns: repeat(auto-fill, minmax(3.3rem, 1fr)); grid-template-rows: auto; grid-auto-rows: 0; gap: 0 0.4rem; overflow: hidden; clip-path: none; padding: 0; }
+  .pgrid[data-view="boss"] .pg-bcell { position: relative; z-index: 1; flex-direction: column; gap: 0.25rem; padding: 0.35rem 0.2rem; background: color-mix(in srgb, var(--bg) 60%, transparent); border: 1px solid var(--border); border-radius: 10px; }
+  .pgrid[data-view="boss"] .pg-bicon { display: block; }
+  .pgrid[data-view="boss"] .pg-bcell { order: var(--o, 0); justify-content: flex-start; overflow: hidden; }  /* the tiles of the hidden rows must not spill upwards */
+  .pgrid[data-view="boss"] .pg-bcell .pg-v { font-size: 0.74rem; }
+}
+
+/* the switch is fully rounded on every screen and reaches the table's left edge (the panel's side padding is taken back), up to the player buttons' right edge */
+.pg-head .pg-toggle { border-radius: 999px; margin-left: -1.1rem; width: calc(100% + 1.1rem + 1px); }
+.pg-head .pg-toggle button { border-radius: 999px; }
+.pg-toggle { border-radius: 999px; }
+.pg-toggle button { border-radius: 999px; }
+
+/* Boss view = the main bosses, Primes view = their primes (the sub-bosses); the other kind is not displayed, the grid packs what is left */
+.pgrid[data-kind="primes"] .pg-k-boss, .pgrid:not([data-kind="primes"]) .pg-k-prime { display: none !important; }
+.pg-bwrap { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 4.8rem; }
+@media (max-width: 760px) {
+  .pgrid[data-view="boss"] .pg-bwrap { grid-template-columns: repeat(auto-fill, minmax(3.3rem, 1fr)); grid-auto-flow: row; grid-auto-columns: auto; }
+}
+
+/* hovering a row: the sticky # and Joueur cells take the same hover colour (the Joueur cell kept the darker base colour, which showed as a darker orange next to #) */
+.table-scroll table tbody tr:hover td.rk, .table-scroll table tbody tr:hover td.rk + td { background-color: var(--surface-hover); }
+
+/* Joueurs list (desktop): the rows run edge to edge in the panel (their side padding moved from the panel into the row), so the hover's accent bar sits on the table's left edge like in the War / Raid tables */
+@media (min-width: 761px) {
+  .pgrid[data-view] .pg-rows { padding-left: 0; padding-right: 0; }
+  .pgrid[data-view] .pg-row { padding-left: 1.1rem; padding-right: 1.1rem; }
+}
+
+/* Bosses / Primes view: the table is only as wide as its columns (no empty strip after the last boss on a big screen); it still scrolls when it is wider than the page */
+.pgrid[data-view="boss"] .pg-inner { width: max-content; min-width: 0; }
+.table-scroll.is-dragging, .table-scroll.is-dragging *, .pg-scroll.is-dragging, .pg-scroll.is-dragging * { cursor: grabbing !important; user-select: none; }
+
+/* Bosses / Primes view: like the Metas view, the name is highlighted when the row is hovered anywhere but on a percentage (which opens a dialog) */
+.pgrid[data-view="boss"] .pg-row:hover:not(:has(.pg-bcell:hover)) .player-btn { background: var(--surface-hover); }
+
+/* Bosses / Primes view: a link under the whole row (the name is pinned while the table scrolls, so its own link cannot cover the row as it does in the Metas view);
+   the percentages sit above it, everything else is the link: pointer, status bar URL and click work like in the Metas view */
+.pg-rowlink { display: none; }
+.pgrid[data-view="boss"] .pg-rowlink { display: block; position: absolute; inset: 0; z-index: 0; }
+.pgrid[data-view="boss"] .pg-bwrap { pointer-events: none; }
+.pgrid[data-view="boss"] .pg-bcell { position: relative; z-index: 1; pointer-events: auto; }
+
+/* clickable table rows: each cell is a link stretched over the cell (see linkify_rows), so the address shows wherever the pointer is on the row */
+a.cl { color: inherit; text-decoration: none; }
+td:has(> a.cl) { position: relative; }
+a.cl::after { content: ""; position: absolute; inset: 0; }
+.pgrid[data-view="boss"] .pg-boss { pointer-events: auto; }  /* the head's boss buttons sort the table (the bwrap above them lets the pointer through to the row link) */
+.table-scroll td > a.player-btn::after { content: ""; position: absolute; inset: 0; }  /* the name's link covers its whole cell like the other cells' */
+@media (max-width: 760px) { .pgrid[data-view="boss"] .pg-inner { width: auto; } }  /* phones: the cards take the page width (the "as wide as its columns" rule is for big screens) */
+
+/* Metas pages: the landing uses the Records cards (the meta's icon where the rank number is); the detail page lists the boss's metas as cards */
+.mc-ico { width: 1.2rem; height: 1.2rem; border-width: 1px; vertical-align: middle; }
+.boss-card .bp-rank { display: flex; align-items: center; }
+.mt-detail { margin-bottom: 2rem; }
+.mt-detail h2:first-child { margin-top: 0.6rem; }
+.mrole-reco { min-width: 0; color: var(--accent); background: none; box-shadow: inset 0 0 0 1px var(--accent); border-radius: 999px; font-size: 0.66rem; letter-spacing: 0.04em; text-transform: uppercase; }
+.mu-ab { margin-top: 0.1rem; font-size: 0.6rem; line-height: 1.2; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.mt-niche .mu { opacity: 0.6; }
+.mc-cards .boss-card { min-height: 7.8rem; box-sizing: border-box; }  /* as tall as a Records card (a boss and three lines) */
+/* Metas landing: the meta's icon sits centred under the boss's portrait and its name lines up with the boss's name */
+.mc-cards .boss-card li { grid-template-columns: 2.4rem 1fr; gap: 0 0.6rem; align-items: center; }
+.mc-cards .boss-card .bp-rank { justify-content: center; }
+.mc-cards .mc-ico { width: 1.3rem; height: 1.3rem; }
+.mt-detail .mtable { table-layout: fixed; }
+.mt-detail .mtable th, .mt-detail .mtable td { width: 50%; }  /* Core and Flex take half each, like on the player pages */
+@media (max-width: 640px) { .mt-detail .mtable th, .mt-detail .mtable td { width: 100%; } }  /* phones: the cells are stacked blocks, each as wide as the card */
+@media (max-width: 640px) { .mt-detail .mcell-head:empty { display: none; } }  /* no blank strip above the Flex units once the cells are stacked */
+.mt-detail .mtable th, .mt-detail .mtable td { width: 100%; }  /* a single column */
+
+/* Raid tables: the relative-damage cells open the player's attacks of that season (raid-attacks.js) */
+td[data-atk] { cursor: pointer; }
+.atk-modal { max-width: min(54rem, 94vw); }
+.atk-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; font-variant-numeric: tabular-nums; }
+.atk-table th, .atk-table td { padding: 0.4rem 0.6rem; text-align: left; white-space: nowrap; border-top: 1px solid var(--border); vertical-align: middle; }
+.atk-table thead th { border-top: none; font-size: 0.68rem; color: var(--text-muted); background: var(--table-header-bg); }
+.atk-team { display: flex; gap: 0.2rem; align-items: center; }
+.atk-u { flex: none; width: 2rem; height: 2rem; border-radius: 6px; object-fit: cover; }
+.atk-mow { margin-left: 0.3rem; outline: 1px solid var(--accent); outline-offset: 1px; }
+.atk-boss { display: flex; align-items: center; gap: 0.4rem; }
+.atk-boss img { width: 1.6rem; height: 1.6rem; border-radius: 6px; object-fit: cover; }
+.atk-kind { font-size: 0.72rem; font-weight: 600; color: var(--text-muted); }
+.atk-os { color: var(--accent); }
+.atk-fin { color: var(--text-muted); opacity: 0.8; }
+.atk-rel { font-weight: 700; }
+.atk-rel.pos { color: var(--win); } .atk-rel.neg { color: var(--loss); }
+@media (max-width: 640px) { .atk-table th, .atk-table td { padding: 0.3rem 0.35rem; } .atk-u { width: 1.5rem; height: 1.5rem; } }
+
+/* Best attacks table of the Metas pages: Joueur is pinned like in the other tables, the other columns follow their content */
+.atk-top td { vertical-align: middle; }
+.atk-top .atk-team { display: flex; gap: 0.2rem; }
+.table-scroll table.atk-top th, .table-scroll table.atk-top td { text-align: left; }
+.table-scroll table.atk-top th:nth-child(4), .table-scroll table.atk-top td:nth-child(4), .table-scroll table.atk-top th:last-child, .table-scroll table.atk-top td:last-child { text-align: right; }
+.atk-top td.alt-link { cursor: pointer; }
+.table-scroll table.atk-top td:first-child { position: sticky; left: 0; z-index: 1; background: var(--table-bg); }
+.table-scroll table.atk-top thead th:first-child { position: sticky; left: 0; z-index: 2; background: var(--table-header-bg); }
+.table-scroll table.atk-top tbody tr:hover td:first-child { background: var(--surface-hover); }
+
+/* Column heads light up the same way in every table (the War tables' look): the Raid tables' own head background used to win over the hover one */
+.table-scroll table thead th:hover, .table-scroll table thead th.rk:hover, .table-scroll table thead th.rk + th:hover,
+.table-scroll table.atk-top thead th:first-child:hover, .raid-table thead th:hover { background: var(--table-header-hover); color: var(--text); }
+
+/* attacks dialog: every column is only as wide as its content, the team column takes the rest (Niv. stays tiny); the figures are right-aligned */
+.atk-table th, .atk-table td { width: auto; padding-left: 0.9rem; padding-right: 0.9rem; }  /* the team is always 6 units wide: no column takes the rest, the space is shared */
+.atk-table th.atk-n, .atk-table td.atk-n { text-align: right; }
+.atk-table th, .atk-table td { overflow: visible; text-overflow: clip; }  /* the general table cells clip their content, which crushed the 1 % columns */
+.atk-table { table-layout: auto; }  /* the general tables are fixed-layout, which ignored the content widths */

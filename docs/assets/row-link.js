@@ -20,7 +20,11 @@
   });
   function light(e, on) {
     const cell = e.target.closest && e.target.closest("tbody td");
-    const th = cell && colHead(cell);
+    let th = cell && colHead(cell);
+    if (!th && cell && (cell.classList.contains("alt-link") || cell.hasAttribute("data-atk"))) {  // a cell that leads somewhere of its own (a season, the attacks dialog) lights its column head too
+      const table = cell.closest("table");
+      th = table && table.tHead && table.tHead.rows[0].cells[cell.cellIndex];
+    }
     if (th) th.classList.toggle("col-hover", on);
   }
   // The player's name pill shows only while the pointer is where a click opens the player (not over a column that opens a season, war or boss).
@@ -28,7 +32,7 @@
     const cell = e.target.closest && e.target.closest("tbody td");
     const row = cell && cell.parentElement;
     if (!row || !(row.dataset.href || row.querySelector(".ex-pill"))) return;  // absent players (no page) get the pill too
-    row.classList.toggle("opens-player", over && !colHead(cell));
+    row.classList.toggle("opens-player", over && !colHead(cell) && !cell.classList.contains("alt-link") && !cell.hasAttribute("data-atk"));  // an alt-link / data-atk cell leads elsewhere (a season, the attacks dialog)
   }
   document.addEventListener("mouseover", function (e) { light(e, true); pill(e, true); });
   document.addEventListener("mouseout", function (e) {

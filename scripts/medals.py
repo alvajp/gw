@@ -233,3 +233,42 @@ def raid_ranking(members):
     rows.sort(key=lambda r: (-r[2], r[1]))  # by the Score (mean of the season scores, lost tokens included), ties by the average season rank
     return {uid: {"rank": i, "of": len(rows), "avg_season_rank": round(m, 1), "seasons": n, "avg_rel": round(100 * rel_, 1)}
             for i, (uid, m, rel_, n) in enumerate(rows, 1)}
+
+def attack_kind(e):
+    """"OS" = a kill from full HP in one attack, "Finish" = a kill after earlier damage (only what was left of the boss), "Attaque" otherwise."""
+    if e.get("remainingHp", 1) > 0:
+        return "Attaque"
+    return "OS" if _is_one_shot(e) else "Finish"
+
+
+def level_label(e):
+    """The boss level as the game orders them inside a season: Legendary bosses L1-L5 (the API's `set` 0-4), Mythic ones M1-M3 (set 0-2)."""
+    return ("L" if e.get("rarity") == "Legendary" else "M") + str(e.get("set", 0) + 1)
+
+
+def season_attacks():
+    """season -> every attack of L4, L5, M1, M2 and M3 (no bomb) as {uid, key, lvl, tier, dmg, kind, rel, heroes, mow, at}: `rel` is the damage compared
+    with the guild's average hit on the same boss / sub-boss and tier that season (the same base as raid_seasons), None for a finishing blow
+    (not counted); `heroes` / `mow` are the unit ids of the team, `at` the completion time."""
+    mean = lambda v: sum(v) / len(v)
+    out = {}
+    for season, entries in season_files().items():
+        groups, coarse = defaultdict(list), defaultdict(list)
+        for e in entries:
+            if _valid(e):
+                groups[(_medal_key(e), e.get("tier"))].append(e["damageDealt"])
+                coarse[_medal_key(e)].append(e["damageDealt"])
+        rows = []
+        for e in entries:
+            if e.get("damageType") == "Bomb" or _medal_key(e) is None or not _counts_for_rank(e):
+                continue
+            key, rel = _medal_key(e), None
+            if _valid(e):
+                g = groups[(key, e.get("tier"))]
+                base = mean(g) if len(g) >= 5 else mean(coarse[key])
+                rel = e["damageDealt"] / base - 1 if base > 0 else None
+            rows.append({"uid": e["userId"], "key": key, "lvl": level_label(e), "tier": e.get("tier"), "dmg": e["damageDealt"], "kind": attack_kind(e), "rel": rel,
+                         "heroes": [h["unitId"] for h in e.get("heroDetails") or []], "mow": (e.get("machineOfWarDetails") or {}).get("unitId"),
+                         "at": e.get("completedOn") or 0})
+        out[season] = rows
+    return out
