@@ -237,6 +237,29 @@ def level_label(e):
     return ("L" if e.get("rarity") == "Legendary" else "M") + str(e.get("set", 0) + 1)
 
 
+def _load_raid_maps():
+    path = os.path.join(ROOT, "data", "raid_maps.json")
+    if not os.path.exists(path):
+        return {}
+    with open(path, encoding="utf-8") as f:
+        return {int(season): stages for season, stages in json.load(f)["seasons"].items()}
+
+
+RAID_MAPS = _load_raid_maps()  # season -> {stage: [first prime's board, boss's board, second prime's board]} (data/raid_maps.json)
+_MAP_SLOT = {0: 1, 1: 0, 2: 2}  # the API's encounterIndex (0 boss, 1 and 2 the primes) -> place in the triple of boards
+
+
+def attack_map(season, e):
+    """The board (e.g. "GB_Magnus_01") an attack was played on, None when the season's maps are not known (data/raid_maps.json)."""
+    triple = RAID_MAPS.get(season, {}).get(level_label(e))
+    return triple[_MAP_SLOT.get(e.get("encounterIndex", 0), 1)] if triple else None
+
+
+def map_label(board):
+    """"GB_Magnus_support_06" -> "Magnus support 06" (the name the map pages and the dialogs show)."""
+    return board.replace("GB_", "", 1).replace("_", " ") if board else ""
+
+
 def season_attacks():
     """season -> every attack of L4, L5, M1, M2 and M3 (no bomb) as {uid, key, lvl, tier, dmg, kind, rel, heroes, mow, at}: `rel` is the damage compared
     with the guild's average hit on the same boss / sub-boss and tier that season (the same base as raid_seasons), None for a finishing blow
@@ -260,6 +283,6 @@ def season_attacks():
                 rel = e["damageDealt"] / base - 1 if base > 0 else None
             rows.append({"uid": e["userId"], "key": key, "lvl": level_label(e), "tier": e.get("tier"), "dmg": e["damageDealt"], "kind": attack_kind(e), "rel": rel,
                          "heroes": [h["unitId"] for h in e.get("heroDetails") or []], "mow": (e.get("machineOfWarDetails") or {}).get("unitId"),
-                         "at": e.get("completedOn") or 0})
+                         "at": e.get("completedOn") or 0, "map": attack_map(season, e)})
         out[season] = rows
     return out

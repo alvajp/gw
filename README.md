@@ -86,3 +86,13 @@ A click on a relative-damage cell of the Raid tables (`raid.html`, `raid/<season
 a boss cell): level, team, damage, type (Attaque / Finish / OS) and the damage relative to the guild's average hit (same base as the ranking, none for a finishing blow). Only L4, L5
 and M1-M3 attacks are kept (`medals.season_attacks`). The attacks are written to `docs/data/raid-<season>.json` (+ `raid-meta.json`) by `generate_site.write_raid_data` and read
 by `docs/assets/raid-attacks.js`. Every `metas/<boss>.html` page ends with a table of the 20 best attacks on that boss (relative damage, current members, stored seasons).
+
+### Raid maps
+
+`data/raid_maps.json` gives, per season (only 110-113 so far) and stage (L4, L5, M1, M2, M3), the boards of the first prime, the boss and the second prime (source: the `guild_boss_season_config_<n>` pages
+of tacticustable.com; config n = the season's `seasonConfigId`). `scripts/fetch_raid_maps.py` downloads the visuals into `docs/assets/raid-maps/` (512 px WebP). `medals.season_attacks` gives every
+attack its board (`encounterIndex` 0 = boss, 1 / 2 = the primes); the maps show in the attack dialogs' header (like the war dialogs), as a column of the best attacks table and as a filter of that
+table on the Metas pages. Add a season to the JSON, run the fetch script and regenerate to give that season's attacks a map.
+
+On the war pages that have attack data, a click on any cell of the "Détail" tables except # and Joueur opens the player's attacks of the war in the shared dialog, in the format of the Stratégie page's
+attack tables (`docs/assets/war-attacks.js`, reading the page's `#attacks-data` / `#defense-data` blobs); # and Joueur still open the player.

@@ -70,28 +70,32 @@
     return img ? ' tabindex="0" data-pl-img="' + esc(img) + '" data-pl-att="' + att.join(" ") + '" data-pl-def="' + def.join(" ") + '"' : "";
   }
 
+  // The dialog keeps the height it opened with: filtering its attacks by line must not shrink it (the centred dialog would jump and drag the page behind with it).
+  function holdHeight(modal) {
+    modal.style.minHeight = "";
+    modal.style.minHeight = modal.offsetHeight + "px";
+  }
+
   function openModal(tr) {
     const modal = document.getElementById("defense-modal");
     if (!modal) return;
     const attacks = JSON.parse(tr.dataset.attacks || "[]");
     const names = getData().players;
-    const counts = { w: 0, f: 0, x: 0 };
-    attacks.forEach(function (a) { if (counts[a[1]] !== undefined) counts[a[1]]++; });
-
     // Header: the defense itself, cloned from the row's own cells.
     const cells = tr.children;
     const mapImg = cells[1].querySelector(".map-thumb");
     const defIds = Array.prototype.map.call(cells[2].querySelectorAll(".unit:not(.mow)"), function (img) {
       return (img.getAttribute("src").match(/([^\/]+)\.webp/) || [])[1];
     });
+    // Same header as the defender dialog: player, the map tile (thumbnail, zone, map name), the team. The "by map" lists have no map in their rows: it comes from the row's data-*.
+    const zoneHtml = tr.dataset.map
+      ? '<img class="map-thumb" src="' + esc(tr.dataset.map) + '" alt="" loading="lazy"><span class="zone-text"><b>' + esc(tr.dataset.zone) + "</b><small>" +
+        esc(tr.dataset.mapName) + " · " + esc(tr.dataset.war) + "</small></span>"
+      : cells[1].innerHTML;
     modal.querySelector(".dm-title").innerHTML =
       '<div class="dm-def"><span class="dm-def-player">' + cells[0].innerHTML + '</span>' +
-      '<span class="dm-def-zone">' + cells[1].innerHTML + '</span>' +
-      '<span class="dm-def-comp">' + cells[2].innerHTML + '</span></div>' +
-      '<div class="dm-summary">' + attacks.length + " attaque" + (attacks.length > 1 ? "s" : "") +
-      " · " + counts.w + " victoire" + (counts.w > 1 ? "s" : "") +
-      " · " + counts.f + " finish" + (counts.f > 1 ? "es" : "") +
-      " · " + counts.x + " échec" + (counts.x > 1 ? "s" : "") + "</div>";
+      '<span class="dm-def-zone">' + zoneHtml + '</span>' +
+      '<span class="dm-def-comp">' + cells[2].innerHTML + '</span></div>';
 
     modal.querySelector(".dm-body").innerHTML = attacks.map(function (a) {
       const o = OUTCOME[a[1]] || OUTCOME.u;
@@ -103,6 +107,7 @@
         '<span class="dm-score">' + a[2] + '</span></div>';
     }).join("");
     if (modal.showModal) modal.showModal(); else modal.setAttribute("open", "");
+    holdHeight(modal);
   }
 
   // ---- Click a defender under a map tile: its lineups on top, every attack below ----
@@ -111,30 +116,23 @@
     if (!modal) return;
     const d = JSON.parse(chip.dataset.def);
     const names = getData().players;
-    const counts = { w: 0, f: 0, x: 0 };
-    d.a.forEach(function (a) { if (counts[a[1]] !== undefined) counts[a[1]]++; });
-
     modal.querySelector(".dm-title").innerHTML =
       '<div class="dm-def"><span class="dm-def-player">' + esc(names[d.p] || d.p) + '</span>' +
       '<span class="dm-def-zone">' + (d.i ? '<img class="map-thumb" src="' + d.i + '" alt="">' : "") +
-      '<span class="zone-text"><b>' + esc(d.z) + '</b><small>' + esc(d.m) + '</small></span></span></div>' +
-      '<div class="dm-summary">' + d.a.length + " attaque" + (d.a.length > 1 ? "s" : "") +
-      " · " + counts.w + " victoire" + (counts.w > 1 ? "s" : "") +
-      " · " + counts.f + " finish" + (counts.f > 1 ? "es" : "") +
-      " · " + counts.x + " échec" + (counts.x > 1 ? "s" : "") + "</div>";
+      '<span class="zone-text"><b>' + esc(d.z) + '</b><small>' + esc(d.m) + '</small></span></span></div>';
 
     const lines = d.l.map(function (l, i) {
       const comp = l[0].map(function (u) { return portrait(u, false); }).join("") + (l[1] ? portrait(l[1], true) : "");
-      return '<div class="dm-lineup"><span class="dm-lineno">L' + (i + 1) + '</span>' +
-        '<span class="dm-comp">' + comp + '</span>' +
-        '<span class="dm-linestats">' + l[2] + " att. · " + l[3] + " échec" + (l[3] > 1 ? "s" : "") + " · " + l[4] + '</span></div>';
+      return '<div class="dm-lineup" role="button" tabindex="0" data-line="' + (i + 1) + '">' +
+        '<span class="dm-linestats">' + l[2] + " att. · " + l[3] + " échec" + (l[3] > 1 ? "s" : "") + " · " + l[4] + '</span>' +
+        '<span class="dm-comp">' + comp + '</span></div>';
     }).join("");
 
     const attacks = d.a.map(function (a) {
       const o = OUTCOME[a[1]] || OUTCOME.u;
       const comp = a[3].map(function (u) { return portrait(u, false); }).join("") + (a[4] ? portrait(a[4], true) : "");
       const line = d.l[a[5] - 1];
-      return '<div class="dm-row with-line" data-line="' + a[5] + '"' + plAttrs(d.i, a[3], line ? line[0] : []) + '><span class="dm-lineno">L' + a[5] + '</span>' +
+      return '<div class="dm-row" data-line="' + a[5] + '"' + plAttrs(d.i, a[3], line ? line[0] : []) + '>' +
         '<span class="dm-player">' + esc(names[a[0]] || a[0]) + '</span>' +
         '<span class="dm-comp">' + comp + '</span>' +
         '<span class="dm-result ' + o[1] + '">' + o[0] + '</span>' +
@@ -142,27 +140,32 @@
     }).join("");
 
     modal.querySelector(".dm-body").innerHTML =
-      '<div class="dm-section">Défense</div>' + lines +
-      '<div class="dm-section">Attaques (<span class="dm-count">' + d.a.length + '</span>)</div>' +
-      '<div class="dm-filters"><button type="button" class="chip active" data-line="">Toutes</button>' +
-      d.l.map(function (l, i) { return '<button type="button" class="chip" data-line="' + (i + 1) + '">Ligne ' + (i + 1) + "</button>"; }).join("") +
-      "</div>" + attacks;
+      '<section class="dm-block"><div class="dm-th dm-th-lines"><span>Défense</span><span>Compo</span></div>' + lines + '</section>' +
+      '<section class="dm-block"><div class="dm-th dm-th-attacks"><span>Attaques <span class="dm-count">' + d.a.length + '</span></span><span>Compo</span><span>Résultat</span><span>Score</span></div>' + attacks + '</section>';
+    const first = modal.querySelector(".dm-lineup");
+    if (first) selectLine(first);  // the first defense line is selected on opening; its attacks are the ones listed
     if (modal.showModal) modal.showModal(); else modal.setAttribute("open", "");
+    holdHeight(modal);
+  }
+
+  // A defense line of the defender dialog is the filter of the attacks below: exactly one is selected, the attacks against it are listed.
+  function selectLine(lineEl) {
+    const body = lineEl.closest(".dm-body");
+    const line = lineEl.dataset.line;
+    body.querySelectorAll(".dm-lineup").forEach(function (l) { l.classList.toggle("active", l === lineEl); l.setAttribute("aria-pressed", l === lineEl ? "true" : "false"); });
+    let shown = 0;
+    body.querySelectorAll(".dm-row[data-line]").forEach(function (row) {
+      row.hidden = row.dataset.line !== line;
+      if (!row.hidden) shown++;
+    });
+    const count = body.querySelector(".dm-count");
+    if (count) count.textContent = shown;
   }
 
   document.addEventListener("click", function (e) {
-    const filter = e.target.closest(".dm-filters .chip");
-    if (filter) {
-      const body = filter.closest(".dm-body");
-      const line = filter.dataset.line;
-      body.querySelectorAll(".dm-filters .chip").forEach(function (c) { c.classList.toggle("active", c === filter); });
-      let shown = 0;
-      body.querySelectorAll(".dm-row[data-line]").forEach(function (row) {
-        row.hidden = line !== "" && row.dataset.line !== line;
-        if (!row.hidden) shown++;
-      });
-      const count = body.querySelector(".dm-count");
-      if (count) count.textContent = shown;
+    const lineEl = e.target.closest(".dm-lineup[data-line]");
+    if (lineEl) {
+      selectLine(lineEl);
       return;
     }
     const defChip = e.target.closest(".map-def");
@@ -186,6 +189,12 @@
   });
 
   document.addEventListener("keydown", function (e) {
+    const lineEl = (e.key === "Enter" || e.key === " ") && e.target.closest && e.target.closest(".dm-lineup[data-line]");
+    if (lineEl) {
+      e.preventDefault();
+      selectLine(lineEl);
+      return;
+    }
     if (e.key !== "Enter") return;
     const tr = e.target.closest && e.target.closest(".defense-table tbody tr[data-attacks]");
     if (tr) openModal(tr);

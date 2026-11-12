@@ -1,0 +1,140 @@
+{
+ "_comment": "Raid maps per season, from https://www.tacticustable.com/maps/guild-raid-season/guild_boss_season_config_<n> (config n = the season's guild_boss_season_config_n). Per stage (L4, L5, M1, M2, M3) the board of [first prime (encounterIndex 1), boss (encounterIndex 0), second prime (encounterIndex 2)]; the image is https://www.tacticustable.com/images/maps/<board>_Visual.png (scripts/fetch_raid_maps.py). Add a season here to give its attacks a map; seasons older than 110 are not known yet.",
+ "seasons": {
+  "110": {
+   "M3": [
+    "GB_Belisarius_support_01",
+    "GB_Belisarius_04",
+    "GB_Belisarius_support_04"
+   ],
+   "M2": [
+    "GB_Dakka_support_03",
+    "GB_Dakka_02",
+    "GB_Dakka_support_04"
+   ],
+   "M1": [
+    "GB_Screamer_support_01",
+    "GB_Screamer_01",
+    "GB_Screamer_support_02"
+   ],
+   "L5": [
+    "GB_Khaine_support_03",
+    "GB_Khaine_05",
+    "GB_Khaine_support_04"
+   ],
+   "L4": [
+    "GB_RogalDorn_support_05",
+    "GB_RogalDorn_06",
+    "GB_RogalDorn_support_06"
+   ]
+  },
+  "111": {
+   "M3": [
+    "GB_Magnus_support_02",
+    "GB_Magnus_02",
+    "GB_Magnus_support_01"
+   ],
+   "M2": [
+    "GB_Khaine_support_01",
+    "GB_Khaine_04",
+    "GB_Khaine_support_02"
+   ],
+   "M1": [
+    "GB_Riptide_support_01",
+    "GB_Riptide_02",
+    "GB_Riptide_support_03"
+   ],
+   "L5": [
+    "GB_Lion_support_01",
+    "GB_Lion_01",
+    "GB_Lion_support_03"
+   ],
+   "L4": [
+    "GB_Belisarius_support_03",
+    "GB_Belisarius_03",
+    "GB_Belisarius_support_06"
+   ]
+  },
+  "112": {
+   "M3": [
+    "GB_Dakka_support_01",
+    "GB_Dakka_05",
+    "GB_Dakka_support_02"
+   ],
+   "M2": [
+    "GB_Screamer_support_03",
+    "GB_Screamer_04",
+    "GB_Screamer_support_04"
+   ],
+   "M1": [
+    "GB_RogalDorn_support_01",
+    "GB_RogalDorn_03",
+    "GB_RogalDorn_support_02"
+   ],
+   "L5": [
+    "GB_Belisarius_support_02",
+    "GB_Belisarius_04",
+    "GB_Belisarius_support_05"
+   ],
+   "L4": [
+    "GB_Khaine_support_03",
+    "GB_Khaine_02",
+    "GB_Khaine_support_04"
+   ]
+  },
+  "113": {
+   "M3": [
+    "GB_Magnus_support_06",
+    "GB_Magnus_01",
+    "GB_Magnus_support_05"
+   ],
+   "M2": [
+    "GB_Lion_support_02",
+    "GB_Lion_02",
+    "GB_Lion_support_04"
+   ],
+   "M1": [
+    "GB_SK_support_06",
+    "GB_SK_04",
+    "GB_SK_support_05"
+   ],
+   "L5": [
+    "GB_Mortarion_support_05_1",
+    "GB_Mortarion_02",
+    "GB_Mortarion_support_06"
+   ],
+   "L4": [
+    "GB_Dakka_support_05",
+    "GB_Dakka_03",
+    "GB_Dakka_support_06"
+   ]
+  },
+  "114": {
+   "M3": [
+    "GB_Mortarion_support_03",
+    "GB_Mortarion_04",
+    "GB_Mortarion_support_04_1"
+   ],
+   "M2": [
+    "GB_SK_support_08",
+    "GB_SK_01",
+    "GB_SK_support_07"
+   ],
+   "M1": [
+    "GB_Lion_support_01",
+    "GB_Lion_03",
+    "GB_Lion_support_03"
+   ],
+   "L5": [
+    "GB_Belisarius_support_02",
+    "GB_Belisarius_04",
+    "GB_Belisarius_support_05"
+   ],
+   "L4": [
+    "GB_Riptide_support_01",
+    "GB_Riptide_02",
+    "GB_Riptide_support_03"
+   ]
+  }
+ }
+}

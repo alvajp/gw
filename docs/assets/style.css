@@ -494,7 +494,6 @@ dialog.defense-modal::backdrop { background: rgba(0, 0, 0, 0.55); }
 .dm-def .map-thumb { height: 48px; width: auto; border-radius: 4px; margin-right: 0.4rem; }
 .dm-def .zone-text { display: inline-flex; flex-direction: column; line-height: 1.2; font-size: 1rem; }
 .dm-def .zone-text small { color: var(--text-muted); font-size: 0.85rem; }
-.dm-summary { color: var(--text-muted); font-size: 0.9rem; margin-top: 0.5rem; }
 .dm-body { padding: 0.5rem 1.4rem 1rem; }
 .dm-row { display: grid; grid-template-columns: minmax(0, 1fr) auto 5.4em 3.8em; align-items: center; gap: 0.8rem; padding: 0.55rem 0; border-bottom: 1px solid var(--border); font-size: 0.98rem; }
 .dm-row:last-child { border-bottom: none; }
@@ -546,11 +545,20 @@ dialog.defense-modal::backdrop { background: rgba(0, 0, 0, 0.55); }
 .map-def small { color: var(--text-muted); font-size: 0.68rem; }
 
 /* Defender modal (defense-filter.js): lineups + attacks with the line each one hit. */
-.dm-section { margin: 0.8rem 0 0.2rem; color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; }
-.dm-lineup { display: grid; grid-template-columns: 2.4em minmax(0, 1fr) auto; align-items: center; gap: 0.8rem; padding: 0.45rem 0; border-bottom: 1px solid var(--border); font-size: 0.98rem; }
-.dm-lineno { color: var(--text-muted); font-variant-numeric: tabular-nums; font-size: 0.88rem; }
+/* Défense / Attaques: two tables like the site's others -- a header row (the tables' header colours and type, column titles over the rows' columns), then the rows */
+.dm-body { --dm-pad: 1.4rem; }
+.dm-block { margin: 0.9rem 0; }
+.dm-block:first-child { margin-top: 0.4rem; }
+.dm-th { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.8rem; align-items: center; margin: 0; padding: 0.5rem 0.6rem; background: var(--table-header-bg); border-bottom: 1px solid var(--border); color: var(--text-muted); font-size: 0.74rem; font-weight: 600; letter-spacing: 0.01em; }
+.dm-th-attacks { grid-template-columns: minmax(0, 1fr) auto 5.4em 3.8em; }
+.dm-th-attacks > :nth-child(3) { text-align: center; }
+.dm-th-attacks > :nth-child(4) { text-align: right; }
+.dm-count { margin-left: 0.3rem; font-variant-numeric: tabular-nums; color: var(--text); }
+.dm-lineup { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0.8rem; padding: 0.45rem 0.6rem; margin: 0; border-bottom: 1px solid var(--border); border-radius: 0 6px 6px 0; font-size: 0.98rem; cursor: pointer; transition: background 120ms ease, box-shadow 120ms ease; }
+.dm-lineup:hover { background: var(--surface-hover); }
+.dm-lineup.active, .dm-lineup.active:hover { background: color-mix(in srgb, var(--accent) 12%, var(--table-header-bg)); box-shadow: inset 3px 0 0 var(--accent); }
+.dm-lineup:focus-visible { outline: 1px solid var(--accent); outline-offset: -1px; }
 .dm-linestats { color: var(--text-muted); font-size: 0.88rem; white-space: nowrap; }
-.dm-row.with-line { grid-template-columns: 2.4em minmax(0, 1fr) auto 5.4em 3.8em; }
 
 /* Index "Défenses de ..." combined single map + our attacks (see render_opponent_map). */
 
@@ -599,8 +607,6 @@ dialog.defense-modal::backdrop { background: rgba(0, 0, 0, 0.55); }
 .strategy-btn:hover { transform: translateY(-1px); box-shadow: 0 0 0 2px var(--team-us); }
 
 /* Defender modal: "Toutes / Ligne 1..5" pills filtering the attacks below (defense-filter.js). */
-.dm-filters { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0.3rem 0 0.4rem; }
-.dm-filters .chip { padding: 0.15rem 0.7rem; font-size: 0.78rem; }
 .dm-row[hidden] { display: none; }
 
 /* ---- polish: inline arrows, hover states ---- */
@@ -1205,21 +1211,17 @@ tbody tr[data-active="false"] td.rk:first-child { color: var(--text-muted); }
 @media (max-width: 640px) {
   dialog.defense-modal { width: calc(100vw - 1rem); max-height: calc(100vh - 1rem); }
   .dm-head { padding: 0.8rem 0.8rem; gap: 0.5rem; }
-  .dm-body { padding: 0.4rem 0.8rem 0.8rem; }
+  .dm-body { padding: 0.4rem 0.8rem 0.8rem; --dm-pad: 0.8rem; }
+  .dm-th > :not(:first-child) { display: none; }
+  .dm-th, .dm-th-attacks { grid-template-columns: minmax(0, 1fr); }
   .dm-row { grid-template-columns: minmax(0, 1fr) auto auto; gap: 0.35rem 0.6rem; font-size: 0.92rem; }
   .dm-row > .dm-player { grid-column: 1; grid-row: 1; }
   .dm-row > .dm-result { grid-column: 2; grid-row: 1; padding: 0.1rem 0.6rem; }
   .dm-row > .dm-score { grid-column: 3; grid-row: 1; min-width: 2.6em; }
   .dm-row > .dm-comp { grid-column: 1 / -1; grid-row: 2; flex-wrap: wrap; row-gap: 2px; }
-  .dm-row.with-line { grid-template-columns: 2.1em minmax(0, 1fr) auto auto; }
-  .dm-row.with-line > .dm-lineno { grid-column: 1; grid-row: 1; }
-  .dm-row.with-line > .dm-player { grid-column: 2; }
-  .dm-row.with-line > .dm-result { grid-column: 3; }
-  .dm-row.with-line > .dm-score { grid-column: 4; }
-  .dm-row.with-line > .dm-comp { grid-column: 2 / -1; }
-  .dm-lineup { grid-template-columns: 2.1em minmax(0, 1fr); gap: 0.3rem 0.6rem; }
-  .dm-lineup > .dm-comp { grid-column: 2; grid-row: 1; flex-wrap: wrap; row-gap: 2px; }
-  .dm-lineup > .dm-linestats { grid-column: 2; grid-row: 2; font-size: 0.82rem; color: var(--text-muted); }
+  .dm-lineup { grid-template-columns: minmax(0, 1fr); gap: 0.3rem 0.6rem; }
+  .dm-lineup > .dm-comp { grid-column: 1; grid-row: 1; flex-wrap: wrap; row-gap: 2px; }
+  .dm-lineup > .dm-linestats { grid-column: 1; grid-row: 2; font-size: 0.82rem; color: var(--text-muted); }
 }
 
 /* ---- Mobile pass: player pills inside tables are compact so more columns stay visible ---- */
@@ -1254,10 +1256,10 @@ tbody tr[data-active="false"] td.rk:first-child { color: var(--text-muted); }
 
 /* Defender dialog: the defense lines' teams sit in the same column as the attackers' teams below (their stats move to the player column). */
 @media (min-width: 641px) {
-  .dm-lineup { grid-template-columns: 2.4em minmax(0, 1fr) auto 5.4em 3.8em; }
-  .dm-lineup > .dm-lineno { grid-column: 1; }
-  .dm-lineup > .dm-linestats { grid-column: 2; grid-row: 1; text-align: left; color: var(--text-muted); font-size: 0.85rem; }
-  .dm-lineup > .dm-comp { grid-column: 3; grid-row: 1; }
+  .dm-lineup { grid-template-columns: minmax(0, 1fr) auto 5.4em 3.8em; }
+  .dm-th-lines { grid-template-columns: minmax(0, 1fr) auto 5.4em 3.8em; }
+  .dm-lineup > .dm-linestats { grid-column: 1; grid-row: 1; text-align: left; color: var(--text-muted); font-size: 0.85rem; }
+  .dm-lineup > .dm-comp { grid-column: 2; grid-row: 1; }
 }
 
 /* Explanations sit under their table / chart (the table's own bottom margin is pulled back in). */
@@ -1265,15 +1267,15 @@ tbody tr[data-active="false"] td.rk:first-child { color: var(--text-muted); }
 .boss-cards + .raid-explain { margin: 1rem 0 2rem; }
 
 /* Strategy page: "Se comparer à" + one big chip per guild, with the laurel badge of the player insignias carrying the guild's number. */
-.opp-filter { gap: 0.6rem 1rem; margin: 0.4rem 0 1.4rem; }
-.opp-filter-label { font-size: 0.95rem; font-weight: 700; color: var(--text); }
-.opp-filter .guild-chip { display: inline-flex; align-items: center; gap: 0.55rem; padding: 0.3rem 1.1rem 0.3rem 0.45rem; font-size: 0.95rem; font-weight: 600; border-radius: 999px; }
-.opp-filter .guild-badge { width: 2.5rem; flex: none; }
-.opp-filter .guild-badge .ins-core b { font-size: 0.95rem; }
-.opp-filter .guild-badge .ins-core b::before { font-size: 0.5rem; margin-right: 0.02rem; vertical-align: 0.45em; }
+.opp-filter { flex-direction: column; align-items: flex-start; gap: 0.5rem; margin: 0.4rem 0 1.4rem; }  /* the label sits above the chips */
+.opp-filter-label { font-size: 0.85rem; font-weight: 600; color: var(--text); }
+.opp-filter .guild-chip { display: inline-flex; align-items: center; gap: 0.45rem; padding: 0.22rem 0.85rem 0.22rem 0.35rem; font-size: 0.85rem; font-weight: 500; border-radius: 999px; }
+.opp-filter .guild-badge { width: 1.9rem; flex: none; }
+.opp-filter .guild-badge .ins-core b { font-size: 0.75rem; }
+.opp-filter .guild-badge .ins-core b::before { font-size: 0.4rem; margin-right: 0.02rem; vertical-align: 0.45em; }
 .opp-filter .guild-chip:not(.active) .guild-badge { filter: saturate(0.55) brightness(0.85); }
-.opp-filter .guild-chip.active { background: color-mix(in srgb, var(--accent) 16%, var(--surface)); box-shadow: 0 0 0 1px var(--accent), 0 4px 14px color-mix(in srgb, var(--accent) 22%, transparent); }
-@media (max-width: 480px) { .opp-filter .guild-chip { padding-right: 0.8rem; font-size: 0.88rem; } .opp-filter .guild-badge { width: 2.2rem; } }
+.opp-filter .guild-chip.active { background: color-mix(in srgb, var(--accent) 10%, var(--surface)); border-color: var(--accent); box-shadow: none; }
+@media (max-width: 480px) { .opp-filter .guild-chip { padding-right: 0.7rem; } }
 
 /* Medals: two lines, the bosses then their primes (sub-bosses), to the right of the insignias. */
 .medals { flex-direction: column; align-items: flex-start; gap: 0.35rem; }
@@ -1606,7 +1608,6 @@ a.cl::after { content: ""; position: absolute; inset: 0; }
 
 /* Raid tables: the relative-damage cells open the player's attacks of that season (raid-attacks.js) */
 td[data-atk] { cursor: pointer; }
-.atk-modal { max-width: min(54rem, 94vw); }
 .atk-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; font-variant-numeric: tabular-nums; }
 .atk-table th, .atk-table td { padding: 0.4rem 0.6rem; text-align: left; white-space: nowrap; border-top: 1px solid var(--border); vertical-align: middle; }
 .atk-table thead th { border-top: none; font-size: 0.68rem; color: var(--text-muted); background: var(--table-header-bg); }
@@ -1626,7 +1627,7 @@ td[data-atk] { cursor: pointer; }
 .atk-top td { vertical-align: middle; }
 .atk-top .atk-team { display: flex; gap: 0.2rem; }
 .table-scroll table.atk-top th, .table-scroll table.atk-top td { text-align: left; }
-.table-scroll table.atk-top th:nth-child(4), .table-scroll table.atk-top td:nth-child(4), .table-scroll table.atk-top th:last-child, .table-scroll table.atk-top td:last-child { text-align: right; }
+.table-scroll table.atk-top th:nth-child(5), .table-scroll table.atk-top td:nth-child(5), .table-scroll table.atk-top th:last-child, .table-scroll table.atk-top td:last-child { text-align: right; }
 .atk-top td.alt-link { cursor: pointer; }
 .table-scroll table.atk-top td:first-child { position: sticky; left: 0; z-index: 1; background: var(--table-bg); }
 .table-scroll table.atk-top thead th:first-child { position: sticky; left: 0; z-index: 2; background: var(--table-header-bg); }
@@ -1645,3 +1646,30 @@ td[data-atk] { cursor: pointer; }
 /* Third menu row (war season pages: the season's wars) */
 .topsub3 { background: color-mix(in srgb, var(--bg) 40%, transparent); }
 .topsub3 a { font-size: 0.78rem; }
+
+/* maps of the raid attacks: thumbnails in the tables, in the attack dialogs' header (the war dialogs' map tile) and the filter of the Metas pages */
+.atk-map { height: 2.4rem; width: auto; border-radius: 4px; vertical-align: middle; }
+.atk-modal .dm-def .map-thumb { height: 48px; width: auto; border-radius: 4px; margin-right: 0.4rem; }
+.atk-modal .dm-body { padding-top: 0.3rem; }
+.map-filter { display: flex; flex-wrap: wrap; gap: 0.6rem; margin: 0 0 1rem; }
+.map-chip { appearance: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.3rem; min-width: 4.6rem; padding: 0.5rem 0.6rem; font: inherit; color: var(--text-muted); background: color-mix(in srgb, var(--bg) 86%, transparent); border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer; transition: border-color 120ms ease, background 120ms ease, color 120ms ease; }
+.map-chip:hover { color: var(--text); border-color: var(--text-muted); }
+.map-chip[aria-pressed="true"] { color: var(--text); border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--table-header-bg)); }
+.map-chip-img { height: 5rem; width: auto; border-radius: 6px; }
+.map-chip span { font-size: 0.78rem; font-weight: 600; }
+
+/* War page Détail tables: every cell but # and Joueur opens the player's attacks (war-attacks.js) */
+td[data-war-atk] { cursor: pointer; }
+
+/* War recap: as wide as the page, its content inset by a side padding that grows with the screen (the bars and the table would otherwise stretch edge to edge) */
+.war-recap { max-width: none; }
+@media (min-width: 900px) { .war-recap .rc-head, .war-recap .rc-body { padding-left: clamp(1rem, 7vw, 8rem); padding-right: clamp(1rem, 7vw, 8rem); } }
+
+/* Defender dialog (desktop): the team column has a fixed width, so the titles of the two header rows sit over the teams */
+@media (min-width: 641px) {
+  .dm-block .dm-row, .dm-block .dm-lineup, .dm-th-lines, .dm-th-attacks { grid-template-columns: minmax(0, 1fr) 15.5rem 5.2rem 3.6rem; }
+  .dm-block .dm-comp { justify-content: flex-start; }
+}
+
+/* Defender dialog: the rows line up with the header rows' text (same side padding), the selected / hovered line is flat on its accent-bar side */
+.dm-block .dm-row { padding-left: 0.6rem; padding-right: 0.6rem; }

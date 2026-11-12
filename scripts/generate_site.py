@@ -204,9 +204,10 @@ def name_cell(uid, name, prefix):
     return f'<td><a class="chip player-btn" href="{prefix}joueurs/{slug}.html">{html_escape(name)}</a></td>'
 
 
-def render_table(rows, hard_cols, easy_cols):
+def render_table(rows, hard_cols, easy_cols, attacks=False):
     headers = ["Joueur"] + [label for _, label in COLS]
     headers += [name for _, name in hard_cols] + [name for _, name in easy_cols]
+    atk = " data-war-atk" if attacks else ""  # with the war's attack data on the page, every cell but # and Joueur opens the player's attacks (war-attacks.js)
     thead = '<th class="rk">#</th>' + "".join(f"<th>{html_escape(h)}</th>" for h in headers)
 
     # First pass: compute the rounded pts/réussites/buffs/map values for every
@@ -235,14 +236,14 @@ def render_table(rows, hard_cols, easy_cols):
             if key in breakdown:
                 val = breakdown[key]
                 lo, hi = bounds[key]
-                cells.append(f"<td{value_to_bg(val, lo, hi)}>{val}</td>")
+                cells.append(f"<td{value_to_bg(val, lo, hi)}{atk}>{val}</td>")
             else:
-                cells.append(f"<td>{ps[key]}</td>")
+                cells.append(f"<td{atk}>{ps[key]}</td>")
         for i in range(1, len(hard_cols) + 1):
-            cells.append(f"<td>{ps.get(f'hard{i}', 0)}</td>")
+            cells.append(f"<td{atk}>{ps.get(f'hard{i}', 0)}</td>")
         for i in range(1, len(easy_cols) + 1):
-            cells.append(f"<td>{ps.get(f'easy{i}', 0)}</td>")
-        body_rows.append(f"<tr{player_row_attrs(uid, '../')}>" + "".join(cells) + "</tr>")
+            cells.append(f"<td{atk}>{ps.get(f'easy{i}', 0)}</td>")
+        body_rows.append(f'<tr{player_row_attrs(uid, "../")} data-uid="{uid}">' + "".join(cells) + "</tr>")
 
     return f"""<div class="table-scroll"><table class="sortable">
   <thead><tr>{thead}</tr></thead>
@@ -405,6 +406,7 @@ PAGE_TEMPLATE = """<!doctype html>
 <script src="{asset_prefix}assets/row-link.js?v={v}"></script>
 <script src="{asset_prefix}assets/drag-scroll.js?v={v}"></script>
 <script src="{asset_prefix}assets/raid-attacks.js?v={v}"></script>
+<script src="{asset_prefix}assets/war-attacks.js?v={v}"></script>
 </body>
 </html>"""
 
@@ -479,7 +481,7 @@ def linkify_rows(html):
 
             def cell(cm):
                 idx[0] += 1
-                if "<a " in cm.group(2) or "<button" in cm.group(2) or "data-atk" in cm.group(1):  # (data-atk cells open a dialog, see raid-attacks.js)
+                if "<a " in cm.group(2) or "<button" in cm.group(2) or "data-atk" in cm.group(1) or "data-war-atk" in cm.group(1):  # (data-atk cells open a dialog, see raid-attacks.js)
                     return cm.group(0)
                 target = heads[idx[0]] if idx[0] < len(heads) and heads[idx[0]] else href.group(1)
                 return f'{cm.group(1)}<a class="cl" href="{target}" tabindex="-1">{cm.group(2)}</a></td>'
@@ -1531,7 +1533,8 @@ def render_defense_by_map(all_wars, prefix=""):
             wr = r["war"]
             label = f'S{wr["season"]}&nbsp;G{wr["war_number"]}' if wr.get("war_number") else f'S{wr["season"]}'
             trs.append(
-                f'<tr tabindex="0" data-attacks="{_attacks_attr(r["attacks"])}"><td>{html_escape(r["player"])}</td>'
+                f'<tr tabindex="0" data-attacks="{_attacks_attr(r["attacks"])}" data-map="{prefix}{m["image"]}" data-map-name="{html_escape(m["name"])}" '
+                f'data-zone="{html_escape(ZONE_LABELS.get(r["zone"], r["zone"]))}" data-war="{html_escape(r["guild"])} · {label}"><td>{html_escape(r["player"])}</td>'
                 f'<td class="guild">{html_escape(r["guild"])}<small>{label} · {ZONE_LABELS.get(r["zone"], r["zone"])}</small></td>'
                 f'<td class="comp">{comp}</td><td>{r["n"]}</td><td>{r["avg"]:.0f}</td>'
                 f'<td>{r["fail_rate"] * 100:.0f}&nbsp;%</td><td class="buffs">{_buff_list(r["buffs"])}</td></tr>'
@@ -2011,7 +2014,8 @@ def render_war_page(slug, result, season, outcome=None, active_uids=frozenset(),
     # and a hand-supplemented war drops its battle_events, see ranking.py),
     # so the section is simply left empty for those.
     display_names = {uid: p.get("displayName", uid) for uid, p in result["players"].items()}
-    body += "<h2>Détail</h2>" + render_table(our_rows, hard_cols, easy_cols)
+    has_strategy = any(e.get("defender") for e in result["battle_events"])
+    body += "<h2>Détail</h2>" + render_table(our_rows, hard_cols, easy_cols, attacks=has_strategy)
     body += render_war_chronologie_section(result, our_idx, display_names)
 
     other_tables = []
@@ -2019,7 +2023,7 @@ def render_war_page(slug, result, season, outcome=None, active_uids=frozenset(),
         if team_idx == our_idx:
             continue
         rows = guild_rows(result, team_idx)
-        other_tables.append(render_table(rows, hard_cols, easy_cols))
+        other_tables.append(render_table(rows, hard_cols, easy_cols, attacks=has_strategy))
 
     body += render_defense_section(result, our_idx, result.get("boards") or {})
     # the opponent's table and best defences stay folded away, at the bottom
@@ -2029,10 +2033,9 @@ def render_war_page(slug, result, season, outcome=None, active_uids=frozenset(),
                  + ("<h2>Adversaires</h2>" + "".join(other_tables) if other_tables else "")
                  + (f'<div class="adv-defense"><h2>Meilleures défenses</h2>{their_defense}</div>' if their_defense else "")
                  + "</details>")
-    has_strategy = any(e.get("defender") for e in result["battle_events"])
     if has_strategy:
-        # the Défense rows open the shared modal; it needs its names/portraits blob
-        body += _defense_modal_html([[e for e in result["battle_events"] if e.get("defender")]], result["players"], "../")
+        # the Défense rows and the Détail cells open the shared modal; it needs its names/portraits blob, the Détail cells also the attacks (same data as the Stratégie page)
+        body += build_attacks(result, our_idx, result.get("boards") or {})[1] + _defense_modal_html([[e for e in result["battle_events"] if e.get("defender")]], result["players"], "../")
     header_action = strategy_button(slug + "-strategie.html") if has_strategy else ""
 
     title = ", ".join(opponent_names(result, our_idx)) or slug
@@ -2491,7 +2494,7 @@ def render_boxplot_svg(display_names, distributions, active_uids, id_suffix=""):
 
 
 def render_index(seasons, active_uids=frozenset(), war_rank=None):
-    season_numbers = sorted(seasons.keys())
+    season_numbers = sorted(seasons.keys(), reverse=True)  # latest season first, like the Raid table
     season_stats, display_names, totals, war_counts, averages, win_rate, tokens, buffs, maps_ = compute_season_averages(seasons)
     all_wars_flat = [w for wars_in_season in seasons.values() for w in wars_in_season]
     score_display_names, score_distributions = compute_score_distributions(all_wars_flat)
@@ -2641,7 +2644,7 @@ def write_raid_data():
             used.update(a["heroes"])
             if a["mow"]:
                 used.add(a["mow"])
-            arr.append([a["uid"], a["key"], a["lvl"], a["tier"], a["dmg"], a["kind"], None if a["rel"] is None else round(a["rel"], 6), a["heroes"], a["mow"], a["at"]])
+            arr.append([a["uid"], a["key"], a["lvl"], a["tier"], a["dmg"], a["kind"], None if a["rel"] is None else round(a["rel"], 6), a["heroes"], a["mow"], a["at"], a["map"]])
         with open(os.path.join(out_dir, f"raid-{season}.json"), "w", encoding="utf-8") as f:
             json.dump({"a": arr}, f, separators=(",", ":"))
     unit_names = rosters_mod._unit_names()
@@ -2736,21 +2739,33 @@ def render_raid_pages(all_wars):
     print(f"Generated raid.html + {len(season_order)} season page(s)")
 
 
-BEST_ATTACKS = 20  # rows of the "Meilleures attaques" table of a Metas page
+BEST_ATTACKS = 20  # rows of the "Meilleures attaques" table of a Metas page (per map when a map is chosen)
 
 
 def best_attacks_html(key, attacks, names, members, unit_names, prefix):
-    """Table of the best attacks (relative damage, best first) on a boss or prime over the stored seasons, L4 / L5 / M1-M3 only, by the current
-    members: season, boss level, player, team, damage, type, relative damage. Finishing blows have no relative figure and are left out."""
+    """Best attacks (relative damage, best first) on a boss or prime over the stored seasons, L4 / L5 / M1-M3 only, by the current members: player, season and
+    boss level, map, team, damage, type, relative damage. Finishing blows have no relative figure and are left out. The map thumbnails above the table filter it
+    (raid-attacks.js): with no map chosen the BEST_ATTACKS best attacks show, with one chosen its own best ones (the other rows are hidden)."""
     rows = [(a["rel"], season, a) for season, atks in attacks.items() for a in atks if a["key"] == key and a["rel"] is not None and a["uid"] in members]
     rows.sort(key=lambda r: -r[0])
-    rows = rows[:BEST_ATTACKS]
     if not rows:
         return ""
-    lo, hi = rows[-1][0], rows[0][0]
+    per_map = defaultdict(list)
+    for r in rows:
+        if r[2]["map"]:
+            per_map[r[2]["map"]].append(r)
+    top = {id(r[2]) for r in rows[:BEST_ATTACKS]}  # shown when no map is chosen
+    keep = set(top)
+    for lst in per_map.values():  # a chosen map shows its own best attacks
+        keep.update(id(r[2]) for r in lst[:BEST_ATTACKS])
+    rows = [r for r in rows if id(r[2]) in keep]
+    lo, hi = rows[min(len(rows), BEST_ATTACKS) - 1][0], rows[0][0]
 
     def unit(uid, cls=""):
         return f'<img class="atk-u{cls}" src="{prefix}assets/units/{uid}.webp" alt="" title="{html_escape(unit_names.get(uid, uid))}" loading="lazy">'
+
+    def map_thumb(board, cls="atk-map"):
+        return f'<img class="{cls}" src="{prefix}assets/raid-maps/{board.lower()}.webp" alt="" title="{html_escape(medals_mod.map_label(board))}" loading="lazy">'
 
     body = ""
     for rel, season, a in rows:
@@ -2758,13 +2773,26 @@ def best_attacks_html(key, attacks, names, members, unit_names, prefix):
         kind_cls = " atk-os" if a["kind"] == "OS" else ""
         dmg = f"{a['dmg']:,}".replace(",", "\u202f")  # thin spaces between the thousands
         who = f'<a class="chip player-btn" href="{prefix}joueurs/{rosters_mod.player_slug(a["uid"])}.html">{html_escape(names[a["uid"]])}</a>'
+        board = a["map"]
         # the row opens the player (row-link.js, linkify_rows); the season cell opens that season, like a season column does in the other tables
-        body += (f'<tr{player_row_attrs(a["uid"], prefix)}><td>{who}</td>'
+        body += (f'<tr{player_row_attrs(a["uid"], prefix)} data-map="{board.lower() if board else ""}"{" data-top" if id(a) in top else " hidden"}>'
+                 f'<td>{who}</td>'
                  f'<td class="alt-link" data-sort="{season}.{["L4", "L5", "M1", "M2", "M3"].index(a["lvl"]) + 1}" title="Boucle {a["tier"]}"><a class="cl" href="{prefix}raid/{season}.html">S{season} · {a["lvl"]}</a></td>'
-                 f'<td><div class="atk-team">{team}</div></td>'
-                 f'<td data-sort="{a["dmg"]}">{dmg}</td><td><span class="atk-kind{kind_cls}">{a["kind"]}</span></td><td{value_to_bg(rel, lo, hi)} data-sort="{rel:.4f}" data-atk="{a["uid"]}|{season}|{key}">{_fmt_rel(rel)}</td></tr>')
-    head = "".join(f"<th>{h}</th>" for h in ("Joueur", "Saison", "Compo", "Dégâts", "Type", "Relatif"))
-    return (f'<h2>Meilleures attaques</h2><div class="table-scroll"><table class="sortable raid-table atk-top" data-atk-base="{prefix}data/"><thead><tr>{head}</tr></thead><tbody>{body}</tbody></table></div>'
+                 f'<td data-sort="{board or ""}">{map_thumb(board) if board else "—"}</td><td><div class="atk-team">{team}</div></td>'
+                 f'<td data-sort="{a["dmg"]}">{dmg}</td><td><span class="atk-kind{kind_cls}">{a["kind"]}</span></td>'
+                 f'<td{value_to_bg(rel, lo, hi)} data-sort="{rel:.4f}" data-atk="{a["uid"]}|{season}|{key}">{_fmt_rel(rel)}</td></tr>')
+    head = "".join(f"<th>{h}</th>" for h in ("Joueur", "Saison", "Map", "Compo", "Dégâts", "Type", "Relatif"))
+    chips = ""
+    if per_map:  # the maps this boss was played on, latest season first
+        used = {}
+        for season, atks in sorted(attacks.items(), reverse=True):
+            for a in atks:
+                if a["key"] == key and a["map"]:
+                    used.setdefault(a["map"], []).append(season)
+        chips = ('<div class="map-filter" role="group" aria-label="Filtrer par map"><button type="button" class="map-chip" data-map="" aria-pressed="true"><span>Toutes</span></button>'
+                 + "".join(f'<button type="button" class="map-chip" data-map="{b.lower()}" aria-pressed="false" title="{html_escape(medals_mod.map_label(b))} · {", ".join("S" + str(x) for x in sorted(set(ss), reverse=True))}">'
+                           f'{map_thumb(b, "map-chip-img")}</button>' for b, ss in used.items()) + "</div>")
+    return (f'<h2>Meilleures attaques</h2>{chips}<div class="table-scroll"><table class="sortable raid-table atk-top" data-atk-base="{prefix}data/"><thead><tr>{head}</tr></thead><tbody>{body}</tbody></table></div>'
             '<p class="raid-explain">Dégâts relatifs à la moyenne de la guilde sur la saison (même boss, même boucle), saisons enregistrées, boss L4, L5, M1, M2 et M3, membres actuels</p>')
 
 

@@ -32,7 +32,7 @@
     const cell = e.target.closest && e.target.closest("tbody td");
     const row = cell && cell.parentElement;
     if (!row || !(row.dataset.href || row.querySelector(".ex-pill"))) return;  // absent players (no page) get the pill too
-    row.classList.toggle("opens-player", over && !colHead(cell) && !cell.classList.contains("alt-link") && !cell.hasAttribute("data-atk"));  // an alt-link / data-atk cell leads elsewhere (a season, the attacks dialog)
+    row.classList.toggle("opens-player", over && !colHead(cell) && !cell.classList.contains("alt-link") && !cell.hasAttribute("data-atk") && !cell.hasAttribute("data-war-atk"));  // an alt-link / data-atk cell leads elsewhere (a season, the attacks dialog)
   }
   document.addEventListener("mouseover", function (e) { light(e, true); pill(e, true); });
   document.addEventListener("mouseout", function (e) {
