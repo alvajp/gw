@@ -2121,3 +2121,38 @@ dialog.defense-modal .attacks-table thead th { font-size: 0.68rem; padding-top: 
 dialog.defense-modal .attacks-table th:first-child, dialog.defense-modal .attacks-table td:first-child { padding-left: var(--dm-pad, 1rem); }
 dialog.defense-modal .attacks-table th:last-child, dialog.defense-modal .attacks-table td:last-child { padding-right: var(--dm-pad, 1rem); }
 dialog.defense-modal .attacks-table tbody tr:last-child td { border-bottom: 0; }
+
+/* Meta / boss dialogs of the Joueurs list in the format of the other dialogs: --surface body, a head row (--table-header-bg, bottom border, same padding), the table running edge to edge and the only thing that scrolls. */
+dialog.meta-modal:not(.method-modal) { padding: 0; background: var(--surface); border-radius: 10px; overflow: hidden; }
+dialog.meta-modal:not(.method-modal)[open] { display: flex; flex-direction: column; }
+dialog.meta-modal:not(.method-modal) h3 { flex: none; margin: 0; padding: 1rem 3.4rem 1rem 1.4rem; background: var(--table-header-bg); border-bottom: 1px solid var(--border); }
+dialog.meta-modal:not(.method-modal) .mm-scroll { flex: 1 1 auto; min-height: 0; max-height: none; overflow: auto; padding: 0; }
+@media (min-width: 641px) {
+  dialog.meta-modal:not(.method-modal) .mm-table th:first-child, dialog.meta-modal:not(.method-modal) .mm-table td:first-child { padding-left: 1.4rem; }
+  dialog.meta-modal:not(.method-modal) .mm-table th:last-child, dialog.meta-modal:not(.method-modal) .mm-table td:last-child { padding-right: 1.4rem; }
+  .meta-modal:not(.method-modal) .mm-close { top: 1rem; right: 0.9rem; }
+}
+@media (max-width: 640px) {
+  dialog.meta-modal:not(.method-modal) h3 { padding: 0.9rem 3.6rem 0.9rem 0.9rem; }
+  dialog.meta-modal:not(.method-modal) .mm-scroll { padding: 0.5rem 0.7rem 1rem; }
+}
+
+/* The Méthodologie dialog in the same format: --surface body, head row with the title, padded text. */
+dialog.method-modal { padding: 0; background: var(--surface); border-radius: 10px; overflow: hidden; }
+dialog.method-modal h3 { margin: 0; padding: 1rem 3.4rem 1rem 1.4rem; background: var(--table-header-bg); border-bottom: 1px solid var(--border); }
+dialog.method-modal .mm-method { margin: 0; padding: 1rem 1.4rem 1.2rem; }
+@media (min-width: 641px) { .method-modal .mm-close { top: 1rem; right: 0.9rem; } }
+@media (max-width: 640px) {
+  dialog.method-modal h3 { padding: 0.9rem 3.6rem 0.9rem 0.9rem; }
+  dialog.method-modal .mm-method { padding: 0.9rem 0.9rem 1.2rem; }
+}
+dialog.method-modal h3 { display: flex; align-items: center; min-height: 2.125rem; }  /* as tall as the other dialogs' head (logo height): the × and the title share one centre line */
+/* The worked-examples table runs edge to edge of the dialog, like the other dialogs' tables. */
+dialog.method-modal .mm-method { --mp: 1.4rem; padding-bottom: 0; }
+dialog.method-modal .mm-ex { width: calc(100% + 2 * var(--mp)); max-width: none; margin: 0.8rem calc(-1 * var(--mp)) 0; }
+dialog.method-modal .mm-ex th:first-child, dialog.method-modal .mm-ex td:first-child { padding-left: var(--mp); }
+dialog.method-modal .mm-ex th:last-child, dialog.method-modal .mm-ex td:last-child { padding-right: var(--mp); }
+dialog.method-modal .mm-ex tbody tr:last-child td { padding-bottom: 0.5rem; }
+@media (max-width: 640px) { dialog.method-modal .mm-method { --mp: 0.9rem; } }
+dialog.method-modal .mm-ex { table-layout: auto; }
+dialog.method-modal .mm-ex th:last-child, dialog.method-modal .mm-ex td:last-child { width: 1%; text-align: right; }  /* the % column hugs the right edge */
