@@ -1751,3 +1751,6 @@ html { scrollbar-gutter: stable; }  /* not overflow-y: scroll: body has overflow
   .pgrid[data-view="boss"] .pg-who { align-self: stretch; }
   .pgrid[data-view="boss"] .pg-row:hover .pg-who::before { content: ""; position: absolute; left: -1.1rem; top: 0; bottom: 0; width: 3px; background: var(--accent); }
 }
+
+/* iOS: no rubber-band at the sides of the scrolling tables; the opaque pinned names slid to the right with the bounce, showing a black strip on the left. */
+.pg-scroll, .table-scroll { overscroll-behavior-x: none; }
