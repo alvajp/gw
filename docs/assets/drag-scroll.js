@@ -1,7 +1,7 @@
-// Tables that scroll sideways (.table-scroll, and the Joueurs list in its Bosses / Primes view) can be scrolled by dragging them with the mouse.
+// Tables that scroll sideways (.table-scroll, and the Joueurs list whenever it is wider than the page: Bosses / Primes, and every view on phones) can be scrolled by dragging them with the mouse.
 // A click that ends a drag is swallowed, so row links, sort heads and dialogs only react to real clicks. Touch and wheel keep their usual behaviour.
 (function () {
-  const SCROLLER = ".table-scroll, .pgrid[data-view='boss'] .pg-scroll";
+  const SCROLLER = ".table-scroll, .pgrid .pg-scroll";
   let drag = null, moved = false;
   document.addEventListener("pointerdown", function (e) {
     if (e.pointerType !== "mouse" || e.button !== 0) return;

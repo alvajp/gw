@@ -1695,3 +1695,59 @@ td[data-war-atk] { cursor: pointer; }
 
 /* Always reserve the scrollbar's room: the Home page is short (no scrollbar) while the others scroll, which shifted the centred header and content by half a scrollbar. */
 html { scrollbar-gutter: stable; }  /* not overflow-y: scroll: body has overflow-x: hidden, so it would then become a scroll container of its own (a second scrollbar) */
+
+/* Phones: the three views of the Joueurs list (Metas / Bosses / Primes) are tables like on a big screen, not cards: the column head stays, the name is pinned on the left and the
+   table scrolls sideways (the switch above the head stays). */
+@media (max-width: 760px) {
+  .pgrid[data-view] .pg-scroll { overflow-x: auto; overflow-y: visible; -webkit-overflow-scrolling: touch; }
+  .pgrid[data-view] .pg-inner { width: max-content; min-width: 100%; }
+  .pgrid[data-view="metas"] .pg-head-metas, .pgrid[data-view="boss"] .pg-head-boss { display: grid; padding: 0 0.6rem 0.5rem; height: auto; min-height: 4.2rem; }
+  .pgrid[data-view] .pg-head-gap .pg-toggle { display: none; }
+  .pgrid[data-view="metas"] .pg-head, .pgrid[data-view="metas"] .pg-row { grid-template-columns: 7rem repeat(4, 8.6rem); }
+  .pgrid[data-view="boss"] .pg-head, .pgrid[data-view="boss"] .pg-row { grid-template-columns: 7rem auto; }
+  .pgrid[data-view] .pg-rows { display: block; padding: 0.4rem 0 0.5rem; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); }  /* the panel of the big screens, opaque so the pinned names match it */
+  .pgrid[data-view] .pg-row { display: grid; align-items: center; min-height: 3.1rem; padding: 0 0.6rem; gap: 0 0.3rem; background: none; border: 0; border-radius: 0;
+                              border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent); }
+  .pgrid[data-view] .pg-row:hover { background: color-mix(in srgb, var(--accent) 9%, var(--surface)); }
+  .pgrid[data-view] .pg-who, .pgrid[data-view] .pg-head-gap { grid-column: auto; position: sticky; left: 1px; z-index: 2; justify-content: flex-start; }  /* 1px = the panel's border: the name does not move when the table starts to scroll */
+  .pgrid[data-view] .pg-who { background: var(--bg); margin-left: -0.6rem; padding-left: 0.6rem; }  /* opaque: the table scrolls under the pinned name */
+  .pgrid[data-view] .pg-who { box-shadow: calc(min(var(--sl, 0px), 1px) * -3) 0 0 var(--bg); }  /* once scrolled, 3px more on the left hide the cells sliding under the border */
+  .pgrid[data-view] .pg-row { box-shadow: none !important; }
+  .pgrid[data-view] .pg-row:hover .pg-who { background: color-mix(in srgb, var(--accent) 9%, var(--bg)); box-shadow: inset 3px 0 0 var(--accent), calc(min(var(--sl, 0px), 1px) * -3) 0 0 var(--bg); }  /* the yellow hover bar stays on the pinned name */
+  .pgrid[data-view] .pg-who .player-btn { flex: 1 1 auto; min-width: 0; margin: 0.3rem 0; padding: 0.4rem 0.6rem; font-size: 0.84rem; }
+  .pgrid[data-view="metas"] .pg-meta { padding: 0.3rem 1.3rem 0.3rem 2.4rem; }
+  .pgrid[data-view="metas"] .pg-meta .mbadge-name { font-size: 0.74rem; }
+  .pgrid[data-view="metas"] .pg-meta .pg-arrow { right: 0.45rem; }
+  .pgrid[data-view] .pg-rowlink { display: block; position: absolute; inset: 0; z-index: 0; }
+  .pgrid[data-view="metas"] .pg-cell { position: relative; z-index: 1; padding: 0.4rem 0.2rem; gap: 0.3rem; }
+  .pgrid[data-view="metas"] .pg-cell::before, .pgrid[data-view="metas"] .pg-v::after { display: none; }
+  .pgrid[data-view="metas"] .pg-v { font-size: 0.78rem; padding: 0.15rem 0.1rem; }
+  .pgrid[data-view="boss"] .pg-bicon { display: none; }
+  .pgrid[data-view="boss"] .pg-bwrap { display: grid; grid-template-columns: none; grid-template-rows: none; grid-auto-flow: column; grid-auto-columns: 4.4rem; grid-auto-rows: auto; gap: 0 0.3rem;
+                                       overflow: visible; clip-path: inset(0 0 0 var(--sl, 0px)); padding: 0 0 0 0.4rem; pointer-events: none; }
+  .pgrid[data-view="boss"] .pg-bcell { flex-direction: row; justify-content: center; gap: 0; padding: 0.4rem 0.15rem; background: none; border: 0; border-radius: 8px; order: 0; overflow: visible; pointer-events: auto; }
+  .pgrid[data-view="boss"] .pg-bcell .pg-v { font-size: 0.8rem; }
+  .pgrid[data-view] .pg-head { clip-path: inset(0 0 0 calc(var(--sl, 0px) + 7.6rem)); }  /* the head scrolls under the pinned name column: what is left of it is not drawn */
+}
+
+/* Small, medium and not so big screens: the meta icons of the Joueurs head are smaller and the name gets the room, so they never overlap. */
+@media (max-width: 1280px) {
+  .pg-meta .meta-ico { width: 1.7rem; height: 1.7rem; left: 0.3rem; }
+  .pg-meta { padding: 0.3rem 1.4rem 0.3rem 2.3rem; }
+  .pg-meta .mbadge-name { font-size: 0.76rem; line-height: 1.1; }
+  .pg-meta .pg-arrow { right: 0.4rem; }
+}
+@media (min-width: 761px) and (max-width: 900px) {
+  .pg-meta .meta-ico { width: 1.5rem; height: 1.5rem; left: 0.25rem; }
+  .pg-meta { padding: 0.3rem 1rem 0.3rem 2rem; }
+  .pg-meta .mbadge-name { font-size: 0.64rem; }
+  .pg-meta .pg-arrow { right: 0.3rem; }
+}
+
+/* Joueurs list, Bosses / Primes view on big screens: when the table scrolls, the pinned name keeps its place (1.1rem + the panel's 1px border, the same as at rest) and the
+   yellow hover bar, which belongs to the row's left edge and would scroll away, is drawn again on the pinned name. */
+@media (min-width: 761px) {
+  .pgrid[data-view="boss"] .pg-who, .pgrid[data-view="boss"] .pg-head-gap { left: calc(1.1rem + 1px); }
+  .pgrid[data-view="boss"] .pg-who { align-self: stretch; }
+  .pgrid[data-view="boss"] .pg-row:hover .pg-who::before { content: ""; position: absolute; left: -1.1rem; top: 0; bottom: 0; width: 3px; background: var(--accent); }
+}
