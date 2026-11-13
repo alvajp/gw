@@ -41,3 +41,34 @@
     if (e.target.closest && e.target.closest(SCROLLER)) e.preventDefault(); // no ghost image of an icon
   });
 })();
+
+// Dialogs: showModal() focuses the first focusable element, i.e. the × of the head, which shows up as "selected" (iOS, keyboards): the dialog itself takes the focus instead (Esc still closes it).
+// When the dialog was opened with the pointer, the button that opened it (a percentage, a badge...) does not keep a focus ring once the dialog is closed.
+(function () {
+  if (!window.HTMLDialogElement) return;
+  let pointer = true;
+  document.addEventListener("pointerdown", function () { pointer = true; }, true);
+  document.addEventListener("keydown", function (e) { if (e.key !== "Escape") pointer = false; }, true);
+  const open = HTMLDialogElement.prototype.showModal;
+  HTMLDialogElement.prototype.showModal = function () {
+    const opener = document.activeElement, viaPointer = pointer;
+    open.apply(this, arguments);
+    const a = document.activeElement;
+    if (a && a.matches && a.matches(".dm-close, .mm-close")) {
+      this.setAttribute("tabindex", "-1");
+      this.focus({ preventScroll: true });
+    }
+    if (viaPointer && opener && opener !== document.body && opener.blur) {
+      this._opener = opener;
+      this.addEventListener("close", function () { release(opener); }, { once: true });  // Esc and the backdrop close it without going through close()
+    }
+  };
+  function release(opener) { setTimeout(function () { if (document.activeElement === opener) opener.blur(); }, 0); }  // the browser gives the focus back to the opener
+  const close = HTMLDialogElement.prototype.close;
+  HTMLDialogElement.prototype.close = function () {
+    const opener = this._opener;
+    this._opener = null;
+    close.apply(this, arguments);
+    if (opener) release(opener);
+  };
+})();

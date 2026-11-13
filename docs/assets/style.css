@@ -2089,3 +2089,35 @@ html { scroll-behavior: smooth; }
   .meta-modal h3 .mm-title { padding-top: 0.45rem; }
   .meta-modal h3 .mm-roster-btn { margin-left: 0; }
 }
+
+/* Dialog close buttons: the cross is drawn (two bars), so it is centred whatever the font; the dialog itself, not the ×, takes the focus when it opens; on phones the meta dialog's × is plain like the other dialogs'. */
+dialog:focus, dialog:focus-visible { outline: none; }
+.dm-close { position: relative; }
+.dm-close, .mm-close { font-size: 0 !important; color: var(--text-muted); }
+.dm-close:hover, .mm-close:hover { color: var(--text); }
+.dm-close::before, .dm-close::after, .mm-close::before, .mm-close::after { content: ""; position: absolute; left: 50%; top: 50%; width: 1.05rem; height: 2px; border-radius: 1px; background: currentColor; }
+.dm-close::before, .mm-close::before { transform: translate(-50%, -50%) rotate(45deg); }
+.dm-close::after, .mm-close::after { transform: translate(-50%, -50%) rotate(-45deg); }
+.dm-close { min-width: 2rem; min-height: 2rem; }
+.mm-close { width: 2.125rem; height: 2.125rem; }
+@media (max-width: 640px) {
+  .meta-modal .mm-close { background: none; border: 0; border-radius: 0; width: 2.75rem; height: 2.75rem; color: var(--text-muted); }
+  .dm-close::before, .dm-close::after, .mm-close::before, .mm-close::after { width: 1.3rem; }
+}
+
+/* War "Détail" attack dialog: the dialog's body is the only scroller (no 70vh box inside it), the head row of the table sticks to the top over the rows -- its first cell too, which had been left out of the
+   sticky ones --, and the title is centred on the same line as the × on phones. */
+dialog.defense-modal .attacks-scroll { max-height: none; overflow: clip; }
+.attacks-table th:first-child { position: sticky; top: 0; z-index: 2; }
+.attacks-table th { z-index: 2; background: var(--table-header-bg); }
+dialog.defense-modal .dm-body:has(> .attacks-scroll) { padding-top: 0; }  /* sticky offsets count from the padding edge: no gap above the head row for the rows to show through */
+dialog.defense-modal .dm-body > .attacks-scroll { margin-top: 0.5rem; }
+@media (max-width: 640px) { .dm-head { align-items: center; } }
+
+/* War "Détail" dialog, same table format as the raid dialogs: full width of the dialog (no frame, no side padding of its own), the first and last cells carry the padding, the same small head row. */
+dialog.defense-modal .dm-body:has(> .attacks-scroll) { padding: 0; }
+dialog.defense-modal .dm-body > .attacks-scroll { margin: 0; border: 0; border-radius: 0; }
+dialog.defense-modal .attacks-table thead th { font-size: 0.68rem; padding-top: 0.4rem; padding-bottom: 0.4rem; }
+dialog.defense-modal .attacks-table th:first-child, dialog.defense-modal .attacks-table td:first-child { padding-left: var(--dm-pad, 1rem); }
+dialog.defense-modal .attacks-table th:last-child, dialog.defense-modal .attacks-table td:last-child { padding-right: var(--dm-pad, 1rem); }
+dialog.defense-modal .attacks-table tbody tr:last-child td { border-bottom: 0; }
