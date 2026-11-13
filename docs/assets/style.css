@@ -2030,3 +2030,24 @@ td.me-name > .player-btn { display: inline-block; max-width: calc(100% - 1.6rem)
   .ns-main .ns-logo { width: 2.7rem; height: 2.7rem; left: 0.3rem; top: 0.3rem; border: 0; }
   .ns-prime .ns-logo { width: 1.6rem; height: 1.6rem; }
 }
+
+/* Saison prochaine, round 5: under each map card, the list of the members (rank, name, completion), best first -- one list per boss / prime instead of a table */
+.ns-list { list-style: none; margin: 0; padding: 0; min-width: 0; background: var(--table-bg); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.ns-list li:last-child .ns-row { border-bottom: 0; }
+.ns-row { display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0.6rem; color: var(--text); text-decoration: none; font-size: 0.85rem; border-bottom: 1px solid var(--border); }
+.ns-row:hover { background: var(--surface-hover); }
+.ns-rk { flex: none; width: 1.3rem; text-align: right; color: var(--text-muted); font-size: 0.72rem; font-variant-numeric: tabular-nums; }
+.ns-who { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ns-row .pg-v { flex: none; margin-left: auto; min-width: 3rem; box-sizing: border-box; }
+.ns-row .me-mark { flex: none; }
+.ns-list li.is-me .ns-row { background: color-mix(in srgb, var(--accent) 10%, var(--table-bg)); box-shadow: inset 3px 0 0 var(--accent); border-bottom-color: color-mix(in srgb, var(--accent) 55%, var(--border)); }
+.ns-maps { align-items: start; row-gap: 0.7rem; }
+.ns-card { align-self: stretch; }
+@media (max-width: 760px) {
+  .ns-row { gap: 0.3rem; padding: 0.35rem 0.4rem; font-size: 0.68rem; }
+  .ns-rk { display: none; }
+  .ns-row .pg-v { min-width: 2.2rem; font-size: 0.66rem; padding: 0.1rem 0.15rem; }
+  .ns-row .me-mark svg { width: 0.8rem; height: 0.8rem; }
+}
+.ns-row .pg-v { width: auto; flex: none; }  /* the phone rule that makes .pg-v fill its cell squeezed the name away */
+.ns-maps, .ns-title { max-width: 64rem; }  /* a bit bigger on big screens */

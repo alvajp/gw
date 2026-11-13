@@ -20,6 +20,12 @@ Battlesuit|Core|Actus|A2|1 étoile bleue|50/50||Magnus,Szarekh,Gazhghkull
 Battlesuit|Core|Lhykhis|A2|2 étoiles bleues|36/60||Magnus,Szarekh,Gazhghkull
 Battlesuit|Core|Réa||skulled|50/60||Magnus
 Battlesuit|Flex|PBC||skulled|1/36||Szarekh,Gazhghkull
+Battlesuit|Niche|Revas|A2|skulled|50/60|10|Menhirs
+Battlesuit|Niche|Farsight|A2|1 étoile bleue|60/60|10|Menhirs
+Battlesuit|Niche|Darkstrider|A2|2 étoiles bleues|35/60||Menhirs
+Battlesuit|Niche|Actus|A2|1 étoile bleue|50/50||Menhirs
+Battlesuit|Niche|Lhykhis|A2|2 étoiles bleues|36/60||Menhirs
+Battlesuit|Niche|Biovore||skulled|60/60||Menhirs
 Neuro|Core|Abaddon|A2|1 étoile bleue|60/60||Lion,Forcas,Menhirs,Sybill,Riptide
 Neuro|Core|Neuro|A2|1 étoile bleue|35/60|10|Lion,Forcas,Menhirs,Tangida,Sybill,Riptide
 Neuro|Core|Abraxas|A2|1 étoile bleue|60/60|10|Lion,Forcas,Menhirs,Tangida,Sybill,Riptide
@@ -29,15 +35,15 @@ Neuro|Core|Zkar||skulled|60/35||Lion,Forcas,Menhirs,Tangida,Sybill,Riptide
 Neuro|Flex|Yazaghor|A2|1 étoile bleue|35/35||Tangida
 Neuro|Flex|Mephiston|A2|1 étoile bleue|36/60||Tangida
 Neuro|Flex|FF||3 étoiles rouges|50/35||
-Méchas|Core|Rho|A2|skulled|60/60|10|Abraxas,Thaumacus,Rotbone,Gibbascrapz,Dorn,Thaddeus,Aethana,Riptide,Sho,Re'vas,Screamer,Neuro,Tyrant,Tervigon,Primes
-Méchas|Core|Tan|A2|1 étoile bleue|50/60||Abraxas,Thaumacus,Rotbone,Gibbascrapz,Dorn,Thaddeus,Aethana,Riptide,Sho,Re'vas,Screamer,Neuro,Tyrant,Tervigon,Primes
+Méchas|Core|Rho|A2|skulled|60/60|10|Abraxas,Thaumacus,Rotbone,Gibbascrapz,Dorn,Thaddeus,Aethana,Riptide,Sho,Re'vas,Screamer,Neuro,Tyrant,Tervigon,Primes,Menhirs
+Méchas|Core|Tan|A2|1 étoile bleue|50/60||Abraxas,Thaumacus,Rotbone,Gibbascrapz,Dorn,Thaddeus,Aethana,Riptide,Sho,Re'vas,Screamer,Neuro,Tyrant,Tervigon,Primes,Menhirs
 Méchas|Core|Anuphet|A2|1 étoile bleue|60/50|10|Rotbone,Gibbascrapz,Dorn,Thaddeus,Riptide,Re'vas,Screamer,Neuro,Tyrant,Tervigon,Primes
-Méchas|Core|Ammuk|A2|1 étoile bleue|60/60||Gibbascrapz,Dorn,Thaddeus,Riptide,Sho,Screamer,Neuro,Tyrant,Tervigon,Primes
-Méchas|Core|Vitruvius|A2|1 étoile bleue|35/60||Rotbone,Gibbascrapz,Dorn,Thaddeus,Screamer,Primes
+Méchas|Core|Ammuk|A2|1 étoile bleue|60/60||Gibbascrapz,Dorn,Thaddeus,Riptide,Sho,Screamer,Neuro,Tyrant,Tervigon,Primes,Menhirs
+Méchas|Core|Vitruvius|A2|1 étoile bleue|35/60||Rotbone,Gibbascrapz,Dorn,Thaddeus,Screamer,Primes,Menhirs
 Méchas|Core|Réa||skulled|50/60||Rotbone,Gibbascrapz,Thaddeus,Riptide,Sho,Re'vas,Screamer,Neuro,Tyrant,Tervigon,Primes
-Méchas|Core|Biovore||skulled|60/60||Thaumacus,Rotbone,Dorn,Aethana
+Méchas|Core|Biovore||skulled|60/60||Thaumacus,Rotbone,Dorn,Aethana,Menhirs
 Méchas|Flex|Trajann|D3|1 étoile bleue|36/60||Riptide
-Méchas|Flex|Actus|D3|1 étoile bleue|50/50||Abraxas,Thaumacus,Aethana
+Méchas|Flex|Actus|D3|1 étoile bleue|50/50||Abraxas,Thaumacus,Aethana,Menhirs
 Méchas|Flex|Sho|A2|1 étoile bleue|50/60||Rotbone,Aethana
 Méchas|Niche|Re'vas|D3|1 étoile bleue|60/60||Abraxas
 Méchas|Niche|Aleph Null|D3|1 étoile bleue|50/50||Sho

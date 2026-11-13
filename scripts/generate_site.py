@@ -3014,6 +3014,16 @@ def render_next_season_page():
                 f'<img class="ns-logo" src="assets/{slot["art"]}" alt=""></div>'
                 f'<div class="ns-name"><b>{html_escape(slot["name"].split(" (")[0])}</b><small>{html_escape(label)} · {html_escape(medals_mod.map_label(board))}</small></div>{metas_html(slot)}</article>')
 
+    def players_list(slot):
+        """The members, best completion of this boss's / prime's metas first: one line each (rank, name, %)."""
+        scored = sorted(((rosters_mod.boss_completion(owned[r["uid"]], slot["key"])[0] or 0, r) for r in rosters), key=lambda x: (-x[0], x[1]["name"].casefold()))
+        rows = ""
+        for i, (v, r) in enumerate(scored, 1):
+            slug, pct = rosters_mod.player_slug(r["uid"]), round(v * 100)
+            rows += (f'<li><a class="ns-row" href="joueurs/{slug}.html"><span class="ns-rk">{i}</span><span class="ns-who">{html_escape(r["name"])}</span>'
+                     f'<span class="pg-v {rosters_mod._pct_class(pct)}">{pct}%</span></a></li>')
+        return f'<ul class="ns-list">{rows}</ul>'
+
     sections, chips = "", '<button type="button" class="map-chip ns-chip" data-boss="" aria-pressed="true"><span>Toutes</span></button>'
     for stage in NEXT_STAGES:
         triple = stages.get(stage)
@@ -3030,22 +3040,9 @@ def render_next_season_page():
                   f'<span class="ns-chip-map"><img class="map-chip-img" src="assets/raid-maps/{triple[1].lower()}.webp" alt="" loading="lazy">'
                   f'<img class="ns-chip-logo" src="assets/{boss["art"]}" alt=""></span></button>')
         cards = card(prime_a, triple[0], "ns-prime ns-p1", "Prime") + card(boss, triple[1], "ns-main", f"Boss {stage}") + card(prime_b, triple[2], "ns-prime ns-p2", "Prime")
-        cols = [boss] + list({p["key"]: p for p in primes}.values())
-        scored = []
-        for r in rosters:
-            vals = [rosters_mod.boss_completion(owned[r["uid"]], c["key"])[0] or 0 for c in cols]
-            scored.append((r, vals))
-        scored.sort(key=lambda x: (-x[1][0], -sum(x[1][1:]), x[0]["name"].casefold()))
-        head = "".join(f'<th>{html_escape(c["name"].split(" (")[0])}</th>' for c in cols)
-        rows = ""
-        for i, (r, vals) in enumerate(scored, 1):
-            slug = rosters_mod.player_slug(r["uid"])
-            cells = "".join(
-                f'<td data-sort="{round(v * 100)}"><span class="pg-v {rosters_mod._pct_class(round(v * 100))}">{round(v * 100)}%</span></td>' for v in vals)
-            rows += (f'<tr data-href="joueurs/{slug}.html" tabindex="0"><td class="rk">{i}</td><td><a class="chip player-btn" href="joueurs/{slug}.html">{html_escape(r["name"])}</a></td>{cells}</tr>')
-        table = (f'<div class="table-scroll"><table class="sortable ns-table"><thead><tr><th class="rk">#</th><th>Joueur</th>{head}</tr></thead><tbody>{rows}</tbody></table></div>')
+        lists = players_list(prime_a) + players_list(boss) + players_list(prime_b)
         sections += (f'<section class="ns-boss" data-boss="{boss_key}"><h2 class="ns-title"><img src="assets/{boss["art"]}" alt="">{html_escape(boss["name"])}<small>{stage}</small></h2>'
-                     f'<div class="ns-maps">{cards}</div>{table}</section>')
+                     f'<div class="ns-maps">{cards}{lists}</div></section>')
 
     body = (f'<div class="map-filter ns-filter" role="group" aria-label="Filtrer par boss">{chips}</div>{sections}'
             f'<script src="assets/saison-prochaine.js?v={ASSETS_VERSION}"></script>')

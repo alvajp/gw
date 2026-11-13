@@ -59,6 +59,16 @@
       mark(rows[0], rows[0].querySelector(".player-btn"));
       pin(body, rows[0]);
     });
+    // the lists of the Saison prochaine page (one per boss / prime)
+    document.querySelectorAll("ul.ns-list").forEach(function (list) {
+      const rows = Array.prototype.filter.call(list.children, function (li) {
+        const a = li.querySelector("a.ns-row");
+        return !!a && slugOf(a.getAttribute("href")) === me.slug;
+      });
+      if (rows.length !== 1) return;
+      mark(rows[0], rows[0].querySelector(".ns-who"));
+      pin(list, rows[0]);
+    });
     // the Joueurs list
     document.querySelectorAll(".pg-rows").forEach(function (holder) {
       const rows = Array.prototype.filter.call(holder.children, function (r) {
