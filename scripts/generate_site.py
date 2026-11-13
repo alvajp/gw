@@ -280,10 +280,9 @@ def render_history_table(wars_subset):
             history[uid][w["slug"]] = ps["pts"]
             display_names[uid] = result["players"].get(uid, {}).get("displayName", uid)
 
-    thead_cells = ['<th class="rk">#</th>', "<th>Joueur</th>"]
+    thead_cells = ['<th class="rk">#</th>', "<th>Joueur</th>", "<th>Moyenne</th>"]  # the Moyenne comes first, then one column per war
     for w in wars_subset:
         thead_cells.append(f'<th data-href="../wars/{w["slug"]}.html">{html_escape(header_labels[w["slug"]])}</th>')  # a click in the column opens the war
-    thead_cells.append("<th>Moyenne</th>")
     thead = "".join(thead_cells)
 
     totals = {uid: sum(per_war.values()) for uid, per_war in history.items()}
@@ -304,7 +303,8 @@ def render_history_table(wars_subset):
 
     body_rows = []
     for rank, uid in enumerate(sorted(history, key=lambda u: -totals[u]), 1):
-        cells = [f'<td class="rk">{rank}</td>', name_cell(uid, display_names[uid], "../")]
+        cells = [f'<td class="rk">{rank}</td>', name_cell(uid, display_names[uid], "../"),
+                 f"<td{value_to_bg(rounded_avg[uid], avg_lo, avg_hi)}>{rounded_avg[uid]}</td>"]
         for w in wars_subset:
             val = war_values[w["slug"]].get(uid)
             if val is None:
@@ -312,7 +312,6 @@ def render_history_table(wars_subset):
             else:
                 lo, hi = war_bounds[w["slug"]]
                 cells.append(f"<td{value_to_bg(val, lo, hi)}>{val}</td>")
-        cells.append(f"<td{value_to_bg(rounded_avg[uid], avg_lo, avg_hi)}>{rounded_avg[uid]}</td>")
         body_rows.append(f"<tr{player_row_attrs(uid, '../')}>" + "".join(cells) + "</tr>")
 
     return f"""<div class="table-scroll"><table class="sortable">
@@ -2164,10 +2163,9 @@ def render_season_average_table(season_numbers, season_stats, display_names, ave
     tagged data-uid/data-active so the "Joueurs actifs seulement" header
     toggle (active-toggle.js) can hide anyone not on the roster in the most
     recently recorded war, without needing a server round-trip."""
-    thead_cells = ['<th class="rk">#</th>', "<th>Joueur</th>"]
+    thead_cells = ['<th class="rk">#</th>', "<th>Joueur</th>", "<th>Moyenne</th>"]  # the overall Moyenne comes first, then one column per season
     for season in season_numbers:
         thead_cells.append(f'<th data-href="seasons/{season}.html">Saison {season}</th>')  # a click in the column opens the season (row-link.js)
-    thead_cells.append("<th>Moyenne</th>")
     thead = "".join(thead_cells)
 
     rounded_avg = {uid: round_pts(averages[uid]) for uid in season_stats}
@@ -2191,7 +2189,8 @@ def render_season_average_table(season_numbers, season_stats, display_names, ave
     body_rows = []
     for rank, uid in enumerate(sorted(season_stats, key=lambda u: -averages[u]), 1):
         badge = rosters_mod.table_badge("war", (war_rank or {}).get(uid), "")
-        cells = [f'<td class="rk">{badge or rank}</td>', name_cell(uid, display_names[uid], "")]
+        cells = [f'<td class="rk">{badge or rank}</td>', name_cell(uid, display_names[uid], ""),
+                 f"<td{value_to_bg(rounded_avg[uid], avg_lo, avg_hi)}>{rounded_avg[uid]}</td>"]
         for season in season_numbers:
             val = season_values[season].get(uid)
             if val is None:
@@ -2199,7 +2198,6 @@ def render_season_average_table(season_numbers, season_stats, display_names, ave
             else:
                 lo, hi = season_bounds[season]
                 cells.append(f"<td{value_to_bg(val, lo, hi)}>{val}</td>")
-        cells.append(f"<td{value_to_bg(rounded_avg[uid], avg_lo, avg_hi)}>{rounded_avg[uid]}</td>")
         is_active = "true" if uid in active_uids else "false"
         body_rows.append(f'<tr data-uid="{uid}" data-active="{is_active}"{player_row_attrs(uid, "")}>' + "".join(cells) + "</tr>")
 
