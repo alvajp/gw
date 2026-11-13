@@ -1887,3 +1887,6 @@ dialog.defense-modal .dm-body { flex: 1 1 auto; min-height: 0; overflow: auto; o
   .atk-modal .atk-table th:first-child, .atk-modal .atk-table td:first-child { padding-left: var(--dm-pad, 0.8rem); }
   .atk-modal .atk-table th:last-child, .atk-modal .atk-table td:last-child { padding-right: var(--dm-pad, 0.8rem); }
 }
+
+/* Dialog scrollers behave like the page tables: no rubber-band at the edges (iOS), so the pinned first column and the header cannot be pulled away. The tables use `none`, the dialogs used `contain`, which still bounces. */
+dialog, dialog.defense-modal, dialog.meta-modal, dialog.defense-modal .dm-body, dialog.meta-modal .mm-scroll, .mm-scroll { overscroll-behavior: none; }
