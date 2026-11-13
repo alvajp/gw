@@ -433,7 +433,7 @@ def render_topbar(prefix, active, sub=None, wars=None):
     sub_html = ""
     if section == "raid":
         first = [("next", "saison-prochaine.html", '<span class="lab-long">Saison prochaine</span><span class="lab-short">Prochaine</span>'),
-                 ("metas", "metas.html", "Metas"), ("boss", "records.html", "Records")]
+                 ("metas", "metas.html", "Métas"), ("boss", "records.html", "Records")]
         seasons = [(f"raid-{n}", f"raid/{n}.html", f"S{n}") for n in NAV_SEASONS["raid"]]
     elif section == "war":
         first = [("strategy", "strategie.html", "Stratégie"), ("defenses", "defenses.html", "Défenses")]
@@ -2634,7 +2634,7 @@ def compute_badges(seasons, medals):
         for team, _roles in rosters_mod.RAID_METAS:
             uid_art = rosters_mod.META_ICON.get(team)
             rank, key, of = meta_all[uid][team]
-            out[uid].append({"caption": f"Meta {team}", "sub": f"{_ord(rank)} sur {of} · Core {key // 1000} % · Flex {key % 1000} %" + ("" if rank <= 5 else " · top 5 requis"),
+            out[uid].append({"caption": f"Méta {team}", "sub": f"{_ord(rank)} sur {of} · Core {key // 1000} % · Flex {key % 1000} %" + ("" if rank <= 5 else " · top 5 requis"),
                              "tier": rank if rank <= 5 else 0, "earned": rank <= 5, "art": f"units/{uid_art}.webp" if uid_art else None})
     _, _, _, _, averages, win_rate, _, buffs, maps_ = compute_season_averages(seasons)
     for caption, values, fmt, tiebreak in (
@@ -2884,7 +2884,7 @@ def render_metas_page(all_wars):
     if not rosters:
         return
     os.makedirs(os.path.join(DOCS_DIR, "metas"), exist_ok=True)
-    html = render_page(nav_active="metas", page_kind="boss", title="Metas", asset_prefix="", body=rosters_mod.render_metas_index_body(rosters),
+    html = render_page(nav_active="metas", page_kind="boss", title="Métas", asset_prefix="", body=rosters_mod.render_metas_index_body(rosters),
                        back_link=back_link_html("raid.html", "Raid"), title_class="hero-title", header_extra="", header_action="", v=ASSETS_VERSION)
     with open(os.path.join(DOCS_DIR, "metas.html"), "w", encoding="utf-8") as f:
         f.write(html)
@@ -2896,7 +2896,7 @@ def render_metas_page(all_wars):
     for slot in slots:
         body = rosters_mod.render_boss_metas_body(slot, rosters) + best_attacks_html(slot["key"], attacks, names, members, unit_names, "../")
         html = render_page(nav_active="metas", page_kind="boss", title=slot["name"], asset_prefix="../", body=body,
-                           back_link=back_link_html("../metas.html", "Metas"), title_class="", header_extra="", header_action="", v=ASSETS_VERSION,
+                           back_link=back_link_html("../metas.html", "Métas"), title_class="", header_extra="", header_action="", v=ASSETS_VERSION,
                            title_icon=f'<img class="title-ico" src="../assets/{slot["art"]}" alt="">')
         with open(os.path.join(DOCS_DIR, "metas", f"{slot['key']}.html"), "w", encoding="utf-8") as f:
             f.write(html)
@@ -3007,7 +3007,7 @@ def render_next_season_page():
                 units += f'<span class="ns-role{" ns-role-next" if ri else ""}">{imgs}</span>'
             rows += (f'<div class="ns-meta-row"><a class="ns-meta" href="metas/{slot["key"]}.html">{rosters_mod._meta_icon(team, "")}<span>{html_escape(team)}</span></a>'
                      f'<span class="ns-units">{units}</span></div>')
-        return f'<div class="ns-metas">{rows or "<span class=ns-nometa>Pas de meta</span>"}</div>'
+        return f'<div class="ns-metas">{rows or "<span class=ns-nometa>Pas de méta</span>"}</div>'
 
     def card(slot, board, cls, label):
         return (f'<article class="ns-card {cls}"><div class="ns-map"><img class="ns-map-img" src="assets/raid-maps/{board.lower()}.webp" alt="{html_escape(medals_mod.map_label(board))}" loading="lazy">'

@@ -34,9 +34,9 @@
           (kind === "OS" ? " atk-os" : kind === "Finish" ? " atk-fin" : "") + '">' + kind + '</span></td><td class="atk-n atk-rel' + (r === null ? "" : r >= 0 ? " pos" : " neg") + '">' + rel(r) + "</td></tr>";
       });
       const head = (key ? "" : "<th>Boss</th>") + "<th>Niv.</th>" + (key ? "" : "<th>Map</th>") + '<th class="atk-c">Compo</th><th class="atk-n">Dégâts</th><th>Type</th><th class="atk-n">Relatif</th>';
-      // "Voir la saison" (raid.html, the table of all the seasons) / "Voir la meta" (a season page, a boss cell: the Metas page of that boss): a button to that page, like "Voir le roster" in the meta dialogs
+      // "Voir la saison" (raid.html, the table of all the seasons) / "Voir la méta" (a season page, a boss cell: the Metas page of that boss): a button to that page, like "Voir le roster" in the meta dialogs
       const arrow = '<svg class="arrow" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>';
-      const seeLink = !key && base === "data/" ? ["raid/" + season + ".html", "Voir la saison"] : key && document.getElementById("score-data") ? ["../metas/" + key + ".html", "Voir la meta"] : null;
+      const seeLink = !key && base === "data/" ? ["raid/" + season + ".html", "Voir la saison"] : key && document.getElementById("score-data") ? ["../metas/" + key + ".html", "Voir la méta"] : null;
       const seeSeason = seeLink ? '<a class="mm-roster-btn dm-see" href="' + esc(seeLink[0]) + '">' + seeLink[1] + arrow + "</a>" : "";
       const board = key && rows.length ? rows[0][10] : null;
       const zone = '<span class="dm-def-zone">' + (board ? thumb(board, "map-thumb") : "") + '<span class="zone-text"><b>' + (boss ? esc(boss.n) : esc(who) + ' <span class="dm-sep">·</span> Saison ' + esc(season)) + "</b>" +

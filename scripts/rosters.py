@@ -522,7 +522,7 @@ def _mini_relic(req, owned, prefix):
             f'<span class="mu-relic-lvl">{have}</span></span>')
 
 
-def _mini_unit(uid, owned, names, prefix, req=None):
+def _mini_unit(uid, owned, names, prefix, req=None, force=None):
     """Small portrait for the raid-meta block: owned units show frame + stars + rank medal, missing ones are greyed out.
     When the meta requires a relic on this unit, its icon and level / required level sit under the name."""
     name = names.get(uid, uid)
@@ -532,7 +532,7 @@ def _mini_unit(uid, owned, names, prefix, req=None):
                f'<img class="rc-frame" src="{prefix}assets/ui/frame_portrait_common.png" alt="" loading="lazy"></span>')
         return f'<div class="mu mu-missing" title="{escape(name)} — non possédé">{art}<span class="mu-name">{escape(name)}</span>{relic}</div>'
     mow = is_mow(owned)
-    rarity, stars = rarity_stars(owned["progressionIndex"])
+    rarity, stars = force or rarity_stars(owned["progressionIndex"])  # force = (rarity, stars) of a requirement, which the progression index cannot always express
     title = f'{name} — {RARITIES[rarity]}' + ("" if mow else f', {rank_name(owned["rank"])}') + f', niveau {owned["xpLevel"]}'
     return (f'<div class="mu" title="{escape(title)}">{_portrait(owned, rarity, mow, stars, prefix)}'
             f'<span class="mu-name">{escape(name)}</span>{relic}</div>')
@@ -969,7 +969,7 @@ def render_players_index_body(rosters, war=None, raid=None, medals=None):
     metas = list(enumerate(RAID_METAS))
     bosses = list(enumerate(medals_mod.slots()))
     toggle = ('<div class="pg-toggle" role="group" aria-label="Colonnes">'
-              '<button type="button" data-view="metas" aria-pressed="true">Metas</button>'
+              '<button type="button" data-view="metas" aria-pressed="true">Métas</button>'
               '<button type="button" data-view="boss" aria-pressed="false">Bosses</button>'
               '<button type="button" data-view="primes" aria-pressed="false">Primes</button></div>')
     gap = f'<div class="pg-head-gap">{toggle}</div>'  # the toggle sits in the head, above the names
@@ -1009,7 +1009,7 @@ def render_players_index_body(rosters, war=None, raid=None, medals=None):
             pct = round(100 * frac)
             lacking = ", ".join(f'{names.get(u, u)} {round(100 * c)} %' for u, c in parts if c < 0.995)
             others = " · ".join(f"{t} {round(100 * f)} %" for t, f in fracs.items() if t != team)
-            tip = (f'{r["name"]} — {s["name"].split(" (")[0]} : meilleure meta {team}, ' + (f"manque {lacking}" if lacking else "toutes les unités sont prêtes")
+            tip = (f'{r["name"]} — {s["name"].split(" (")[0]} : meilleure méta {team}, ' + (f"manque {lacking}" if lacking else "toutes les unités sont prêtes")
                    + (f" (autres : {others})" if others else ""))
             best_pcts[k] = frac
             bcells += (f'<div class="pg-bcell {_kind(s)}" role="button" tabindex="0" data-col="b{k}" data-bm="bm-{pi}-{k}" data-src="joueurs/boss/{player_slug(r["uid"])}.html" '
@@ -1063,7 +1063,7 @@ def render_metas_index_body(rosters):
             cards += ("</div>" if cards else "") + '<div class="boss-group">'
         lines = "".join(
             f'<li><span class="bp-rank">{_meta_icon(team, "").replace("meta-ico", "meta-ico mc-ico")}</span><span class="bp-name">{escape(team)}</span></li>'
-            for _, team, _ in boss_metas(slot, rosters)) or '<li class="bp-none">Pas de meta</li>'
+            for _, team, _ in boss_metas(slot, rosters)) or '<li class="bp-none">Pas de méta</li>'
         cards += (f'<a class="boss-card" href="metas/{slot["key"]}.html"><span class="boss-card-head"><img src="assets/{slot["art"]}" alt="">'
                   f'<b>{escape(slot["name"].split(" (")[0])}</b></span><ol>{lines}</ol></a>')
     return f'<div class="boss-cards mc-cards">{cards}</div></div>'
@@ -1079,7 +1079,7 @@ def _unit_rarities(rosters):
 
 
 def _crit_unit(uid, req, names, prefix, rarity):
-    """A unit of the Metas detail table: the portrait of the unit as it has to be (rarity frame, required stars and rank medal), its name, the ability
+    """A unit of the Métas detail table: the portrait of the unit as it has to be (rarity frame, required stars and rank medal), its name, the ability
     levels it needs and the relic when one is asked at more than level 1."""
     ab = list(req["ab"])
     relic = req.get("relic")
@@ -1089,9 +1089,16 @@ def _crit_unit(uid, req, names, prefix, rarity):
         items = [{"id": relic[0], "level": relic[1]}]
     else:
         shown.pop("relic", None)
-    unit = {"id": uid, "progressionIndex": min(req["stars"] + rarity, 19), "xpLevel": req.get("level", 1), "rank": req.get("rank", 0),
+    # a requirement with a blue star (or wings) or with an ability above 50 can only be asked of a Mythic unit: Mythic frame; otherwise the rarity most members have, at least the
+    # lowest one that can show the required stars
+    stars = req["stars"]
+    if stars >= 11 or max(ab, default=0) > 50:
+        rarity = 5
+    else:
+        rarity = max(rarity, next((r for r in range(6) if any(rarity_stars(i) == (r, stars) for i in range(20))), rarity))
+    unit = {"id": uid, "progressionIndex": min(stars + rarity, 19), "xpLevel": req.get("level", 1), "rank": req.get("rank", 0),
             "abilities": [{"level": a} for a in ab] + ([{"level": 1}] if req.get("mow") else []), "items": items}
-    html = _mini_unit(uid, unit, names, prefix, shown)
+    html = _mini_unit(uid, unit, names, prefix, shown, force=(rarity, stars))
     html = re.sub(r'title="[^"]*"', 'title="' + escape(f"{names.get(uid, uid)} — {_req_text(req)}") + '"', html, count=1)  # the tooltip gives the criteria
     ab_html = f'<span class="mu-ab">{" / ".join(str(a) for a in ab)}</span>'
     return html[:-len("</div>")] + ab_html + "</div>"
@@ -1115,7 +1122,7 @@ def render_boss_metas_body(slot, rosters, prefix="../"):
 
     metas = boss_metas(slot, rosters)
     top = metas[:3]  # up to three recommended metas share the first table
-    out = f"<h2>{'Metas recommandées' if len(top) > 1 else 'Meta recommandée'}</h2>" + table(top) if metas else ""
+    out = f"<h2>{'Métas recommandées' if len(top) > 1 else 'Méta recommandée'}</h2>" + table(top) if metas else ""
     if len(metas) > 2:
-        out += f"<h2>{'Autre meta' if len(metas) == 3 else 'Autres metas'}</h2>" + table(metas[2:])
+        out += f"<h2>{'Autre méta' if len(metas) == 3 else 'Autres métas'}</h2>" + table(metas[2:])
     return f'<div class="mt-detail">{out}</div>'
