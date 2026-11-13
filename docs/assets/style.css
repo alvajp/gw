@@ -1875,3 +1875,6 @@ dialog.defense-modal .dm-body { flex: 1 1 auto; min-height: 0; overflow: auto; o
 .atk-modal .atk-table th:last-child, .atk-modal .atk-table td:last-child { padding-right: var(--dm-pad, 1rem); }
 .atk-modal .atk-table thead th { position: sticky; top: 0; z-index: 3; }
 .atk-modal .atk-table thead th:first-child { z-index: 4; left: 0; }
+
+/* Same table model as the site's other tables (separate borders): sticky cells are most reliable with it (Safari / iOS), the cell borders stay with their cells. */
+.atk-table { border-collapse: separate; border-spacing: 0; }
