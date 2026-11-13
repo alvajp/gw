@@ -681,11 +681,10 @@ def _boss_modal(dialog_id, slot, key, owned, names, prefix, who=None, href=None)
     for team, roles in teams.items():
         rows = [(uid, req) for _, entries in roles for uid, req in entries]
         pct = round(100 * sum(unit_completion(owned.get(uid), req) for uid, req in rows) / len(rows))
-        mark = '<span class="mm-best">Meilleure meta</span>' if team == best else ""
         if body:  # a fixed gap between two metas
             body += '<tr class="mm-role mm-gap"><th colspan="6"></th></tr>'
         body += (f'<tr class="mm-role mm-team"><th colspan="6"><span class="mcell-head">{_meta_icon(team, prefix)}<span class="mteam-title">{escape(team)}</span>'
-                 f'{mark}<span class="mrole-pct {_pct_class(pct)}">{pct}%</span></span></th></tr>')
+                 f'<span class="mrole-pct {_pct_class(pct)}">{pct}%</span></span></th></tr>')
         body += _modal_body(roles, owned, names, prefix)
     icon = f'<img class="meta-ico" src="{prefix}assets/{slot["art"]}" alt="" loading="lazy">'
     return _modal(dialog_id, icon, slot["name"].split(" (")[0], body, who, href, table_class="mm-boss")
@@ -1101,7 +1100,7 @@ def _crit_unit(uid, req, names, prefix, rarity):
 def render_boss_metas_body(slot, rosters, prefix="../"):
     """Detail page of a boss: the same table as the metas of a player page (one row per meta, one column: every unit of the meta together, no Core / Flex split), but the
     units are shown as they have to be (the criteria) instead of as the player has them. The meta the guild is closest to having ready comes first,
-    under the title "Meta(s) recommandée(s)" (the two closest share the first table), the others after it."""
+    under the title "Meta(s) recommandée(s)" (the three closest share the first table), the others after it."""
     names = _unit_names()
     rarity_of = _unit_rarities(rosters)
 
@@ -1115,7 +1114,7 @@ def render_boss_metas_body(slot, rosters, prefix="../"):
         return f'<table class="mtable"><tbody>{rows}</tbody></table>'
 
     metas = boss_metas(slot, rosters)
-    top = metas[:2]  # one or two recommended metas share the first table
+    top = metas[:3]  # up to three recommended metas share the first table
     out = f"<h2>{'Metas recommandées' if len(top) > 1 else 'Meta recommandée'}</h2>" + table(top) if metas else ""
     if len(metas) > 2:
         out += f"<h2>{'Autre meta' if len(metas) == 3 else 'Autres metas'}</h2>" + table(metas[2:])

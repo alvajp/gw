@@ -2525,10 +2525,10 @@ def render_home(all_wars, seasons):
     raid_seasons = NAV_SEASONS["raid"]
     cards = [
         ("raid.html", "Raid", f"{len(raid_seasons)} saisons, de S{min(raid_seasons)} à S{max(raid_seasons)}" if raid_seasons else "Dégâts par attaque, bosses et primes",
-         "Classement par saison, et les meilleurs sur chaque boss"),
+         "Records, analyses et suivi des métas"),
         ("war.html", "War", f"{len(seasons)} saisons, {len(all_wars)} guerres",
-         "Classement général, stratégie, défenses et chaque guerre"),
-        ("joueurs.html", "Joueurs", f"{n_members} membres", "Rosters, metas du raid, badges et médailles"),
+         "Classement, suivi des attaques et des défenses"),
+        ("joueurs.html", "Joueurs", f"{n_members} membres", "Rosters, complétion des métas et flex"),
     ]
     body = '<div class="home-cards">' + "".join(
         f'<a class="home-card" href="{href}"><h2>{title}</h2><b>{html_escape(stat)}</b><p>{html_escape(text)}</p>'
@@ -2978,7 +2978,7 @@ NEXT_STAGES = ("M3", "M2", "M1", "L5", "L4")  # the order of the page: the harde
 def render_next_season_page():
     """docs/saison-prochaine.html: the five bosses of the next raid season (the latest one of data/raid_maps.json), each with its two primes' maps around the boss's bigger map,
     the metas of each (and their units) at the bottom of its card, then the members' completion of the boss's best meta (and of its primes') under the maps, best first.
-    Chips at the top (the maps, with the boss's logo in the middle) pick one boss at a time, radio-like (saison-prochaine.js); none picked, all are shown."""
+    Anchors (the boss's map with its logo in the middle) at the top, stacked at the left and sticky on big screens, scroll to each boss (saison-prochaine.js marks the one in view)."""
     rosters = rosters_mod.load_rosters()
     if not rosters or not medals_mod.RAID_MAPS:
         return
@@ -3024,7 +3024,7 @@ def render_next_season_page():
                      f'<span class="pg-v {rosters_mod._pct_class(pct)}">{pct}%</span></a></li>')
         return f'<ul class="ns-list">{rows}</ul>'
 
-    sections, chips = "", ""  # the chips work as radios (one boss at a time); none picked = all shown
+    sections, chips = "", ""  # the chips are anchors to the boss sections
     for stage in NEXT_STAGES:
         triple = stages.get(stage)
         if not triple:
@@ -3036,15 +3036,15 @@ def render_next_season_page():
         boss, primes = slots[by_key[boss_key]], primes_of(boss_key)
         prime_a = primes[0] if primes else boss
         prime_b = primes[1] if len(primes) > 1 else prime_a
-        chips += (f'<button type="button" class="map-chip ns-chip" data-boss="{boss_key}" aria-pressed="false" title="{html_escape(boss["name"])} · {stage}">'
+        chips += (f'<a class="map-chip ns-chip" data-boss="{boss_key}" href="#boss-{boss_key}" title="{html_escape(boss["name"])} · {stage}">'
                   f'<span class="ns-chip-map"><img class="map-chip-img" src="assets/raid-maps/{triple[1].lower()}.webp" alt="" loading="lazy">'
-                  f'<img class="ns-chip-logo" src="assets/{boss["art"]}" alt=""></span></button>')
+                  f'<img class="ns-chip-logo" src="assets/{boss["art"]}" alt=""></span><span class="ns-chip-stage">{stage}</span></a>')
         cards = card(prime_a, triple[0], "ns-prime ns-p1", "Prime") + card(boss, triple[1], "ns-main", f"Boss {stage}") + card(prime_b, triple[2], "ns-prime ns-p2", "Prime")
         lists = players_list(prime_a) + players_list(boss) + players_list(prime_b)
-        sections += (f'<section class="ns-boss" data-boss="{boss_key}"><h2 class="ns-title"><img src="assets/{boss["art"]}" alt="">{html_escape(boss["name"])}<small>{stage}</small></h2>'
+        sections += (f'<section class="ns-boss" id="boss-{boss_key}" data-boss="{boss_key}"><h2 class="ns-title"><img src="assets/{boss["art"]}" alt="">{html_escape(boss["name"])}<small>{stage}</small></h2>'
                      f'<div class="ns-maps">{cards}{lists}</div></section>')
 
-    body = (f'<div class="map-filter ns-filter" role="group" aria-label="Filtrer par boss">{chips}</div>{sections}'
+    body = (f'<nav class="map-filter ns-filter" aria-label="Aller à un boss">{chips}</nav>{sections}'
             f'<script src="assets/saison-prochaine.js?v={ASSETS_VERSION}"></script>')
     html = render_page(nav_active="next", page_kind="boss", title=f"Saison {season}", asset_prefix="", body=body,
                        back_link=back_link_html("raid.html", "Raid"), title_class="hero-title", header_extra="", header_action="", v=ASSETS_VERSION)

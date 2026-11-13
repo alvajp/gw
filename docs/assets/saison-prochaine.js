@@ -1,13 +1,16 @@
-// "Saison prochaine": every boss is shown at first; the chips at the top (the boss's map with its logo) work like radio buttons: one chip at a time keeps its boss only,
-// the chip clicked again (nothing chosen) shows all five.
+// "Saison prochaine": the anchors at the top (the boss's map with its logo) scroll to each boss; the one whose section is in view is marked (aria-current).
 (function () {
-  const bar = document.querySelector(".ns-filter");
-  if (!bar) return;
-  bar.addEventListener("click", function (e) {
-    const chip = e.target.closest(".ns-chip");
-    if (!chip) return;
-    const target = chip.getAttribute("aria-pressed") === "true" ? "" : chip.dataset.boss;
-    bar.querySelectorAll(".ns-chip").forEach(function (c) { c.setAttribute("aria-pressed", String(c.dataset.boss === target)); });
-    document.querySelectorAll(".ns-boss").forEach(function (s) { s.hidden = !!target && s.dataset.boss !== target; });
-  });
+  const links = Array.prototype.slice.call(document.querySelectorAll(".ns-chip"));
+  if (!links.length) return;
+  const sections = links.map(function (l) { return document.getElementById(l.getAttribute("href").slice(1)); });
+  let ticking = false;
+  function mark() {
+    ticking = false;
+    let cur = -1;
+    sections.forEach(function (s, i) { if (s && s.getBoundingClientRect().top <= window.innerHeight * 0.35) cur = i; });
+    links.forEach(function (l, i) { if (i === cur) l.setAttribute("aria-current", "true"); else l.removeAttribute("aria-current"); });
+  }
+  window.addEventListener("scroll", function () { if (!ticking) { ticking = true; requestAnimationFrame(mark); } }, { passive: true });
+  window.addEventListener("resize", mark);
+  mark();
 })();

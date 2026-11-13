@@ -1503,7 +1503,6 @@ body[data-subrow="0"] > header { padding-top: calc(1.25rem + 2.4rem + 1px); }
 .mm-boss .mm-team + .mm-role th { border-top: none; }
 .mm-boss .mm-role:not(.mm-team) th { padding-top: 0.6rem; font-size: 0.68rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); }
 .mm-boss .mm-team .mteam-title { color: var(--text); font-size: 1rem; }
-.mm-boss .mm-best { align-self: center; padding: 0.1rem 0.5rem; border-radius: 999px; font-size: 0.62rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
 .mm-sep { margin: 0 0.15rem; color: var(--text-muted); }
 .mm-need { font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text-muted); }
 .mm-need { font-size: 0.72rem; font-weight: 500; }
@@ -2057,4 +2056,24 @@ td.me-name > .player-btn { display: inline-block; max-width: calc(100% - 1.6rem)
   .ns-chip .ns-chip-map { width: 100%; }
   .ns-chip .map-chip-img { width: 100%; height: auto; }
   .ns-chip-logo { width: 1.7rem; height: 1.7rem; border-width: 1px; }
+}
+
+/* Joueurs list: the view switch does not move when Bosses / Primes is chosen (its pinned offset had 1 px more than the Metas view's, shifting it right even before any scroll). */
+@media (min-width: 761px) { .pgrid[data-view="boss"] .pg-head-gap { left: 1.1rem; } }
+
+/* Saison prochaine, round 6: the boss chips are anchors (scroll to the boss), marked while their boss is in view */
+.ns-chip { text-decoration: none; }
+.ns-chip[aria-current="true"] { color: var(--text); border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--table-header-bg)); }
+.ns-chip[aria-current="true"] .ns-chip-logo { border-color: var(--accent); }
+.ns-chip-stage { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.04em; }
+.ns-boss { scroll-margin-top: 7.2rem; }  /* under the sticky top bar */
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+/* Big screens: the anchors are stacked in the left margin and stay in view; they take no room, the page keeps its centred layout */
+@media (min-width: 1300px) {
+  .ns-filter { position: sticky; top: 7rem; z-index: 5; display: flex; flex-direction: column; align-items: stretch; flex-wrap: nowrap; gap: 0.45rem; width: 4.6rem; height: 0; margin: 0; overflow: visible; }
+  .ns-chip:not([data-boss=""]) { flex: none; width: 4.6rem; padding: 0.3rem 0.3rem 0.25rem; gap: 0.2rem; }
+  .ns-chip .map-chip-img { width: 100%; height: 3.6rem; object-fit: cover; }  /* compact: the five anchors fit under the top bar on a laptop screen */
+  .ns-chip-map { width: 100%; }
+  .ns-filter { width: 4.6rem; }
 }
