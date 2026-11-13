@@ -2077,3 +2077,4 @@ html { scroll-behavior: smooth; }
   .ns-chip-map { width: 100%; }
   .ns-filter { width: 4.6rem; }
 }
+.ns-chip[aria-pressed="true"] { color: var(--text); border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--table-header-bg)); }  /* small and medium screens: the chip chosen as a filter */

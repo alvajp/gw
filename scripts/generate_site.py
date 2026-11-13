@@ -2978,7 +2978,7 @@ NEXT_STAGES = ("M3", "M2", "M1", "L5", "L4")  # the order of the page: the harde
 def render_next_season_page():
     """docs/saison-prochaine.html: the five bosses of the next raid season (the latest one of data/raid_maps.json), each with its two primes' maps around the boss's bigger map,
     the metas of each (and their units) at the bottom of its card, then the members' completion of the boss's best meta (and of its primes') under the maps, best first.
-    Anchors (the boss's map with its logo in the middle) at the top, stacked at the left and sticky on big screens, scroll to each boss (saison-prochaine.js marks the one in view)."""
+    Chips (the boss's map with its logo in the middle): anchors stacked at the left and sticky on big screens (they scroll to each boss), a radio-like filter on small and medium ones (saison-prochaine.js)."""
     rosters = rosters_mod.load_rosters()
     if not rosters or not medals_mod.RAID_MAPS:
         return
