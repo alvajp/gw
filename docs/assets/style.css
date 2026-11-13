@@ -1571,7 +1571,7 @@ body[data-subrow="0"] > header { padding-top: calc(1.25rem + 2.4rem + 1px); }
 
 /* Bosses / Primes view: the table is only as wide as its columns (no empty strip after the last boss on a big screen); it still scrolls when it is wider than the page */
 .pgrid[data-view="boss"] .pg-inner { width: max-content; min-width: 0; }
-.table-scroll.is-dragging, .table-scroll.is-dragging *, .pg-scroll.is-dragging, .pg-scroll.is-dragging * { cursor: grabbing !important; user-select: none; }
+.table-scroll.is-dragging, .table-scroll.is-dragging *, .pg-scroll.is-dragging, .pg-scroll.is-dragging *, .timeline-scroll.is-dragging, .timeline-scroll.is-dragging *, .war-tokens-wrap.is-dragging, .war-tokens-wrap.is-dragging * { cursor: grabbing !important; user-select: none; }
 
 /* Bosses / Primes view: like the Metas view, the name is highlighted when the row is hovered anywhere but on a percentage (which opens a dialog) */
 .pgrid[data-view="boss"] .pg-row:hover:not(:has(.pg-bcell:hover)) .player-btn { background: var(--surface-hover); }
@@ -1752,5 +1752,19 @@ html { scrollbar-gutter: stable; }  /* not overflow-y: scroll: body has overflow
   .pgrid[data-view="boss"] .pg-row:hover .pg-who::before { content: ""; position: absolute; left: -1.1rem; top: 0; bottom: 0; width: 3px; background: var(--accent); }
 }
 
-/* iOS: no rubber-band at the sides of the scrolling tables; the opaque pinned names slid to the right with the bounce, showing a black strip on the left. */
-.pg-scroll, .table-scroll { overscroll-behavior-x: none; }
+/* iOS: no rubber-band at the sides of the scrolling tables (it moved the pinned columns with it, showing a black strip on the left). */
+.pg-scroll, .table-scroll, .timeline-scroll, .war-tokens-wrap { overscroll-behavior-x: none; touch-action: pan-y pinch-zoom; }  /* sideways panning is done by drag-scroll.js (clamped: no bounce) */
+
+/* Joueurs list: like the Raid / War tables, the panel's border and rounded corners stay in place when the table scrolls sideways. The panel is no longer the rows' own box
+   (it scrolled away with them) but a frame (.pg-inner::before) in the same grid cell as the rows, stuck to the left and as wide as what is visible (--sw, set by metas.js). */
+.pgrid[data-view] .pg-inner { display: grid; grid-template-columns: minmax(max-content, 1fr); grid-template-rows: auto 1fr; align-content: start; }
+.pgrid[data-view] .pg-head { grid-area: 1 / 1; }
+.pgrid[data-view] .pg-rows { grid-area: 2 / 1; position: relative; padding: 0.4rem 1px 0.5rem; background: none; border: 0; border-radius: 0; backdrop-filter: none; -webkit-backdrop-filter: none; }
+.pgrid[data-view] .pg-inner::before, .pgrid[data-view] .pg-inner::after { content: ""; grid-area: 2 / 1; position: sticky; left: 0; justify-self: start; width: var(--sw, 100%); box-sizing: border-box; pointer-events: none; border-radius: var(--radius); }
+.pgrid[data-view] .pg-inner::before { background: color-mix(in srgb, var(--bg) 86%, transparent); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }  /* under the rows: the panel */
+.pgrid[data-view] .pg-inner::after { z-index: 3; border: 1px solid var(--border); }  /* over the rows: the border, so the rows' lines do not run over it when they scroll */
+@media (max-width: 760px) { .pgrid[data-view] .pg-inner::before { background: var(--bg); backdrop-filter: none; -webkit-backdrop-filter: none; } }  /* opaque: the pinned names match it */
+
+/* "Jetons réussis" chart on phones: like the Chronologie one it keeps its size (the 900 px of its drawing) and scrolls sideways instead of shrinking. */
+.war-tokens-wrap { overflow-x: auto; }
+@media (max-width: 920px) { .war-tokens-svg { width: 900px; max-width: none; } }

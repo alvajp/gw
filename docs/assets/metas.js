@@ -41,6 +41,12 @@
     const sc = grid.querySelector(".pg-scroll");
     if (sc) { sc.scrollLeft = 0; sc.style.setProperty("--sl", "0px"); }
   }
+  // The panel behind the rows is drawn by a sticky frame as wide as the visible part of the table (see .pg-rows::before), so its left corners stay when the table scrolls.
+  function syncWidth(sc) { sc.style.setProperty("--sw", sc.clientWidth + "px"); }
+  document.querySelectorAll(".pg-scroll").forEach(function (sc) {
+    syncWidth(sc);
+    if (window.ResizeObserver) new ResizeObserver(function () { syncWidth(sc); }).observe(sc);
+  });
   // Boss view: what has scrolled under the sticky first column is clipped away (see .pg-bwrap).
   document.addEventListener("scroll", function (e) {
     const sc = e.target;
