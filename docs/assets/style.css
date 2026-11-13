@@ -1867,3 +1867,11 @@ dialog.defense-modal .dm-body { flex: 1 1 auto; min-height: 0; overflow: auto; o
   dialog.meta-modal:not(.method-modal) .mm-scroll { flex: 1 1 auto; min-height: 0; overflow: auto; overscroll-behavior: contain; }
 }
 
+
+/* Tables inside the attack / score dialogs behave like the site's other tables: the scroll area has no padding of its own (the padding moved into the first and last cells), so the pinned
+   first column stays exactly where it is and nothing slides through a gutter next to it; the header row stays on top while the rows scroll under it. */
+.atk-modal .dm-body { padding-left: 0; padding-right: 0; padding-top: 0; }
+.atk-modal .atk-table th:first-child, .atk-modal .atk-table td:first-child { padding-left: var(--dm-pad, 1rem); }
+.atk-modal .atk-table th:last-child, .atk-modal .atk-table td:last-child { padding-right: var(--dm-pad, 1rem); }
+.atk-modal .atk-table thead th { position: sticky; top: 0; z-index: 3; }
+.atk-modal .atk-table thead th:first-child { z-index: 4; left: 0; }
