@@ -2978,7 +2978,7 @@ NEXT_STAGES = ("M3", "M2", "M1", "L5", "L4")  # the order of the page: the harde
 def render_next_season_page():
     """docs/saison-prochaine.html: the five bosses of the next raid season (the latest one of data/raid_maps.json), each with its two primes' maps around the boss's bigger map,
     the metas of each (and their units) at the bottom of its card, then the members' completion of the boss's best meta (and of its primes') under the maps, best first.
-    Chips at the top (the maps, with the boss's logo in the middle) filter the page to one boss (saison-prochaine.js)."""
+    Chips at the top (the maps, with the boss's logo in the middle) pick one boss at a time, radio-like (saison-prochaine.js); none picked, all are shown."""
     rosters = rosters_mod.load_rosters()
     if not rosters or not medals_mod.RAID_MAPS:
         return
@@ -3024,7 +3024,7 @@ def render_next_season_page():
                      f'<span class="pg-v {rosters_mod._pct_class(pct)}">{pct}%</span></a></li>')
         return f'<ul class="ns-list">{rows}</ul>'
 
-    sections, chips = "", '<button type="button" class="map-chip ns-chip" data-boss="" aria-pressed="true"><span>Toutes</span></button>'
+    sections, chips = "", ""  # the chips work as radios (one boss at a time); none picked = all shown
     for stage in NEXT_STAGES:
         triple = stages.get(stage)
         if not triple:

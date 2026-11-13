@@ -2051,3 +2051,10 @@ td.me-name > .player-btn { display: inline-block; max-width: calc(100% - 1.6rem)
 }
 .ns-row .pg-v { width: auto; flex: none; }  /* the phone rule that makes .pg-v fill its cell squeezed the name away */
 .ns-maps, .ns-title { max-width: 64rem; }  /* a bit bigger on big screens */
+@media (max-width: 760px) {  /* the five boss chips stay on one line */
+  .ns-filter { flex-wrap: nowrap; gap: 0.35rem; }
+  .ns-chip:not([data-boss=""]) { flex: 1 1 0; min-width: 0; padding: 0.25rem; }
+  .ns-chip .ns-chip-map { width: 100%; }
+  .ns-chip .map-chip-img { width: 100%; height: auto; }
+  .ns-chip-logo { width: 1.7rem; height: 1.7rem; border-width: 1px; }
+}
