@@ -36,6 +36,8 @@ body {
      poke out a few px and add a horizontal scrollbar -- clip it here instead. */
   overflow-x: hidden;
 }
+/* `clip` does not turn the body into a scroll container: with `hidden`, iOS Safari lets the sticky top bar scroll away with the page */
+@supports (overflow: clip) { body { overflow-x: clip; } }
 header, main {
   max-width: 1400px;
   margin: 0 auto;
@@ -53,7 +55,7 @@ header {
 
 /* ---- Top bar (every page, see render_topbar) ---- */
 .topbar {
-  position: sticky; top: 0; z-index: 50;
+  position: -webkit-sticky; position: sticky; top: 0; z-index: 50;
   background: color-mix(in srgb, var(--bg) 82%, transparent);
   backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--border);
@@ -1768,3 +1770,10 @@ html { scrollbar-gutter: stable; }  /* not overflow-y: scroll: body has overflow
 /* "Jetons réussis" chart on phones: like the Chronologie one it keeps its size (the 900 px of its drawing) and scrolls sideways instead of shrinking. */
 .war-tokens-wrap { overflow-x: auto; }
 @media (max-width: 920px) { .war-tokens-svg { width: 900px; max-width: none; } }
+
+/* Phones: a little more room between Raid, War and Joueurs in the top bar. */
+@media (max-width: 480px) {
+  .topnav { gap: 0.45rem; }
+  .topnav a { padding: 0.4rem 0.85rem; }
+}
+
