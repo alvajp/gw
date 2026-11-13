@@ -1777,3 +1777,44 @@ html { scrollbar-gutter: stable; }  /* not overflow-y: scroll: body has overflow
   .topnav a { padding: 0.4rem 0.85rem; }
 }
 
+
+/* Phones: every dialog (war / raid attack and defense lists, meta and boss dialogs, the methodology, the map placement) takes the whole screen. The page behind does not scroll,
+   the dialog scrolls on its own and never hands the scroll over to the page; the × stays pinned at the top (fixed, or in the sticky head of the attack lists). */
+@media (max-width: 640px) {
+  html:has(dialog[open]) { overflow: hidden; }
+  dialog.defense-modal, dialog.meta-modal, dialog.placement-modal {
+    box-sizing: border-box; position: fixed; inset: 0; width: 100%; max-width: none; height: 100%; max-height: none; margin: 0;
+    border: 0; border-radius: 0; overscroll-behavior: contain;
+  }
+  @supports (height: 100dvh) { dialog.defense-modal, dialog.meta-modal, dialog.placement-modal { height: 100dvh; max-height: 100dvh; } }
+  dialog.defense-modal, dialog.meta-modal { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  /* attack / defense lists: the head is sticky, its × always in reach */
+  .dm-head .dm-close { flex: none; min-width: 2.75rem; min-height: 2.75rem; margin: -0.4rem -0.4rem -0.4rem 0; font-size: 2rem; }
+  /* meta / boss / method dialogs: one scroll for the whole dialog, the × fixed over it */
+  dialog.meta-modal { padding: 0.9rem 0.7rem 1.2rem; }
+  dialog.meta-modal .mm-scroll { max-height: none; overflow-y: visible; }
+  .meta-modal .mm-close { position: fixed; top: 0.5rem; right: 0.6rem; z-index: 5; width: 2.75rem; height: 2.75rem; display: flex; align-items: center; justify-content: center; padding: 0;
+                          font-size: 2rem; border: 1px solid var(--border); border-radius: 999px; background: var(--bg); color: var(--text); }
+  .meta-modal h3 { margin-right: 3.4rem; }
+  /* map placement: the board is as large as the screen allows (it stays square), centred */
+  dialog.placement-modal[open] { display: flex; align-items: center; justify-content: center; background: #000; }
+  dialog.placement-modal .pl-board { width: min(100vw, 100%); max-height: 100%; aspect-ratio: 1; }
+  dialog.placement-modal .pl-close { position: fixed; top: 0.5rem; right: 0.6rem; width: 2.75rem; height: 2.75rem; padding: 0; font-size: 2rem; border-radius: 999px; background: rgba(0, 0, 0, 0.55); text-shadow: none; display: flex; align-items: center; justify-content: center; }
+  dialog.placement-modal .pl-reset { position: fixed; top: 0.9rem; left: 0.8rem; }
+}
+
+/* Phones (Safari): nothing that is clipped depends on a scroll event any more. The scroll position written by JS (--sl) lags behind the real one while the finger / the momentum
+   moves the table, so the head and the boss cells slid under the pinned names out of step. Now the pinned names are opaque (the rows) and the head is hidden under
+   the pinned corner by a mask on the scroller itself, which is applied while scrolling. */
+@media (max-width: 760px) {
+  .pgrid[data-view] { --hh: 5rem; }
+  .pgrid[data-view] .pg-head { clip-path: none; height: var(--hh); min-height: 0; margin-bottom: 0; padding-bottom: 0; box-sizing: border-box; align-items: end; }
+  .pgrid[data-view="boss"] .pg-bwrap { clip-path: none; }
+  .pgrid[data-view] .pg-scroll {
+    -webkit-mask-image: linear-gradient(to right, transparent 7.6rem, #000 7.6rem), linear-gradient(#000, #000);
+    mask-image: linear-gradient(to right, transparent 7.6rem, #000 7.6rem), linear-gradient(#000, #000);
+    -webkit-mask-size: 100% var(--hh), 100% calc(100% - var(--hh)); mask-size: 100% var(--hh), 100% calc(100% - var(--hh));
+    -webkit-mask-position: 0 0, 0 var(--hh); mask-position: 0 0, 0 var(--hh);
+    -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+  }
+}
