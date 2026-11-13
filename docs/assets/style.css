@@ -1753,7 +1753,7 @@ html { scrollbar-gutter: stable; }  /* not overflow-y: scroll: body has overflow
 }
 
 /* iOS: no rubber-band at the sides of the scrolling tables (it moved the pinned columns with it, showing a black strip on the left). */
-.pg-scroll, .table-scroll, .timeline-scroll, .war-tokens-wrap { overscroll-behavior-x: none; touch-action: pan-y pinch-zoom; }  /* sideways panning is done by drag-scroll.js (clamped: no bounce) */
+.pg-scroll, .table-scroll, .timeline-scroll, .war-tokens-wrap { overscroll-behavior-x: none; }
 
 /* Joueurs list: like the Raid / War tables, the panel's border and rounded corners stay in place when the table scrolls sideways. The panel is no longer the rows' own box
    (it scrolled away with them) but a frame (.pg-inner::before) in the same grid cell as the rows, stuck to the left and as wide as what is visible (--sw, set by metas.js). */
