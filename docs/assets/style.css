@@ -1911,3 +1911,122 @@ dialog, dialog.defense-modal, dialog.meta-modal, dialog.defense-modal .dm-body, 
 
 /* Joueurs list: the name pill is as wide as the name (its hover background used to fill the whole name cell). */
 .pgrid .pg-who .player-btn, .pgrid[data-view] .pg-who .player-btn, .pgrid[data-view="boss"] .pg-who .player-btn { flex: 0 1 auto; }
+
+/* ---- "Qui êtes-vous ?" (profile.js, profil.html) ---- */
+/* Small screens: the logo reads "LJP". */
+@media (max-width: 640px) {
+  .brand-name { display: inline; font-size: 0; }
+  .brand-name::after { content: "LJP"; font-size: 0.95rem; }
+}
+/* Profile button at the far right of the top bar: a "?" badge until a player is chosen, a check once it is. */
+.me-btn { position: relative; flex: none; margin-left: auto; width: 2.1rem; height: 2.1rem; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%;
+          border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); text-decoration: none; transition: color 120ms ease, border-color 120ms ease; }
+.me-btn:hover, .me-btn:focus-visible { color: var(--text); border-color: var(--accent); }
+.me-btn.is-set { color: var(--text); border-color: color-mix(in srgb, var(--win) 60%, var(--border)); }
+.me-badge { position: absolute; right: -0.28rem; bottom: -0.28rem; width: 1rem; height: 1rem; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            background: var(--surface-hover); border: 1px solid var(--border); color: var(--text-muted); font-size: 0.64rem; font-weight: 700; line-height: 1; }
+.me-btn.is-set .me-badge { background: var(--win); border-color: var(--win); color: #0d1014; }
+.topnav { min-width: 0; }
+/* The visitor's own row: pinned first by profile.js, tinted, with a mark right of the name. */
+.me-mark { display: inline-flex; flex: none; margin-left: 0.35rem; vertical-align: middle; color: var(--accent); }
+td.me-name > .player-btn { display: inline-block; max-width: calc(100% - 1.6rem); overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
+.table-scroll table tbody tr.is-me > td:not([style]), .table-scroll table tbody tr.is-me > td.rk, .table-scroll table tbody tr.is-me > td.rk + td { background-color: color-mix(in srgb, var(--accent) 10%, var(--table-bg)); }
+.table-scroll table tbody tr.is-me:hover > td:not([style]), .table-scroll table tbody tr.is-me:hover > td.rk, .table-scroll table tbody tr.is-me:hover > td.rk + td { background-color: color-mix(in srgb, var(--accent) 16%, var(--table-bg)); }
+.table-scroll table tbody tr.is-me > td { border-bottom-color: color-mix(in srgb, var(--accent) 55%, var(--border)); }
+.table-scroll table tbody tr.is-me > td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+.pgrid .pg-row.is-me { background: color-mix(in srgb, var(--accent) 10%, var(--table-bg)); border-bottom-color: color-mix(in srgb, var(--accent) 55%, var(--border)); }
+.pgrid .pg-row.is-me .pg-who { background: color-mix(in srgb, var(--accent) 10%, var(--table-bg)); }
+.pgrid .pg-row.is-me .pg-who .player-btn { min-width: 0; }
+/* profil.html */
+.who-list { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 1.2rem 0 3rem; }
+.who-pick { font: inherit; font-size: 0.92rem; padding: 0.5rem 1.1rem; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; transition: background 120ms ease, border-color 120ms ease; }
+.who-pick:hover, .who-pick:focus-visible { background: var(--surface-hover); border-color: var(--accent); }
+.who-pick.is-current { border-color: var(--accent); color: var(--accent); }
+
+/* ---- "Saison prochaine" (saison-prochaine.html): per boss, the boss's map big in the middle, its two primes' maps around it, the metas at the bottom of each card, then the members' completion ---- */
+.topsub .lab-short { display: none; }
+@media (max-width: 480px) { .topsub .lab-long { display: none; } .topsub .lab-short { display: inline; } }  /* the pinned group would take the whole row on a phone */
+.ns-intro { max-width: 44rem; margin: 0 0 1.6rem; color: var(--text-muted); line-height: 1.5; }
+.ns-boss { margin: 0 0 3rem; }
+.ns-title { display: flex; align-items: center; gap: 0.7rem; margin: 0 0 0.9rem; font-size: 1.35rem; }
+.ns-title img { width: 2.4rem; height: 2.4rem; border-radius: 8px; object-fit: cover; }
+.ns-title small { margin-left: 0.2rem; padding: 0.1rem 0.55rem; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); font-size: 0.74rem; font-weight: 600; }
+.ns-maps { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr) minmax(0, 1fr); gap: 0.9rem; align-items: stretch; margin-bottom: 1.2rem; }
+.ns-card { display: flex; flex-direction: column; min-width: 0; padding: 0.7rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+.ns-main { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+.ns-map { position: relative; border-radius: calc(var(--radius) - 4px); overflow: hidden; background: var(--bg); }
+.ns-map-img { display: block; width: 100%; height: auto; }
+.ns-logo { position: absolute; left: 0.5rem; top: 0.5rem; width: 2.6rem; height: 2.6rem; border-radius: 10px; object-fit: cover; border: 2px solid var(--border); background: var(--bg); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.55); }
+.ns-main .ns-logo { width: 4.2rem; height: 4.2rem; border-radius: 12px; left: 0.7rem; top: 0.7rem; border-color: var(--accent); }
+.ns-name { display: flex; flex-direction: column; margin: 0.6rem 0.1rem 0.7rem; line-height: 1.25; }
+.ns-name small { color: var(--text-muted); font-size: 0.74rem; }
+.ns-main .ns-name b { font-size: 1.05rem; }
+.ns-metas { margin-top: auto; display: flex; flex-wrap: wrap; gap: 0.35rem; }  /* aligned at the bottom of the card, whatever the cards' heights */
+.ns-meta { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.25rem 0.6rem 0.25rem 0.3rem; border-radius: 999px; border: 1px solid var(--border); background: var(--bg); color: var(--text); text-decoration: none; font-size: 0.78rem; font-weight: 600; }
+.ns-meta:hover { border-color: var(--accent); }
+.ns-meta .meta-ico { width: 1.3rem; height: 1.3rem; border-radius: 50%; object-fit: cover; }
+.ns-meta b { color: var(--text-muted); font-weight: 600; font-variant-numeric: tabular-nums; }
+.ns-nometa { color: var(--text-muted); font-size: 0.78rem; }
+.ns-table .pg-v { display: block; min-width: 3.2rem; box-sizing: border-box; }
+@media (max-width: 640px) {
+  .ns-maps { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0.6rem; }
+  .ns-main { grid-column: 1 / -1; order: -1; }
+  .ns-logo { width: 2.1rem; height: 2.1rem; }
+  .ns-main .ns-logo { width: 3.4rem; height: 3.4rem; }
+}
+.ns-prime .ns-map { flex: 1 1 auto; min-height: 12rem; }  /* the primes' maps fill the height the boss's bigger card gives them */
+.ns-prime .ns-map-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+@media (max-width: 640px) { .ns-prime .ns-map { min-height: 0; aspect-ratio: 3 / 4; } }
+
+/* "Saison prochaine", round 2: filter chips (the boss's map with its logo in the middle), maps always on one line, a size cap on big screens, one row of units per meta */
+.ns-filter { margin-bottom: 1.6rem; }
+.ns-chip-map { position: relative; display: block; line-height: 0; }
+.ns-chip-logo { position: absolute; left: 50%; top: 50%; width: 2.2rem; height: 2.2rem; transform: translate(-50%, -50%); border-radius: 8px; object-fit: cover; border: 2px solid var(--border); background: var(--bg); box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6); }
+.ns-chip[aria-pressed="true"] .ns-chip-logo { border-color: var(--accent); }
+.ns-chip:not([data-boss=""]) { padding: 0.35rem; min-width: 0; }
+.ns-chip[data-boss=""] { min-height: 5.7rem; }
+.ns-boss[hidden] { display: none; }
+.ns-maps { max-width: 52rem; margin-left: auto; margin-right: auto; grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr) minmax(0, 1fr); }
+.ns-main { grid-column: auto; order: 0; }
+.ns-meta-row { display: flex; flex-direction: column; align-items: flex-start; gap: 0.3rem; min-width: 0; }
+.ns-metas { flex-direction: column; align-items: stretch; gap: 0.6rem; }
+.ns-units { display: flex; flex-wrap: wrap; gap: 0.15rem 0.5rem; min-width: 0; }
+.ns-role { display: inline-flex; flex-wrap: wrap; gap: 0.15rem; }
+.ns-unit { width: 1.85rem; height: 1.85rem; border-radius: 50%; object-fit: cover; background: var(--bg); border: 1px solid var(--border); }
+.ns-boss .table-scroll { max-width: 52rem; margin-left: auto; margin-right: auto; }
+.ns-title { max-width: 52rem; margin-left: auto; margin-right: auto; }
+@media (max-width: 760px) {
+  .ns-units { display: none; }  /* medium and big screens only */
+  .ns-maps { gap: 0.4rem; }
+  .ns-card { padding: 0.35rem; }
+  .ns-name { margin: 0.4rem 0.05rem 0.5rem; }
+  .ns-name b { font-size: 0.8rem; }
+  .ns-main .ns-name b { font-size: 0.85rem; }
+  .ns-name small { font-size: 0.62rem; overflow-wrap: anywhere; }
+  .ns-logo, .ns-prime .ns-logo { width: 1.7rem; height: 1.7rem; left: 0.3rem; top: 0.3rem; border-width: 1px; border-radius: 6px; }
+  .ns-main .ns-logo { width: 2.5rem; height: 2.5rem; left: 0.4rem; top: 0.4rem; }
+  .ns-prime .ns-map { min-height: 0; aspect-ratio: 3 / 4; }
+  .ns-meta { font-size: 0.64rem; padding: 0.15rem 0.4rem 0.15rem 0.2rem; gap: 0.25rem; }
+  .ns-meta .meta-ico { width: 1rem; height: 1rem; }
+  .ns-chip-logo { width: 1.8rem; height: 1.8rem; }
+}
+
+/* Saison prochaine, round 3: no frame on the boss's card; the primes' maps keep their own format (shown whole) instead of filling the height of the boss's card */
+.ns-main { border-color: transparent; }
+.ns-prime .ns-map { flex: none; min-height: 0; aspect-ratio: auto; }
+.ns-prime .ns-map-img { position: static; inset: auto; width: 100%; height: auto; object-fit: initial; }
+@media (max-width: 760px) { .ns-prime .ns-map { aspect-ratio: auto; } }
+
+/* War, Raid and Saison prochaine tables: the figure columns (after # and Joueur) are centred, heads included, like their coloured cells (they were right-aligned, the default for numbers). */
+.table-scroll table:not(.atk-top) th.rk + th ~ th, .table-scroll table:not(.atk-top) td.rk + td ~ td { text-align: center; }  /* the best-attacks lists keep their own alignment */
+
+/* Saison prochaine, round 4: the three maps have the same size; only the boss's head (logo) is bigger, and it has no frame */
+.ns-maps { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.ns-main .ns-name b { font-size: 0.95rem; }
+.ns-main .ns-logo { width: 4rem; height: 4rem; left: 0.5rem; top: 0.5rem; border: 0; border-radius: 12px; }
+.ns-prime .ns-logo { width: 2.3rem; height: 2.3rem; }
+@media (max-width: 760px) {
+  .ns-main .ns-name b { font-size: 0.8rem; }
+  .ns-main .ns-logo { width: 2.7rem; height: 2.7rem; left: 0.3rem; top: 0.3rem; border: 0; }
+  .ns-prime .ns-logo { width: 1.6rem; height: 1.6rem; }
+}
