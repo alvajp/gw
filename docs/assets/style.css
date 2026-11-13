@@ -2156,3 +2156,8 @@ dialog.method-modal .mm-ex tbody tr:last-child td { padding-bottom: 0.5rem; }
 @media (max-width: 640px) { dialog.method-modal .mm-method { --mp: 0.9rem; } }
 dialog.method-modal .mm-ex { table-layout: auto; }
 dialog.method-modal .mm-ex th:last-child, dialog.method-modal .mm-ex td:last-child { width: 1%; text-align: right; }  /* the % column hugs the right edge */
+
+/* Phones: every dialog is full screen and square, none of them has rounded corners (the meta / methodology ones had kept theirs). */
+@media (max-width: 640px) {
+  dialog, dialog.defense-modal, dialog.meta-modal, dialog.meta-modal:not(.method-modal), dialog.method-modal, dialog.placement-modal { border-radius: 0; }
+}
