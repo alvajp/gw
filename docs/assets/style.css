@@ -1613,7 +1613,7 @@ a.cl::after { content: ""; position: absolute; inset: 0; }
 .mt-detail .mtable th, .mt-detail .mtable td { width: 100%; }  /* a single column */
 
 /* Raid tables: the relative-damage cells open the player's attacks of that season (raid-attacks.js) */
-td[data-atk] { cursor: pointer; }
+td[data-atk], td[data-score] { cursor: pointer; }
 .atk-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; font-variant-numeric: tabular-nums; }
 .atk-table th, .atk-table td { padding: 0.4rem 0.6rem; text-align: left; white-space: nowrap; border-top: 1px solid var(--border); vertical-align: middle; }
 .atk-table thead th { border-top: none; font-size: 0.68rem; color: var(--text-muted); background: var(--table-header-bg); }
@@ -1818,3 +1818,52 @@ html { scrollbar-gutter: stable; }  /* not overflow-y: scroll: body has overflow
     -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
   }
 }
+
+/* Season pages: the score dialog (breakdown per boss, then the cut for the tokens not played). */
+.sc-table tfoot td { border-top: 1px solid var(--border); font-weight: 600; background: var(--table-header-bg); }
+.sc-table tfoot tr.sc-total td { font-size: 1rem; font-weight: 700; }
+.sc-table tfoot tr.sc-foot td:first-child, .sc-table tfoot tr.sc-total td:first-child { white-space: normal; }
+.sc-table tfoot tr.sc-focus td { background: color-mix(in srgb, var(--accent) 14%, var(--table-header-bg)); }
+.sc-table tfoot tr.sc-focus td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+
+
+/* Phones: the Raid tables use the same cell padding as the War ones (their own padding rule left the rows 5 px taller). */
+@media (max-width: 480px) { .raid-table th, .raid-table td { padding: 0.35rem 0.45rem; } }
+.sc-table a { color: var(--accent); text-decoration: none; font-weight: 600; }
+.sc-table a:hover { text-decoration: underline; }
+
+/* "Voir la saison" in the dialog head of raid.html: between the title and the ×. */
+.dm-head .dm-see { align-self: center; margin-left: auto; margin-right: 0.8rem; flex: none; }
+.dm-head .dm-see + .dm-close { margin-left: 0; }
+@media (max-width: 640px) { .dm-head .dm-see { padding: 0.3rem 0.7rem; font-size: 0.78rem; margin-right: 0.3rem; } }
+@media (min-width: 641px) { .dm-head .dm-see { margin-right: 3.2rem; } }  /* the × floats at the right edge of the head on big screens */
+
+
+/* "Voir le roster" in the meta / boss dialogs of the Joueurs list: at the right of the title, left of the ×, like "Voir la saison" / "Voir le boss". */
+.meta-modal h3 { margin-right: 3rem; }
+.meta-modal h3 .mm-title { flex: 1; min-width: 0; }
+.meta-modal h3 .mm-roster-btn { margin-left: auto; align-self: center; }
+@media (max-width: 640px) { .meta-modal h3 { margin-right: 3.4rem; } .meta-modal h3 .mm-roster-btn { padding: 0.3rem 0.7rem; font-size: 0.78rem; } }
+
+/* Raid dialogs: one title line (player · what), the details under it; a plain separator instead of two blocks at different heights. */
+.dm-sep { margin: 0 0.3rem; color: var(--text-muted); font-weight: 400; }
+
+
+/* Dialog heads with a "Voir ..." button: the title, the button and the × are centred on the same line. */
+.dm-head:has(.dm-see) { align-items: center; }
+.dm-head:has(.dm-see) .dm-title, .dm-head:has(.dm-see) .dm-def { margin-top: 0; margin-bottom: 0; }
+@media (min-width: 641px) { .dm-head:has(.dm-see) .dm-close { top: 50%; transform: translateY(-50%); } }
+
+/* Scrolling inside an attack / score dialog: the sticky head stays above the table's first column (its cells have z-index 2-3). */
+.dm-head { z-index: 20; }
+dialog.is-dragging, dialog.is-dragging *, .mm-scroll.is-dragging, .mm-scroll.is-dragging * { cursor: grabbing !important; user-select: none; }  /* dragging a dialog's content (drag-scroll.js) */
+
+/* Dialogs: only the content scrolls (the table), the head with the title, the "Voir ..." button and the × stays in place. */
+dialog.defense-modal[open] { display: flex; flex-direction: column; overflow: hidden; }
+dialog.defense-modal .dm-head { position: relative; flex: none; }
+dialog.defense-modal .dm-body { flex: 1 1 auto; min-height: 0; overflow: auto; overscroll-behavior: contain; }
+@media (max-width: 640px) {
+  dialog.meta-modal[open]:not(.method-modal) { display: flex; flex-direction: column; overflow: hidden; }
+  dialog.meta-modal:not(.method-modal) .mm-scroll { flex: 1 1 auto; min-height: 0; overflow: auto; overscroll-behavior: contain; }
+}
+

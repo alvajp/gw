@@ -481,7 +481,7 @@ def linkify_rows(html):
 
             def cell(cm):
                 idx[0] += 1
-                if "<a " in cm.group(2) or "<button" in cm.group(2) or "data-atk" in cm.group(1) or "data-war-atk" in cm.group(1):  # (data-atk cells open a dialog, see raid-attacks.js)
+                if "<a " in cm.group(2) or "<button" in cm.group(2) or "data-atk" in cm.group(1) or "data-war-atk" in cm.group(1) or "data-score" in cm.group(1):  # (data-atk / data-score cells open a dialog, see raid-attacks.js)
                     return cm.group(0)
                 target = heads[idx[0]] if idx[0] < len(heads) and heads[idx[0]] else href.group(1)
                 return f'{cm.group(1)}<a class="cl" href="{target}" tabindex="-1">{cm.group(2)}</a></td>'
@@ -2744,17 +2744,17 @@ def render_raid_pages(all_wars):
     for n in season_order:
         vals = [p["score"] for u, p in seasons[n]["players"].items() if u in members]
         bounds[n] = (min(vals), max(vals)) if vals else (0, 0)
-    head = ['<th class="rk">#</th>', "<th>Joueur</th>", "<th>Saisons</th>", '<th title="Jetons non joués sous les 27 de chaque saison terminée">Jetons perdus</th>',
-            '<th title="Moyenne des scores de toutes les saisons">Score</th>'] + [f'<th data-href="raid/{n}.html">S{n}</th>' for n in season_order]
+    head = ['<th class="rk">#</th>', "<th>Joueur</th>", "<th>Saisons</th>", '<th title="Moyenne des scores de toutes les saisons">Score</th>',
+            '<th title="Jetons non joués sous les 27 de chaque saison terminée">Jetons perdus</th>'] + [f'<th data-href="raid/{n}.html">S{n}</th>' for n in season_order]
     avg_vals = [i["avg_rel"] for i in ranking.values()]
     avg_lo, avg_hi = (min(avg_vals), max(avg_vals)) if avg_vals else (0, 0)
     rows = []
     for uid, info in sorted(ranking.items(), key=lambda kv: kv[1]["rank"]):
         cells = [f'<td class="rk">{rosters_mod.table_badge("raid", info, "") or info["rank"]}</td>',
                  f'<td><a class="chip player-btn" href="joueurs/{rosters_mod.player_slug(uid)}.html">{html_escape(names[uid])}</a></td>',
-                 f'<td>{info["seasons"]}</td>',
-                 f'<td>{sum(seasons[n]["players"][uid]["lost"] or 0 for n in season_order if uid in seasons[n]["players"])}</td>',
-                 f'<td{value_to_bg(info["avg_rel"], avg_lo, avg_hi)} title="Moyenne des scores sur {info["seasons"]} saisons">{_fmt_rel(info["avg_rel"] / 100)}</td>']
+                 f'<td data-score="{uid}">{info["seasons"]}</td>',
+                 f'<td{value_to_bg(info["avg_rel"], avg_lo, avg_hi)} data-score="{uid}" title="Moyenne des scores sur {info["seasons"]} saisons">{_fmt_rel(info["avg_rel"] / 100)}</td>',
+                 f'<td data-score="{uid}">{sum(seasons[n]["players"][uid]["lost"] or 0 for n in season_order if uid in seasons[n]["players"])}</td>']
         for n in season_order:
             p = seasons[n]["players"].get(uid)
             if p is None:
@@ -2763,8 +2763,14 @@ def render_raid_pages(all_wars):
                 lo, hi = bounds[n]
                 cells.append(f'<td{value_to_bg(p["score"], lo, hi)} data-atk="{uid}|{n}|" title="Rang {p["rank"]} sur {seasons[n]["field"]} · {p["n"]} attaques">{_fmt_rel(p["score"])}</td>')
         rows.append(f'<tr{player_row_attrs(uid, "")}>' + "".join(cells) + "</tr>")
+    recap = {"per": medals_mod.TOKENS_PER_SEASON, "field": len(ranking),
+             "p": {uid: {"k": info["rank"], "a": round(info["avg_rel"] / 100, 6),
+                         "s": [[n, round(seasons[n]["players"][uid]["score"], 6), seasons[n]["players"][uid]["rank"], seasons[n]["field"], seasons[n]["players"][uid]["n"],
+                                seasons[n]["players"][uid]["tokens"], seasons[n]["players"][uid]["lost"]] for n in season_order if uid in seasons[n]["players"]]}
+                   for uid, info in ranking.items()}}
     body = (f'<div class="table-scroll"><table class="sortable raid-table" data-atk-base="data/"><thead><tr>{"".join(head)}</tr></thead>'
-            f'<tbody>{"".join(rows)}</tbody></table></div>' + RAID_EXPLAIN)
+            f'<tbody>{"".join(rows)}</tbody></table></div>' + RAID_EXPLAIN
+            + f'<script type="application/json" id="recap-data">{json.dumps(recap, separators=(",", ":"))}</script>')  # read by raid-attacks.js (the seasons recap dialog)
     html = render_page(nav_active="raid", title="Raid", asset_prefix="", body=body, back_link=guild_crumb(), title_class="hero-title",
                        header_extra="", header_action="", v=ASSETS_VERSION)
     with open(os.path.join(DOCS_DIR, "raid.html"), "w", encoding="utf-8") as f:
@@ -2790,8 +2796,8 @@ def render_raid_pages(all_wars):
             lost = "–" if p["lost"] is None else p["lost"]  # a season in progress has no lost tokens yet
             raw_note = f' · avant jetons perdus : {_fmt_rel(p["raw"])}' if p["lost"] else ""
             cells = [f'<td class="rk">{p["rank"]}</td>', f"<td>{who}</td>",
-                     f'<td{value_to_bg(p["score"], s_lo, s_hi)} title="{p["n"]} attaques · {p["tokens"]} jetons{raw_note}">{_fmt_rel(p["score"])}</td>',
-                     f"<td>{lost}</td>"]
+                     f'<td{value_to_bg(p["score"], s_lo, s_hi)} data-score="{uid}" title="{p["n"]} attaques · {p["tokens"]} jetons{raw_note}">{_fmt_rel(p["score"])}</td>',
+                     f'<td data-score="{uid}" data-sc="lost">{lost}</td>']
             for k in keys:
                 v = p["by_key"].get(k)
                 if v is None:
@@ -2800,8 +2806,13 @@ def render_raid_pages(all_wars):
                     lo, hi = bb[k]
                     cells.append(f'<td{value_to_bg(v[0], lo, hi)} data-atk="{uid}|{n}|{k}" title="{v[1]} attaque{"s" if v[1] > 1 else ""}">{_fmt_rel(v[0])}</td>')
             rows.append(f'<tr{player_row_attrs(uid, "../")}>' + "".join(cells) + "</tr>")
+        score_data = {"season": n, "per": medals_mod.TOKENS_PER_SEASON, "field": data["field"], "keys": keys,
+                      "p": {uid: {"s": round(p["score"], 6), "r": round(p["raw"], 6), "n": p["n"], "t": p["tokens"], "l": p["lost"], "k": p["rank"],
+                                  "b": [[k, round(p["by_key"][k][0], 6), p["by_key"][k][1]] for k in keys if k in p["by_key"]]}
+                            for uid, p in data["players"].items()}}
         body = (f'<div class="table-scroll"><table class="sortable raid-table" data-atk-base="../data/"><thead><tr>{"".join(head)}</tr></thead>'
-                f'<tbody>{"".join(rows)}</tbody></table></div>' + RAID_EXPLAIN)
+                f'<tbody>{"".join(rows)}</tbody></table></div>' + RAID_EXPLAIN
+                + f'<script type="application/json" id="score-data">{json.dumps(score_data, separators=(",", ":"))}</script>')  # read by raid-attacks.js (the score dialog)
         html = render_page(nav_active="raid", nav_sub=f"raid-{n}", title=f"Raid · saison {n}", asset_prefix="../", body=body,
                            back_link=back_link_html("../raid.html", "Raid"), title_class="", header_extra="", header_action="", v=ASSETS_VERSION)
         with open(os.path.join(DOCS_DIR, "raid", f"{n}.html"), "w", encoding="utf-8") as f:
