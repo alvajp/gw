@@ -1573,7 +1573,7 @@ body[data-subrow="0"] > header { padding-top: calc(1.25rem + 2.4rem + 1px); }
 
 /* Bosses / Primes view: the table is only as wide as its columns (no empty strip after the last boss on a big screen); it still scrolls when it is wider than the page */
 .pgrid[data-view="boss"] .pg-inner { width: max-content; min-width: 0; }
-.table-scroll.is-dragging, .table-scroll.is-dragging *, .pg-scroll.is-dragging, .pg-scroll.is-dragging *, .timeline-scroll.is-dragging, .timeline-scroll.is-dragging *, .war-tokens-wrap.is-dragging, .war-tokens-wrap.is-dragging * { cursor: grabbing !important; user-select: none; }
+.table-scroll.is-dragging, .table-scroll.is-dragging *, .pg-scroll.is-dragging, .pg-scroll.is-dragging *, .timeline-scroll.is-dragging, .timeline-scroll.is-dragging *, .war-tokens-wrap.is-dragging, .war-tokens-wrap.is-dragging *, .topnav.is-dragging, .topnav.is-dragging *, .topsub-inner.is-dragging, .topsub-inner.is-dragging *, .topsub-seasons.is-dragging, .topsub-seasons.is-dragging * { cursor: grabbing !important; user-select: none; }
 
 /* Bosses / Primes view: like the Metas view, the name is highlighted when the row is hovered anywhere but on a percentage (which opens a dialog) */
 .pgrid[data-view="boss"] .pg-row:hover:not(:has(.pg-bcell:hover)) .player-btn { background: var(--surface-hover); }
@@ -1707,15 +1707,15 @@ html { scrollbar-gutter: stable; }  /* not overflow-y: scroll: body has overflow
   .pgrid[data-view] .pg-head-gap .pg-toggle { display: none; }
   .pgrid[data-view="metas"] .pg-head, .pgrid[data-view="metas"] .pg-row { grid-template-columns: 7rem repeat(4, 8.6rem); }
   .pgrid[data-view="boss"] .pg-head, .pgrid[data-view="boss"] .pg-row { grid-template-columns: 7rem auto; }
-  .pgrid[data-view] .pg-rows { display: block; padding: 0.4rem 0 0.5rem; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); }  /* the panel of the big screens, opaque so the pinned names match it */
+  .pgrid[data-view] .pg-rows { display: block; padding: 0.4rem 0 0.5rem; background: var(--table-bg); border: 1px solid var(--border); border-radius: var(--radius); }  /* the panel of the big screens, opaque so the pinned names match it */
   .pgrid[data-view] .pg-row { display: grid; align-items: center; min-height: 3.1rem; padding: 0 0.6rem; gap: 0 0.3rem; background: none; border: 0; border-radius: 0;
                               border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent); }
-  .pgrid[data-view] .pg-row:hover { background: color-mix(in srgb, var(--accent) 9%, var(--surface)); }
+  .pgrid[data-view] .pg-row:hover { background: color-mix(in srgb, var(--accent) 9%, var(--table-bg)); }  /* same tint as the pinned name's (opaque, over --bg), so the name box does not stand out from its row */
   .pgrid[data-view] .pg-who, .pgrid[data-view] .pg-head-gap { grid-column: auto; position: sticky; left: 1px; z-index: 2; justify-content: flex-start; }  /* 1px = the panel's border: the name does not move when the table starts to scroll */
-  .pgrid[data-view] .pg-who { background: var(--bg); margin-left: -0.6rem; padding-left: 0.6rem; }  /* opaque: the table scrolls under the pinned name */
-  .pgrid[data-view] .pg-who { box-shadow: calc(min(var(--sl, 0px), 1px) * -3) 0 0 var(--bg); }  /* once scrolled, 3px more on the left hide the cells sliding under the border */
+  .pgrid[data-view] .pg-who { background: var(--table-bg); margin-left: -0.6rem; padding-left: 0.6rem; }  /* opaque: the table scrolls under the pinned name */
+  .pgrid[data-view] .pg-who { box-shadow: calc(min(var(--sl, 0px), 1px) * -3) 0 0 var(--table-bg); }  /* once scrolled, 3px more on the left hide the cells sliding under the border */
   .pgrid[data-view] .pg-row { box-shadow: none !important; }
-  .pgrid[data-view] .pg-row:hover .pg-who { background: color-mix(in srgb, var(--accent) 9%, var(--bg)); box-shadow: inset 3px 0 0 var(--accent), calc(min(var(--sl, 0px), 1px) * -3) 0 0 var(--bg); }  /* the yellow hover bar stays on the pinned name */
+  .pgrid[data-view] .pg-row:hover .pg-who { background: color-mix(in srgb, var(--accent) 9%, var(--table-bg)); box-shadow: inset 3px 0 0 var(--accent), calc(min(var(--sl, 0px), 1px) * -3) 0 0 var(--table-bg); }  /* the yellow hover bar stays on the pinned name */
   .pgrid[data-view] .pg-who .player-btn { flex: 1 1 auto; min-width: 0; margin: 0.3rem 0; padding: 0.4rem 0.6rem; font-size: 0.84rem; }
   .pgrid[data-view="metas"] .pg-meta { padding: 0.3rem 1.3rem 0.3rem 2.4rem; }
   .pgrid[data-view="metas"] .pg-meta .mbadge-name { font-size: 0.74rem; }
@@ -1763,9 +1763,9 @@ html { scrollbar-gutter: stable; }  /* not overflow-y: scroll: body has overflow
 .pgrid[data-view] .pg-head { grid-area: 1 / 1; }
 .pgrid[data-view] .pg-rows { grid-area: 2 / 1; position: relative; padding: 0.4rem 1px 0.5rem; background: none; border: 0; border-radius: 0; backdrop-filter: none; -webkit-backdrop-filter: none; }
 .pgrid[data-view] .pg-inner::before, .pgrid[data-view] .pg-inner::after { content: ""; grid-area: 2 / 1; position: sticky; left: 0; justify-self: start; width: var(--sw, 100%); box-sizing: border-box; pointer-events: none; border-radius: var(--radius); }
-.pgrid[data-view] .pg-inner::before { background: color-mix(in srgb, var(--bg) 86%, transparent); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }  /* under the rows: the panel */
+.pgrid[data-view] .pg-inner::before { background: var(--table-bg); }  /* under the rows: the panel */
 .pgrid[data-view] .pg-inner::after { z-index: 3; border: 1px solid var(--border); }  /* over the rows: the border, so the rows' lines do not run over it when they scroll */
-@media (max-width: 760px) { .pgrid[data-view] .pg-inner::before { background: var(--bg); backdrop-filter: none; -webkit-backdrop-filter: none; } }  /* opaque: the pinned names match it */
+@media (max-width: 760px) { .pgrid[data-view] .pg-inner::before { background: var(--table-bg); backdrop-filter: none; -webkit-backdrop-filter: none; } }  /* opaque: the pinned names match it */
 
 /* "Jetons réussis" chart on phones: like the Chronologie one it keeps its size (the 900 px of its drawing) and scrolls sideways instead of shrinking. */
 .war-tokens-wrap { overflow-x: auto; }
@@ -1890,3 +1890,24 @@ dialog.defense-modal .dm-body { flex: 1 1 auto; min-height: 0; overflow: auto; o
 
 /* Dialog scrollers behave like the page tables: no rubber-band at the edges (iOS), so the pinned first column and the header cannot be pulled away. The tables use `none`, the dialogs used `contain`, which still bounces. */
 dialog, dialog.defense-modal, dialog.meta-modal, dialog.defense-modal .dm-body, dialog.meta-modal .mm-scroll, .mm-scroll { overscroll-behavior: none; }
+
+/* Top bar rows: dragged with the mouse like the tables, no rubber-band. In the second row the section's own pages stay at the left and only the seasons scroll: they are clipped at the separator (no background needed, the bar keeps its own). */
+.topnav, .topsub-inner, .topsub-seasons { overscroll-behavior-x: none; }
+.topsub-inner.has-pin { overflow: visible; padding-right: 0; }
+.topsub-pin { flex: none; display: flex; align-items: center; gap: 0.2rem; }
+.topsub-pin .topsub-sep { margin-right: 0.3rem; }
+.topsub-seasons { padding-right: var(--gutter); box-sizing: border-box; flex: 1 1 auto; min-width: 0; align-self: stretch; display: flex; align-items: center; gap: 0.2rem; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.topsub-seasons::-webkit-scrollbar { display: none; }
+
+/* Joueurs list: the name pill is plain at rest and takes its rounded background when the row is hovered, like in the Raid / War / Metas tables (hovering a percentage, which opens a dialog, does not light the name). */
+.pgrid .pg-row .player-btn, .pgrid .pg-row .player-btn:hover, .pgrid .pg-row .player-btn:focus-visible { background: transparent; border-color: transparent; }
+.pgrid .pg-row:hover:not(:has(.pg-cell:hover, .pg-bcell:hover)) .player-btn, .pgrid .pg-row:focus-within .player-btn { background: var(--surface-hover); }
+
+/* Small screens: a narrower "#" column (the pinned player column follows it, so both offsets use the same width). */
+@media (max-width: 640px) {
+  .table-scroll table th.rk, .table-scroll table td.rk { width: 2.3rem; min-width: 2.3rem; max-width: 2.3rem; padding-left: 0.25em; padding-right: 0.25em; }
+  .table-scroll table th.rk + th, .table-scroll table td.rk + td { left: 2.3rem; }
+}
+
+/* Joueurs list: the name pill is as wide as the name (its hover background used to fill the whole name cell). */
+.pgrid .pg-who .player-btn, .pgrid[data-view] .pg-who .player-btn, .pgrid[data-view="boss"] .pg-who .player-btn { flex: 0 1 auto; }

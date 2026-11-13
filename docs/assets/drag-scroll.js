@@ -1,7 +1,7 @@
-// Tables and charts that scroll sideways, and the dialogs (both ways) (.table-scroll, the Chronologie and Jetons réussis charts, and the Joueurs list whenever it is wider than the page: Bosses / Primes, and every view on phones) can be scrolled by dragging them with the mouse.
+// The top bar's rows (sections, pages and seasons), tables and charts that scroll sideways, and the dialogs (both ways) (.table-scroll, the Chronologie and Jetons réussis charts, and the Joueurs list whenever it is wider than the page: Bosses / Primes, and every view on phones) can be scrolled by dragging them with the mouse.
 // A click that ends a drag is swallowed, so row links, sort heads and dialogs only react to real clicks. Touch and wheel keep their usual behaviour.
 (function () {
-  const SCROLLER = ".table-scroll, .pgrid .pg-scroll, .timeline-scroll, .war-tokens-wrap, dialog.defense-modal .dm-body, dialog.meta-modal .mm-scroll, dialog.defense-modal, dialog.meta-modal";
+  const SCROLLER = ".topnav, .topsub-inner, .topsub-seasons, .table-scroll, .pgrid .pg-scroll, .timeline-scroll, .war-tokens-wrap, dialog.defense-modal .dm-body, dialog.meta-modal .mm-scroll, dialog.defense-modal, dialog.meta-modal";
   const BOTH = "dialog, .mm-scroll, .dm-body";  // the dialogs' content scrolls up and down as well: those follow the drag in both directions
   let drag = null, moved = false;
   document.addEventListener("pointerdown", function (e) {
