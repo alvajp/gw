@@ -71,12 +71,13 @@
           '</td><td class="atk-n atk-rel' + cls(share) + '">' + pts(share) + "</td></tr>";
       });
       const lostFocus = td.dataset.sc === "lost", factor = Math.min(1, p.t / data.per);
+      // The foot rows have one cell per column, like the body rows (no colspan): a cell that spans the table cannot stay pinned when the table scrolls sideways, its label slid away.
       const cut = p.l === null
-        ? '<tr class="sc-foot' + (lostFocus ? " sc-focus" : "") + '"><td colspan="3">Jetons perdus</td><td class="atk-n">—</td></tr>'
-        : '<tr class="sc-foot' + (lostFocus ? " sc-focus" : "") + '"><td colspan="2">Jetons joués : ' + p.t + " sur " + data.per + " (" + p.l + ' perdu' + (p.l > 1 ? "s" : "") + ')</td><td class="atk-n">× ' +
+        ? '<tr class="sc-foot' + (lostFocus ? " sc-focus" : "") + '"><td>Jetons perdus</td><td class="atk-n"></td><td class="atk-n"></td><td class="atk-n">—</td></tr>'
+        : '<tr class="sc-foot' + (lostFocus ? " sc-focus" : "") + '"><td>Jetons joués : ' + p.t + " sur " + data.per + " (" + p.l + ' perdu' + (p.l > 1 ? "s" : "") + ')</td><td class="atk-n"></td><td class="atk-n">× ' +
           (factor * 100).toFixed(1).replace(".", ",") + ' %</td><td class="atk-n atk-rel' + cls(p.s - p.r) + '">' + pts(p.s - p.r) + "</td></tr>";
-      const sum = '<tr class="sc-foot"><td colspan="2">Moyenne des dégâts relatifs</td><td class="atk-n">' + p.n + ' attaques</td><td class="atk-n atk-rel' + cls(p.r) + '">' + rel(p.r) + "</td></tr>";
-      const total = '<tr class="sc-total' + (lostFocus ? "" : " sc-focus") + '"><td colspan="3">Score de la saison</td><td class="atk-n atk-rel' + cls(p.s) + '">' + rel(p.s) + "</td></tr>";
+      const sum = '<tr class="sc-foot"><td>Moyenne des dégâts relatifs</td><td class="atk-n">' + p.n + '</td><td class="atk-n"></td><td class="atk-n atk-rel' + cls(p.r) + '">' + rel(p.r) + "</td></tr>";
+      const total = '<tr class="sc-total' + (lostFocus ? "" : " sc-focus") + '"><td>Score de la saison</td><td class="atk-n"></td><td class="atk-n"></td><td class="atk-n atk-rel' + cls(p.s) + '">' + rel(p.s) + "</td></tr>";
       const dlg = document.createElement("dialog");
       dlg.className = "defense-modal atk-modal sc-modal";
       dlg.innerHTML = '<div class="dm-head"><div class="dm-title"><div class="dm-def"><span class="dm-def-player">' + esc(who) + '</span><span class="dm-def-zone"><span class="zone-text"><b>Score · saison ' + data.season +
@@ -103,8 +104,8 @@
       rows += '<tr><td><a href="raid/' + x[0] + '.html">S' + x[0] + '</a></td><td class="atk-n">' + x[2] + " / " + x[3] + '</td><td class="atk-n">' + x[4] + '</td><td class="atk-n">' + x[5] + '</td><td class="atk-n">' +
         (x[6] === null ? "—" : x[6]) + '</td><td class="atk-n atk-rel' + cls(x[1]) + '">' + rel(x[1]) + "</td></tr>";
     });
-    const foot = '<tr class="sc-foot' + (td.cellIndex === 4 ? " sc-focus" : "") + '"><td colspan="4">Jetons perdus</td><td class="atk-n">' + lost + '</td><td class="atk-n"></td></tr>' +
-      '<tr class="sc-total' + (td.cellIndex === 3 ? " sc-focus" : "") + '"><td colspan="5">Score (moyenne des saisons)</td><td class="atk-n atk-rel' + cls(p.a) + '">' + rel(p.a) + "</td></tr>";
+    const foot = '<tr class="sc-foot' + (td.cellIndex === 4 ? " sc-focus" : "") + '"><td>Jetons perdus</td><td class="atk-n"></td><td class="atk-n"></td><td class="atk-n"></td><td class="atk-n">' + lost + '</td><td class="atk-n"></td></tr>' +
+      '<tr class="sc-total' + (td.cellIndex === 3 ? " sc-focus" : "") + '"><td>Score moyen</td><td class="atk-n"></td><td class="atk-n"></td><td class="atk-n"></td><td class="atk-n"></td><td class="atk-n atk-rel' + cls(p.a) + '">' + rel(p.a) + "</td></tr>";
     const dlg = document.createElement("dialog");
     dlg.className = "defense-modal atk-modal sc-modal";
     dlg.innerHTML = '<div class="dm-head"><div class="dm-title"><div class="dm-def"><span class="dm-def-player">' + esc(who) + '</span><span class="dm-def-zone"><span class="zone-text"><b>Récap des saisons</b><small>Rang ' + p.k +

@@ -1878,3 +1878,12 @@ dialog.defense-modal .dm-body { flex: 1 1 auto; min-height: 0; overflow: auto; o
 
 /* Same table model as the site's other tables (separate borders): sticky cells are most reliable with it (Safari / iOS), the cell borders stay with their cells. */
 .atk-table { border-collapse: separate; border-spacing: 0; }
+
+/* Score / recap dialogs: the first column is wide enough for the foot labels, which wrap inside it (one cell per column, so they stay pinned like the body rows). */
+.sc-table th:first-child, .sc-table td:first-child { min-width: 6.5rem; }
+.sc-table tfoot td:first-child { line-height: 1.25; }
+@media (max-width: 640px) {
+  .atk-table th, .atk-table td { padding-left: 0.5rem; padding-right: 0.5rem; }  /* the generic 0.9 rem each side made every dialog table 100 px wider than it needs on a phone */
+  .atk-modal .atk-table th:first-child, .atk-modal .atk-table td:first-child { padding-left: var(--dm-pad, 0.8rem); }
+  .atk-modal .atk-table th:last-child, .atk-modal .atk-table td:last-child { padding-right: var(--dm-pad, 0.8rem); }
+}
