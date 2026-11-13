@@ -42,7 +42,7 @@
   });
 })();
 
-// Dialogs: showModal() focuses the first focusable element, i.e. the × of the head, which shows up as "selected" (iOS, keyboards): the dialog itself takes the focus instead (Esc still closes it).
+// Dialogs: showModal() focuses the first focusable element, i.e. the "Voir ..." button or the × of the head, which shows up as "selected" (iOS, keyboards): the dialog itself takes the focus instead (Esc still closes it).
 // When the dialog was opened with the pointer, the button that opened it (a percentage, a badge...) does not keep a focus ring once the dialog is closed.
 (function () {
   if (!window.HTMLDialogElement) return;
@@ -54,7 +54,7 @@
     const opener = document.activeElement, viaPointer = pointer;
     open.apply(this, arguments);
     const a = document.activeElement;
-    if (a && a.matches && a.matches(".dm-close, .mm-close")) {
+    if (a && a !== this && this.contains(a) && !a.hasAttribute("autofocus")) {  // the × or the "Voir ..." button, whichever comes first
       this.setAttribute("tabindex", "-1");
       this.focus({ preventScroll: true });
     }
