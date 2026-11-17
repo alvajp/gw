@@ -3,12 +3,17 @@ Fetch every guild member's roster from the official Tacticus API and store the
 raw responses in data/rosters/<user_id>.json (git-ignored).
 
 The API keys live in ~/.config/tacticus-guildwar/keys.json, outside the
-repository: {"players": [{"name": ..., "user_id": ..., "api_key": ...}]}.
+repository: {"psychos": [{"name": ..., "user_id": ..., "api_key": ...}]} ("players" is still read for the older layout).
 A player with an empty api_key is skipped. Keys are never printed or written
 anywhere else; only the player data (units, progress) is kept.
 
-Usage: python3 scripts/fetch_rosters.py [--strict] [name-or-user-id ...]   (names / ids given: only those members)   (--strict: exit 1 if any member failed, used by the daily GitHub workflow)
+The second guild (--guild=cabale) lives in the same file under "cabale": [{"name": ..., "api_key": ...}] -- its members' user ids are
+not known (the API does not give them, and there is no guild key to list them), so the id of a page is derived from the key's hash (stable as long as the
+key is not renewed; an optional "user_id" in the entry wins). Its rosters go to data/rosters-cabale/.
+
+Usage: python3 scripts/fetch_rosters.py [--guild=cabale] [--strict] [name-or-user-id ...]   (names / ids given: only those members)   (--strict: exit 1 if any member failed, used by the daily GitHub workflow)
 """
+import hashlib
 import json
 import os
 import sys
@@ -17,7 +22,9 @@ import urllib.error
 import urllib.request
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-OUT_DIR = os.path.join(ROOT, "data", "rosters")
+GUILD = next((a.split("=", 1)[1] for a in sys.argv[1:] if a.startswith("--guild=")), "ljp")
+GUILD_KEYS = {"ljp": ("psychos", "players"), "cabale": ("cabale", "Cabale")}  # where each guild's members are in keys.json
+OUT_DIR = os.path.join(ROOT, "data", "rosters" if GUILD == "ljp" else f"rosters-{GUILD}")
 KEYS = os.path.expanduser("~/.config/tacticus-guildwar/keys.json")
 URL = "https://api.tacticusgame.com/api/v1/player"
 UA = "tacticus-guildwar-tracker (personal guild stats site)"
@@ -42,7 +49,17 @@ def main():
     if not os.path.exists(KEYS):
         sys.exit(f"Missing {KEYS}")
     with open(KEYS, encoding="utf-8") as f:
-        players = json.load(f)["players"]
+        keys = json.load(f)
+    players = []
+    for name in GUILD_KEYS[GUILD]:  # the section of the guild: a list of members (or {"players": [...]} in the older layout)
+        section = keys.get(name)
+        players = (section.get("players") if isinstance(section, dict) else section) or []
+        if players:
+            break
+    if GUILD != "ljp":
+        for p in players:
+            h = hashlib.sha256((p.get("api_key") or "").encode()).hexdigest()
+            p.setdefault("user_id", f"{h[:8]}-{h[8:12]}-{h[12:16]}-{h[16:20]}-{h[20:32]}")
     os.makedirs(OUT_DIR, exist_ok=True)
     only = [a.lower() for a in sys.argv[1:] if not a.startswith("--")]  # optional: refresh only these members (name or user id)
     ok, failed = 0, []

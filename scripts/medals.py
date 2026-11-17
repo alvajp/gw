@@ -14,7 +14,8 @@ import statistics
 from collections import defaultdict
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-RAID_DIR = os.path.join(ROOT, "data", "raid")
+GUILD = os.environ.get("GUILD", "ljp")  # "ljp" (the guild of the site's owner) or "cabale" (the second guild: rosters only, see generate_site.py); one run = one guild
+RAID_DIR = os.path.join(ROOT, "data", "raid" if GUILD == "ljp" else f"raid-{GUILD}")  # no raid history for the second guild (no guild key): the folder stays empty
 FIRST_SEASON = 100  # the raid history kept for the medals, the ranking and the Raid / Boss pages starts here
 
 # raid boss (API type, display name, [(sub-boss unitId, our unit id or art name, display name)]); the order is the order of the

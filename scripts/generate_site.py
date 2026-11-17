@@ -9,6 +9,7 @@ import json
 import math
 import os
 import re
+import shutil
 import sys
 from collections import defaultdict
 
@@ -21,7 +22,9 @@ import medals as medals_mod
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WARS_DIR = os.path.join(ROOT, "data", "wars")
-DOCS_DIR = os.path.join(ROOT, "docs")
+ASSETS_DIR = os.path.join(ROOT, "docs", "assets")  # shared by both guilds' pages
+GUILD = medals_mod.GUILD  # "ljp" (the site's own guild: docs/) or "cabale" (La Cabale Psychopathe: docs/cabale/, rosters only); GUILD=cabale python3 scripts/generate_site.py
+DOCS_DIR = os.path.join(ROOT, "docs") if GUILD == "ljp" else os.path.join(ROOT, "docs", GUILD)
 
 
 def _assets_version():
@@ -31,7 +34,7 @@ def _assets_version():
     picked up by an already-open tab until a hard refresh)."""
     import hashlib
 
-    assets_dir = os.path.join(DOCS_DIR, "assets")
+    assets_dir = ASSETS_DIR
     h = hashlib.sha256()
     if os.path.isdir(assets_dir):
         for name in sorted(os.listdir(assets_dir)):
@@ -48,7 +51,8 @@ OUR_GUILD = "Les Joyeux Psychopathes !"
 # Shorter display form for the index page's header label (the in-game name
 # above is the exact string used to match team data, kept separate so
 # tightening it up cosmetically can't accidentally break that matching).
-OUR_GUILD_LABEL = "Les Joyeux Psychos"
+OUR_GUILD_LABEL = "Les Joyeux Psychos" if GUILD == "ljp" else "La Cabale Psychopathe"
+GUILDS = (("ljp", "Les Joyeux Psychos"), ("cabale", "La Cabale Psychopathe"))  # the guilds of the home page's switch (folder, name)
 
 COLS = [
     ("pts", "Points"), ("reussites", "Tokens"), ("buffs_pts", "Buffs"), ("map_pts", "Maps"),
@@ -382,10 +386,10 @@ PAGE_TEMPLATE = """<!doctype html>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230d1014'/%3E%3Cpath d='M16 6l8 10-8 10-8-10z' fill='%23f2b134'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230d1014'/%3E%3Cpath d='M16 6l8 10-8 10-8-10z' fill='%23{icon_color}'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="{asset_prefix}assets/style.css?v={v}">
 </head>
-<body data-page="{page}" data-bg="{bg}" data-subrow="{subrow}">
+<body data-page="{page}" data-bg="{bg}" data-subrow="{subrow}" data-guild="{guild}">
 {topbar}
 <header><div class="breadcrumb" id="breadcrumb">{back_link}</div><div id="title-row">{title_icon}<h1 id="page-title" class="{title_class}">{title}</h1><div id="header-action">{header_action}</div></div><div id="header-extra">{header_extra}</div></header>
 <main>
@@ -414,6 +418,8 @@ PAGE_TEMPLATE = """<!doctype html>
 NAV_SEASONS = {"raid": [], "war": []}  # season numbers (latest first) shown in the second menu row; filled in main()
 NAV_WARS = {}  # war season -> [(slug, label, outcome)] in fight order: the third menu row of the season's pages; filled in main()
 NAV_SECTION = {"home": None, "ranking": "war", "strategy": "war", "defenses": "war", "raid": "raid", "boss": "raid", "metas": "raid", "players": "players", "profile": None, "next": "raid"}
+if GUILD != "ljp":  # the second guild has no raid / war history: no second menu row, its three pages are in the top row
+    NAV_SECTION = {"home": None, "next": "next", "metas": "metas", "players": "players", "profile": None}
 
 
 def render_topbar(prefix, active, sub=None, wars=None):
@@ -428,8 +434,12 @@ def render_topbar(prefix, active, sub=None, wars=None):
         attr = ' class="active"' if on else ""
         return f'<a{attr} href="{prefix}{href}">{label}</a>'
 
-    top = "".join(link(href, label, key == section) for key, href, label in
-                  (("raid", "raid.html", "Raid"), ("war", "war.html", "War"), ("players", "joueurs.html", "Joueurs")))
+    if GUILD == "ljp":
+        top_items = (("raid", "raid.html", "Raid"), ("war", "war.html", "War"), ("players", "joueurs.html", "Joueurs"))
+    else:
+        top_items = (("next", "saison-prochaine.html", '<span class="lab-long">Saison prochaine</span><span class="lab-short">Prochaine</span>'),
+                     ("metas", "metas.html", "Métas"), ("players", "joueurs.html", "Joueurs"))
+    top = "".join(link(href, label, key == section) for key, href, label in top_items)
     sub_html = ""
     if section == "raid":
         first = [("next", "saison-prochaine.html", '<span class="lab-long">Saison prochaine</span><span class="lab-short">Prochaine</span>'),
@@ -502,6 +512,8 @@ def render_page(nav_active="ranking", **kw):
     kw["subrow"] = "1" if NAV_SECTION.get(nav_active, "war") in ("raid", "war") else "0"  # does the topbar have its second row?
     kw["page"] = kw.pop("page_kind", nav_active)  # data-page of <body> (CSS hooks); defaults to the menu entry
     kw.setdefault("title_icon", "")  # optional icon left of the title (boss pages)
+    kw.setdefault("icon_color", "f2b134" if GUILD == "ljp" else "d77bff")  # the favicon's diamond: the guild's accent colour
+    kw.setdefault("guild", GUILD)  # data-guild of <body>: the colour theme (style.css) and the profile's storage (profile.js)
     kw.setdefault("bg", "")  # Joueurs pages: which event banner (0-3) sits behind the page, see style.css
     return PAGE_TEMPLATE.format(**kw)
 
@@ -524,6 +536,11 @@ def strategy_button(href):
 def guild_crumb():
     """The guild's name above the title of the section's landing pages (War, Raid, Joueurs): same look as a breadcrumb, not a link."""
     return f'<span class="breadcrumb-label">{html_escape(OUR_GUILD_LABEL)}</span>'
+
+
+def raid_back():
+    """Back link of the Métas / Saison prochaine pages: the Raid page for the main guild, the guild's name for the one without raid pages."""
+    return back_link_html("raid.html", "Raid") if GUILD == "ljp" else guild_crumb()
 
 
 def back_link_html(href, label):
@@ -2523,20 +2540,32 @@ def render_home(all_wars, seasons):
     """docs/index.html, the page the logo leads to: the guild's name over a wallpaper and one big card per section."""
     n_members = len(rosters_mod.load_rosters())
     raid_seasons = NAV_SEASONS["raid"]
-    cards = [
-        ("raid.html", "Raid", f"{len(raid_seasons)} saisons, de S{min(raid_seasons)} à S{max(raid_seasons)}" if raid_seasons else "Dégâts par attaque, bosses et primes",
-         "Records, analyses et suivi des métas"),
-        ("war.html", "War", f"{len(seasons)} saisons, {len(all_wars)} guerres",
-         "Classement, suivi des attaques et des défenses"),
-        ("joueurs.html", "Joueurs", f"{n_members} membres", "Rosters, complétion des métas et flex"),
-    ]
+    if GUILD == "ljp":
+        cards = [
+            ("raid.html", "Raid", f"{len(raid_seasons)} saisons, de S{min(raid_seasons)} à S{max(raid_seasons)}" if raid_seasons else "Dégâts par attaque, bosses et primes",
+             "Records, analyses et suivi des métas"),
+            ("war.html", "War", f"{len(seasons)} saisons, {len(all_wars)} guerres",
+             "Classement, suivi des attaques et des défenses"),
+            ("joueurs.html", "Joueurs", f"{n_members} membres", "Rosters, complétion des métas et flex"),
+        ]
+    else:  # no raid / war history for this guild: only the pages the rosters allow
+        cards = [
+            ("saison-prochaine.html", "Saison prochaine", "Qui peut jouer quoi", "Les joueurs de la guilde, par boss et par prime"),
+            ("metas.html", "Métas", "Complétion par boss", "Les métas de chaque boss et les joueurs qui les ont"),
+            ("joueurs.html", "Joueurs", f"{n_members} membres", "Rosters, complétion des métas et flex"),
+        ]
     body = '<div class="home-cards">' + "".join(
         f'<a class="home-card" href="{href}"><h2>{title}</h2><b>{html_escape(stat)}</b><p>{html_escape(text)}</p>'
         f'<span class="home-go">{ARROW_RIGHT}</span></a>'
         for href, title, stat, text in cards
     ) + "</div>"
+    def home_of(key):  # the guilds' home pages: docs/index.html and docs/cabale/index.html
+        return "index.html" if key == GUILD else ("cabale/index.html" if GUILD == "ljp" else "../index.html")
+
+    switch = '<div class="guild-switch" role="group" aria-label="Guilde">' + "".join(
+        f'<a href="{home_of(key)}"{" aria-current=page" if key == GUILD else ""}>{html_escape(name)}</a>' for key, name in GUILDS) + "</div>"
     html = render_page(
-        nav_active="home", title=OUR_GUILD_LABEL, asset_prefix="", body=body, back_link="", title_class="hero-title",
+        nav_active="home", title=OUR_GUILD_LABEL, asset_prefix="", body=body, back_link=switch, title_class="hero-title",
         header_extra="", header_action="", v=ASSETS_VERSION,
     )
     with open(os.path.join(DOCS_DIR, "index.html"), "w", encoding="utf-8") as f:
@@ -2885,7 +2914,7 @@ def render_metas_page(all_wars):
         return
     os.makedirs(os.path.join(DOCS_DIR, "metas"), exist_ok=True)
     html = render_page(nav_active="metas", page_kind="boss", title="Métas", asset_prefix="", body=rosters_mod.render_metas_index_body(rosters),
-                       back_link=back_link_html("raid.html", "Raid"), title_class="hero-title", header_extra="", header_action="", v=ASSETS_VERSION)
+                       back_link=raid_back(), title_class="hero-title", header_extra="", header_action="", v=ASSETS_VERSION)
     with open(os.path.join(DOCS_DIR, "metas.html"), "w", encoding="utf-8") as f:
         f.write(html)
     attacks = medals_mod.season_attacks()
@@ -3003,7 +3032,7 @@ def render_next_season_page():
             for ri, (_role, entries) in enumerate(roles):
                 imgs = "".join(
                     f'<img class="ns-unit" src="assets/units/{uid}.webp" alt="" title="{html_escape(unit_names.get(uid, uid))}" loading="lazy">'
-                    for uid, _req in entries if os.path.exists(os.path.join(DOCS_DIR, "assets", "units", uid + ".webp")))
+                    for uid, _req in entries if os.path.exists(os.path.join(ASSETS_DIR, "units", uid + ".webp")))
                 units += f'<span class="ns-role{" ns-role-next" if ri else ""}">{imgs}</span>'
             rows += (f'<div class="ns-meta-row"><a class="ns-meta" href="metas/{slot["key"]}.html">{rosters_mod._meta_icon(team, "")}<span>{html_escape(team)}</span></a>'
                      f'<span class="ns-units">{units}</span></div>')
@@ -3047,7 +3076,7 @@ def render_next_season_page():
     body = (f'<nav class="map-filter ns-filter" aria-label="Aller à un boss">{chips}</nav>{sections}'
             f'<script src="assets/saison-prochaine.js?v={ASSETS_VERSION}"></script>')
     html = render_page(nav_active="next", page_kind="boss", title=f"Saison {season}", asset_prefix="", body=body,
-                       back_link=back_link_html("raid.html", "Raid"), title_class="hero-title", header_extra="", header_action="", v=ASSETS_VERSION)
+                       back_link=raid_back(), title_class="hero-title", header_extra="", header_action="", v=ASSETS_VERSION)
     with open(os.path.join(DOCS_DIR, "saison-prochaine.html"), "w", encoding="utf-8") as f:
         f.write(html)
     print(f"Generated saison-prochaine.html (season {season})")
@@ -3125,10 +3154,44 @@ def load_wars():
     return all_wars
 
 
+def relocate_assets():
+    """The guild's pages live one folder deeper than the shared docs/assets: every `assets/` reference (links, images, scripts, data attributes)
+    gets one more `../` (the pages were generated as if they sat at the root, with their own depth in the prefix)."""
+    pat = re.compile(r"(?<![\w./-])((?:\.\./)*)assets/")
+    for folder, _dirs, names in os.walk(DOCS_DIR):
+        for name in names:
+            if not name.endswith(".html"):
+                continue
+            path = os.path.join(folder, name)
+            with open(path, encoding="utf-8") as f:
+                html = f.read()
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(pat.sub(lambda m: "../" + m.group(1) + "assets/", html))
+
+
+def main_roster_only():
+    """The second guild (GUILD=cabale): no war captures and no raid history (that needs the guild's own key), so only what the members' API keys give:
+    the Joueurs pages, the Métas, the Saison prochaine page and "Qui êtes-vous ?". Written to docs/<guild>/, which is rebuilt from scratch each time."""
+    shutil.rmtree(DOCS_DIR, ignore_errors=True)
+    os.makedirs(DOCS_DIR)
+    rosters = rosters_mod.load_rosters()
+    PLAYER_SLUGS.update({r["uid"]: rosters_mod.player_slug(r["uid"]) for r in rosters})
+    rosters_mod.apply_default_relics()
+    NAV_SEASONS["raid"] = []
+    render_home([], {})
+    render_players_pages()
+    render_profile_page()
+    render_next_season_page()
+    render_metas_page([])
+    relocate_assets()
+    print(f"Generated the {GUILD} site ({len(rosters)} member(s)) into {DOCS_DIR}")
+
+
 def main():
+    if GUILD != "ljp":
+        return main_roster_only()
     os.makedirs(os.path.join(DOCS_DIR, "wars"), exist_ok=True)
     os.makedirs(os.path.join(DOCS_DIR, "seasons"), exist_ok=True)
-    os.makedirs(os.path.join(DOCS_DIR, "assets"), exist_ok=True)
 
     all_wars = load_wars()
     PLAYER_SLUGS.update({r["uid"]: rosters_mod.player_slug(r["uid"]) for r in rosters_mod.load_rosters()})

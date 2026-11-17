@@ -3,3 +3,5 @@ data/rosters/
 keys.json
 *.keys.json
 data/raid/
+data/rosters-*/
+data/raid-*/

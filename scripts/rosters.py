@@ -19,7 +19,7 @@ from html import escape
 import medals as medals_mod
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-ROSTERS_DIR = os.path.join(ROOT, "data", "rosters")
+ROSTERS_DIR = os.path.join(ROOT, "data", "rosters" if medals_mod.GUILD == "ljp" else f"rosters-{medals_mod.GUILD}")
 UNITS_DIR = os.path.join(ROOT, "docs", "assets", "units")
 
 RARITIES = ["Commun", "Peu commun", "Rare", "Épique", "Légendaire", "Mythique"]
@@ -923,7 +923,8 @@ def render_player_body(r, prefix="../", war=None, medals=None, raid=None, raid_k
         f'<div class="chips">{chips}</div></div>'
     )
     return (
-        render_insignias(war, prefix, raid=raid, raid_known=raid_known, extra=render_medals(medals, prefix, badges)) + render_raid_metas(units, prefix) + summary + render_resources(r["inventory"], prefix)
+        (render_insignias(war, prefix, raid=raid, raid_known=raid_known, extra=render_medals(medals, prefix, badges)) if medals_mod.GUILD == "ljp" else "")  # (the guild without war / raid history has no ranks nor medals)
+        + render_raid_metas(units, prefix) + summary + render_resources(r["inventory"], prefix)
         + controls + '<div class="roster-zone">'
         + '<div id="roster" class="roster">' + "".join(sections)
         + '<section class="rs rs-flat" hidden><div class="rs-grid"></div></section></div>'

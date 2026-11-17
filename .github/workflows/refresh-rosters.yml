@@ -1,6 +1,7 @@
 # Refreshes the players' rosters and the guild raid history every day at noon (Paris, winter time) from the official Tacticus API, rebuilds the site
 # and publishes it. The API keys live in the repository SECRET "ROSTER_KEYS" (the content of keys.json): they are written to
 # a temporary file on the runner, used by fetch_rosters.py, then deleted. They never appear in the repo, the logs or the site.
+# The second guild (La Cabale Psychopathe, docs/cabale/) has no raid or war data: only its members' rosters, from the "cabale" section of the same secret.
 # Only rosters are refreshed here; war captures and unit portraits stay manual (they come from the local game files).
 name: Refresh rosters
 
@@ -45,11 +46,22 @@ jobs:
             if python3 scripts/fetch_raid.py; then raid_ok=1; break; fi
             echo "Raid attempt $attempt failed, retrying in 60 s"; sleep 60
           done
+          # the second guild (rosters only, section "cabale" of the keys): a failure there never blocks the main guild, its pages are just kept as they were
+          cabale_ok=0
+          if python3 -c "import json,os,sys; k=json.load(open(os.path.expanduser('~/.config/tacticus-guildwar/keys.json'))); sys.exit(0 if k.get('cabale') or k.get('Cabale') else 1)"; then
+            for attempt in 1 2 3; do
+              if python3 scripts/fetch_rosters.py --guild=cabale --strict; then cabale_ok=1; break; fi
+              echo "Cabale attempt $attempt failed, retrying in 60 s"; sleep 60
+            done
+          fi
+          echo "$cabale_ok" > "$RUNNER_TEMP/cabale_ok"
           rm -f ~/.config/tacticus-guildwar/keys.json
           test "$ok" = 1 && test "$raid_ok" = 1   # never publish a partial member list or medals without the raid history
 
       - name: Rebuild the site
-        run: python3 scripts/generate_site.py
+        run: |
+          python3 scripts/generate_site.py
+          if [ "$(cat "$RUNNER_TEMP/cabale_ok" 2>/dev/null)" = 1 ]; then GUILD=cabale python3 scripts/generate_site.py; fi
 
       - name: Publish
         env:

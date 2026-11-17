@@ -1,10 +1,11 @@
-// "Qui êtes-vous ?": the visitor says which player they are (profil.html); the choice stays in this browser's localStorage.
+// "Qui êtes-vous ?": the visitor says which player they are (profil.html); the choice stays in this browser's localStorage (one per guild).
 //  - top bar: a profile button at the far right, with a "?" badge until a player is chosen, a check once it is;
 //  - every table with a row for that player (a data-href to their page), and the Joueurs list: the row is pinned at the top and marked next to the name.
 // Nothing here is secured: it only personalises the display (all the data of the site is public anyway).
 (function () {
-  const KEY = "ljp-me";
-  const base = new URL("../", document.currentScript.src).href;  // the site's root, whatever the page's depth
+  const guild = document.body.dataset.guild || "ljp";  // each guild has its own site (docs/ and docs/<guild>/) and its own "who am I"
+  const KEY = guild + "-me";
+  const base = new URL(guild === "ljp" ? "../" : "../" + guild + "/", document.currentScript.src).href;  // the guild's root, whatever the page's depth
   const USER = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>';
   const CHECK = '<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
   const MARK = '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="currentColor"/><path d="M6.8 12.6l3.6 3.6 6.8-7.2" fill="none" stroke="#0d1014" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';

@@ -1543,6 +1543,18 @@ body[data-page="home"] h1.hero-title { font-size: 3.4rem; text-shadow: 0 2px 18p
 @media (max-width: 480px) {
   body[data-page="home"] h1.hero-title { font-size: 2.3rem; line-height: 1.15; }
 }
+/* Home: the guilds' switch (in the breadcrumb's place, above the guild's name): the guild shown is filled with the accent colour. */
+.guild-switch { display: inline-flex; gap: 0.2rem; padding: 0.2rem; border: 1px solid var(--border); border-radius: 999px; background: color-mix(in srgb, var(--bg) 60%, transparent); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+.guild-switch a { padding: 0.4rem 0.95rem; border-radius: 999px; color: var(--text-muted); font-size: 0.88rem; font-weight: 600; text-decoration: none; white-space: nowrap; transition: color 120ms ease, background 120ms ease; }
+.guild-switch a:hover { color: var(--text); }
+.guild-switch a[aria-current] { background: var(--accent); color: #0d1014; }
+@media (max-width: 480px) {
+  .guild-switch { display: flex; }
+  .guild-switch a { flex: 1; padding: 0.45rem 0.4rem; font-size: 0.82rem; text-align: center; }
+}
+/* La Cabale Psychopathe: the same site with a pink / violet accent instead of the yellow (the rarity and medal golds keep theirs: they mean something), its own home wallpaper. */
+body[data-guild="cabale"] { --accent: #d77bff; --heat-rgb: 215, 123, 255; --bar-active: #d77bff; --team-us: #d77bff; }
+body[data-guild="cabale"][data-page="home"] { --bg-img: url("bg/thousand-sons.webp"); }
 /* Metas table without a Meta column: the meta's icon and name lead the Core cell, then its %, like the % of the other cells. */
 .mcell-head { display: flex; align-items: center; gap: 0.6rem; min-height: 2.1rem; }
 .mcell-head .meta-ico { width: 2.1rem; height: 2.1rem; margin: 0; flex: none; }
@@ -2302,6 +2314,7 @@ dialog.meta-modal .mm-scroll,
 @media (max-width: 640px) {
   .brand-name { display: inline; font-size: 0; }
   .brand-name::after { content: "LJP"; font-size: 0.95rem; }
+  body[data-guild="cabale"] .brand-name::after { content: "LCP"; }
 }
 /* Profile button at the far right of the top bar: a "?" badge until a player is chosen, a check once it is. */
 .me-btn {
@@ -2370,10 +2383,13 @@ td.me-name > .player-btn { display: inline-block; max-width: calc(100% - 1.6rem)
 .who-pick:focus-visible { background: var(--surface-hover); border-color: var(--accent); }
 .who-pick.is-current { border-color: var(--accent); color: var(--accent); }
 /* ---- "Saison prochaine" (saison-prochaine.html): per boss, the boss's map big in the middle, its two primes' maps around it, the metas at the bottom of each card, then the members' completion ---- */
-.topsub .lab-short { display: none; }
+.topsub .lab-short,
+.topnav .lab-short { display: none; }
 @media (max-width: 480px) {
-  .topsub .lab-long { display: none; }
-  .topsub .lab-short { display: inline; }
+  .topsub .lab-long,
+  .topnav .lab-long { display: none; }
+  .topsub .lab-short,
+  .topnav .lab-short { display: inline; }
 }
 /* the pinned group would take the whole row on a phone */
 .ns-boss { margin: 0 0 3rem; }
