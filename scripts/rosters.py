@@ -293,7 +293,7 @@ SHEET_UNITS = {  # the sheet's unit names -> unit ids
     "Zkar": "thousDaemonPrince", "Yazaghor": "thousTzaangor", "Mephiston": "bloodMephiston", "FF": "blackForgefiend", "Rho": "admecRuststalker",
     "Tan": "admecMarshall", "Anuphet": "necroOverlord", "Ammuk": "votanMemnyr", "Sho": "tauMarksman", "Aleph Null": "necroSpyder",
     "Helbrecht": "templHelbrecht", "Sybill": "astraPrimarisPsy", "Ragnar": "spaceBlackmane", "Aunshi": "tauAunShi", "Forcas": "darkaCompanion",
-    "Asmodai": "darkaAsmodai", "Calgar": "ultraCalgar", "Vindicta": "adeptRetributor", "Thaddeus": "astraOrdnance",
+    "Tarvakh": "worldExecutions", "Asmodai": "darkaAsmodai", "Calgar": "ultraCalgar", "Vindicta": "adeptRetributor", "Thaddeus": "astraOrdnance",
 }
 SHEET_RELICS = {  # the relic each unit carries when the sheet asks for one (the sheet only gives the level)
     "tauCrisis": DW02, "tauFarsight": DAWN_BLADE, "tyranNeurothrope": NORN_CROWN, "thousInfernalMaster": BOOK_OF_FATE,

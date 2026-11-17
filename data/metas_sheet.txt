@@ -13,6 +13,7 @@ Lavistodes|Flex|Dante|A2|1 étoile bleue|36/60||Lion,Cawl
 Lavistodes|Flex|Vitruvius|A2|3 étoiles bleues|50/60||Dorn,Avatar
 Lavistodes|Flex|Roswitha|A2|1 étoile bleue|50/60||Magnus,Mortarion
 Lavistodes|Flex|PBC||skulled|1/36||Screamer
+Lavistodes|Niche|Tarvakh|A2|3 étoiles bleues|60/60||Lion,Dorn
 Battlesuit|Core|Revas|A2|skulled|50/60|10|Magnus,Szarekh,Gazhghkull
 Battlesuit|Core|Farsight|A2|1 étoile bleue|60/60|10|Magnus,Szarekh,Gazhghkull
 Battlesuit|Core|Darkstrider|A2|2 étoiles bleues|35/60||Magnus,Szarekh,Gazhghkull
