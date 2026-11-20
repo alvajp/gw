@@ -3,7 +3,7 @@
 completion % needs in data/progression_costs.json:
   star_cum            shard-equivalents paid to reach progression index 0..19 (mythic shard = 5 shards, orbs counted 1 each,
                       mythic orb = 5 legendary orbs)
-  xp_cum              total XP to reach level L (index L-1)
+  xp_cum              total XP to reach level L (index L-1); the game's xpLevels list is already cumulative
   ability_gold_cum    gold to reach ability level L (heroes), ability_token_cum the matching badges (mythic = 5 legendary)
   mow_ability_gold_cum  same gold curve for machines of war
   rank_energy_cum     per unit id: energy needed to farm the rank-up items, cumulative per rank (cheapest drop location)
@@ -43,7 +43,7 @@ def main():
             s["costs"].get("shards", 0) + MYTHIC * s["costs"].get("mythicShards", 0) + weighted(s["costs"], "heroAscensionOrb")
             for s in prog["heroProgressionSteps"]
         ),
-        "xp_cum": cum(prog["xpLevels"]),
+        "xp_cum": [0] + prog["xpLevels"],  # xpLevels is already cumulative (total XP to reach level 2, 3, ...)
         "ability_gold_cum": cum(a["gold"] for a in prog["abilityUpgradeCosts"]),
         "ability_token_cum": cum(weighted(a, "abilityToken") for a in prog["abilityUpgradeCosts"]),
         "mow_ability_gold_cum": cum(a["gold"] for a in prog["abilityUpgradeCostsMoW"]),
