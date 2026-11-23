@@ -2872,16 +2872,16 @@ def team_meta(heroes, mow, metas):
     return max(fits)[1] if fits else ""
 
 
-def replay_meta_counts(rosters):
-    """(boss key, meta name) -> number of replays of raid attacks that ran that meta: the attack's team (heroes + machine of war) is made of the Core and Flex units the sheet lists
-    for the boss's meta, one unit off at most (a Flex stands in for a Core); when several metas fit, the one the team overlaps most gets it."""
+def replay_meta_counts(rosters, by_map=False):
+    """(boss key, meta name) -> number of replays of raid attacks that ran that meta (team_meta); with by_map the key is (boss key, map board in lower case, meta name):
+    the replays of that meta on that map (the Saisons page, one count per map card)."""
     index = load_replay_index()
     if not index:
         return {}
     slots = {sl["key"]: sl for sl in medals_mod.slots()}
     metas = {}
     counts = defaultdict(int)
-    for entries in medals_mod.season_files().values():
+    for season, entries in medals_mod.season_files().items():
         for e in entries:
             rid = index.get(f'{e.get("userId")}|{e.get("completedOn") or 0}')
             key = medals_mod._medal_key(e)
@@ -2890,7 +2890,13 @@ def replay_meta_counts(rosters):
             if key not in metas:
                 metas[key] = meta_units(slots[key], rosters)
             name = team_meta([h["unitId"] for h in e.get("heroDetails") or []], (e.get("machineOfWarDetails") or {}).get("unitId"), metas[key])
-            if name:
+            if not name:
+                continue
+            if by_map:
+                board = medals_mod.attack_map(season, e)
+                if board:
+                    counts[(key, board.lower(), name)] += 1
+            else:
                 counts[(key, name)] += 1
     return dict(counts)
 
@@ -3090,6 +3096,7 @@ def render_next_season_page():
     by_key = {sl["key"]: i for i, sl in enumerate(slots)}
     owned = {r["uid"]: {u["id"]: u for u in r["units"]} for r in rosters}
     unit_names = rosters_mod._unit_names()
+    replays_on = replay_meta_counts(rosters, by_map=True)  # (boss, map, meta) -> replays available
 
     def primes_of(boss_key):
         i, out = by_key[boss_key] + 1, []
@@ -3098,7 +3105,7 @@ def render_next_season_page():
             i += 1
         return out
 
-    def metas_html(slot):
+    def metas_html(slot, board):
         rows = ""
         for _avg, team, roles in rosters_mod.boss_metas(slot, rosters):
             units = ""
@@ -3107,14 +3114,16 @@ def render_next_season_page():
                     f'<img class="ns-unit" src="assets/units/{uid}.webp" alt="" title="{html_escape(unit_names.get(uid, uid))}" loading="lazy">'
                     for uid, _req in entries if os.path.exists(os.path.join(ASSETS_DIR, "units", uid + ".webp")))
                 units += f'<span class="ns-role{" ns-role-next" if ri else ""}">{imgs}</span>'
-            rows += (f'<div class="ns-meta-row"><a class="ns-meta" href="metas/{slot["key"]}.html">{rosters_mod._meta_icon(team, "")}<span>{html_escape(team)}</span></a>'
+            n = replays_on.get((slot["key"], board.lower(), team), 0)  # the replays of this meta on this very map
+            play = f'<span class="ns-rep" title="{n} replay{"s" if n > 1 else ""} de cette méta sur cette map">▶ {n}</span>' if n else ""
+            rows += (f'<div class="ns-meta-row"><a class="ns-meta" href="metas/{slot["key"]}.html">{rosters_mod._meta_icon(team, "")}<span>{html_escape(team)}</span>{play}</a>'
                      f'<span class="ns-units">{units}</span></div>')
         return f'<div class="ns-metas">{rows or "<span class=ns-nometa>Pas de méta</span>"}</div>'
 
     def card(slot, board, cls, label):
         return (f'<article class="ns-card {cls}"><div class="ns-map"><img class="ns-map-img" src="assets/raid-maps/{board.lower()}.webp" alt="{html_escape(medals_mod.map_label(board))}" loading="lazy">'
                 f'<img class="ns-logo" src="assets/{slot["art"]}" alt=""></div>'
-                f'<div class="ns-name"><b>{html_escape(slot["name"].split(" (")[0])}</b><small>{html_escape(label)} · {html_escape(medals_mod.map_label(board))}</small></div>{metas_html(slot)}</article>')
+                f'<div class="ns-name"><b>{html_escape(slot["name"].split(" (")[0])}</b><small>{html_escape(label)} · {html_escape(medals_mod.map_label(board))}</small></div>{metas_html(slot, board)}</article>')
 
     def players_list(slot):
         """The members, best completion of this boss's / prime's metas first: one line each (rank, name, %)."""
