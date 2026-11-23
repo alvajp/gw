@@ -95,7 +95,7 @@ def _valid(e):
 
 def boss_relative(members=None):
     """medal key -> {uid: (mean relative damage, attacks)} over every season and every difficulty tier ("all time, all rarity"):
-    each regular attack is compared with the guild's average hit on the same boss / sub-boss and tier that season (see
+    each regular attack is compared with the guild's average hit on the same boss / sub-boss that season (see
     raid_seasons), and a player's figure on a boss is the mean over all their attacks on it. Only the current members (`members`)
     compete, so a former member never takes a place."""
     acc = defaultdict(lambda: defaultdict(lambda: [0.0, 0]))
@@ -166,21 +166,19 @@ def raid_seasons():
     """season -> {"players": {uid: {score, n, rank, by_key: {medal key: (mean relative damage, attacks)}}}, "keys": [medal keys
     played that season, in medal order], "field": players ranked}.
     Relative damage = an attack from Legendary 4 up (no bomb, no finish; one-shots count) compared with the guild's average hit on the same boss /
-    sub-boss and difficulty tier over the whole season; a player's score is the mean over their attacks, then cut by 1/27 per token short of 27 in the season (a season in progress is not cut). Everybody who played the
+    sub-boss over the whole season (every level and loop together); a player's score is the mean over their attacks, then cut by 1/27 per token short of 27 in the season (a season in progress is not cut). Everybody who played the
     season (former members included) is ranked on it."""
     order = [slot["key"] for slot in slots()]
     mean = lambda v: sum(v) / len(v)
     out = {}
     for season, entries in season_files().items():
         hits = [e for e in entries if _valid(e)]
-        groups, coarse = defaultdict(list), defaultdict(list)
+        coarse = defaultdict(list)  # the season's hits on each boss / sub-boss, whatever the level or the loop (tier)
         for e in hits:
-            groups[(_medal_key(e), e.get("tier"))].append(e["damageDealt"])
             coarse[_medal_key(e)].append(e["damageDealt"])
         rel_all, rel_key = defaultdict(list), defaultdict(lambda: defaultdict(list))
         for e in hits:
-            g = groups[(_medal_key(e), e.get("tier"))]
-            base = mean(g) if len(g) >= 5 else mean(coarse[_medal_key(e)])
+            base = mean(coarse[_medal_key(e)])
             if base > 0:
                 r = e["damageDealt"] / base - 1
                 rel_all[e["userId"]].append(r)
@@ -263,15 +261,14 @@ def map_label(board):
 
 def season_attacks():
     """season -> every attack of L4, L5, M1, M2 and M3 (no bomb) as {uid, key, lvl, tier, dmg, kind, rel, heroes, mow, at}: `rel` is the damage compared
-    with the guild's average hit on the same boss / sub-boss and tier that season (the same base as raid_seasons), None for a finishing blow
+    with the guild's average hit on the same boss / sub-boss that season (the same base as raid_seasons), None for a finishing blow
     (not counted); `heroes` / `mow` are the unit ids of the team, `at` the completion time."""
     mean = lambda v: sum(v) / len(v)
     out = {}
     for season, entries in season_files().items():
-        groups, coarse = defaultdict(list), defaultdict(list)
+        coarse = defaultdict(list)  # the season's hits on each boss / sub-boss, whatever the level or the loop (tier)
         for e in entries:
             if _valid(e):
-                groups[(_medal_key(e), e.get("tier"))].append(e["damageDealt"])
                 coarse[_medal_key(e)].append(e["damageDealt"])
         rows = []
         for e in entries:
@@ -279,8 +276,7 @@ def season_attacks():
                 continue
             key, rel = _medal_key(e), None
             if _valid(e):
-                g = groups[(key, e.get("tier"))]
-                base = mean(g) if len(g) >= 5 else mean(coarse[key])
+                base = mean(coarse[key])
                 rel = e["damageDealt"] / base - 1 if base > 0 else None
             rows.append({"uid": e["userId"], "key": key, "lvl": level_label(e), "tier": e.get("tier"), "dmg": e["damageDealt"], "kind": attack_kind(e), "rel": rel,
                          "heroes": [h["unitId"] for h in e.get("heroDetails") or []], "mow": (e.get("machineOfWarDetails") or {}).get("unitId"),

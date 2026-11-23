@@ -2956,7 +2956,7 @@ def best_attacks_html(key, attacks, names, members, unit_names, prefix, metas=()
         # the row opens the player (row-link.js, linkify_rows); the season cell opens that season, like a season column does in the other tables
         body += (f'<tr{player_row_attrs(a["uid"], prefix)} data-map="{board.lower() if board else ""}" data-lvl="{a["lvl"]}" data-t="{" ".join(member_of[id(a)])}"{"" if "///" in member_of[id(a)] else " hidden"}>'
                  f'<td>{who}</td>'
-                 f'<td class="alt-link" data-sort="{season}.{["L4", "L5", "M1", "M2", "M3"].index(a["lvl"]) + 1}" title="Boucle {a["tier"]}"><a class="cl" href="{prefix}raid/{season}.html">S{season} · {a["lvl"]}</a></td>'
+                 f'<td class="alt-link" data-sort="{season}.{["L4", "L5", "M1", "M2", "M3"].index(a["lvl"]) + 1}"><a class="cl" href="{prefix}raid/{season}.html">S{season} · {a["lvl"]}</a></td>'
                  f'<td data-sort="{board or ""}"{atk}>{map_thumb(board) if board else "—"}</td><td{atk}><div class="atk-team">{team}</div></td>'
                  f'<td data-sort="{a["dmg"]}"{atk}>{play}{dmg}</td><td{atk}><span class="atk-kind{kind_cls}">{a["kind"]}</span></td>'
                  f'<td{value_to_bg(rel, lo, hi)} data-sort="{rel:.4f}"{atk}>{_fmt_rel(rel)}</td></tr>')

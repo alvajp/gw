@@ -31,7 +31,7 @@
         const kind = a[5], r = a[6];
         const rid = replays[a[0] + "|" + a[9]];  // a replay exists for this attack: the row gets a play mark and opens the player
         body += "<tr" + (rid ? ' class="atk-play" data-replay="' + rid + '" tabindex="0" title="Voir le replay"' : "") + ">" + (key ? "" : '<td><div class="atk-boss"><img src="' + assets + b.a + '" alt=""><span>' + esc(b.n) + "</span></div></td>") +
-          '<td title="Boucle ' + a[3] + '">' + esc(a[2]) + "</td>" + (key ? "" : "<td>" + thumb(a[10], "atk-map") + "</td>") +
+          "<td>" + esc(a[2]) + "</td>" + (key ? "" : "<td>" + thumb(a[10], "atk-map") + "</td>") +
           '<td class="atk-c"><div class="atk-team">' + team + '</div></td><td class="atk-n">' + (rid ? '<span class="atk-playmark" aria-label="Replay disponible">▶</span>' : "") + a[4].toLocaleString("fr-FR") + '</td><td><span class="atk-kind' +
           (kind === "OS" ? " atk-os" : kind === "Finish" ? " atk-fin" : "") + '">' + kind + '</span></td><td class="atk-n atk-rel' + (r === null ? "" : r >= 0 ? " pos" : " neg") + '">' + rel(r) + "</td></tr>";
       });
