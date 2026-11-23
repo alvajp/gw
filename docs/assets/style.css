@@ -2945,10 +2945,8 @@ body[data-page="replay"]::before {
 
 /* Saison en cours / prochaine: the button at the right of the title swaps the view */
 .ns-view[hidden] { display: none; }
-.ns-switch { display: inline-flex; align-items: center; gap: 0.4rem; font: inherit; font-size: 0.88rem; font-weight: 600; padding: 0.45rem 0.9rem; border-radius: var(--radius-sm); border: 1px solid var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--table-header-bg)); color: var(--text); cursor: pointer; }
+.ns-switch { display: inline-flex; align-items: center; justify-content: space-between; gap: 0.5rem; min-width: 7.6rem; font: inherit; font-size: 0.88rem; font-weight: 600; padding: 0.45rem 0.9rem; border-radius: var(--radius-sm); border: 1px solid var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--table-header-bg)); color: var(--text); cursor: pointer; }
 .ns-switch:hover, .ns-switch:focus-visible { background: color-mix(in srgb, var(--accent) 26%, var(--table-header-bg)); }
-.ns-switch.ns-switch-back .arrow { transform: scaleX(-1); }
-.ns-switch-back { flex-direction: row-reverse; }
 
 /* Metas pages: the level chips under the map chips (best attacks table) */
 .lvl-filter { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: -0.4rem 0 1rem; }
