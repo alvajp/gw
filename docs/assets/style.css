@@ -2955,3 +2955,5 @@ body[data-page="replay"]::before {
 .lvl-chip { font: inherit; font-size: 0.8rem; font-weight: 600; padding: 0.3rem 0.8rem; border-radius: 999px; border: 1px solid var(--border); background: var(--table-header-bg); color: var(--text-muted); cursor: pointer; }
 .lvl-chip:hover { color: var(--text); border-color: var(--text-muted); }
 .lvl-chip[aria-pressed="true"] { color: var(--text); border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--table-header-bg)); }
+.meta-chip { display: inline-flex; align-items: center; gap: 0.4rem; }
+.meta-chip .meta-ico { width: 1.1rem; height: 1.1rem; }

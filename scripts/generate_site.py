@@ -437,12 +437,12 @@ def render_topbar(prefix, active, sub=None, wars=None):
     if GUILD == "ljp":
         top_items = (("raid", "raid.html", "Raid"), ("war", "war.html", "War"), ("players", "joueurs.html", "Joueurs"))
     else:
-        top_items = (("next", "saison-prochaine.html", '<span class="lab-long">Saison en cours</span><span class="lab-short">En cours</span>'),
+        top_items = (("next", "saison-prochaine.html", 'Saisons'),
                      ("metas", "metas.html", "Métas"), ("players", "joueurs.html", "Joueurs"))
     top = "".join(link(href, label, key == section) for key, href, label in top_items)
     sub_html = ""
     if section == "raid":
-        first = [("next", "saison-prochaine.html", '<span class="lab-long">Saison en cours</span><span class="lab-short">En cours</span>'),
+        first = [("next", "saison-prochaine.html", 'Saisons'),
                  ("metas", "metas.html", "Métas"), ("boss", "records.html", "Records")]
         seasons = [(f"raid-{n}", f"raid/{n}.html", f"S{n}") for n in NAV_SEASONS["raid"]]
     elif section == "war":
@@ -2858,6 +2858,20 @@ def load_replay_index():
         return {}
 
 
+def meta_units(slot, rosters):
+    """[(meta name, its Core + Flex unit ids)] of a boss / prime, the meta the guild is closest to first (the sheet's order of the Metas page)."""
+    return [(name, {uid for role, units in roles if role in ("Core", "Flex") for uid, _ in units}) for _avg, name, roles in rosters_mod.boss_metas(slot, rosters)]
+
+
+def team_meta(heroes, mow, metas):
+    """Name of the meta an attack's team plays, "" when none: the team is made of the meta's Core and Flex units, one unit off at most (a Flex stands in for a Core), and
+    when several fit the one the team overlaps most."""
+    team = set(heroes) | {mow}
+    team.discard(None)
+    fits = [(len(team & units), name) for name, units in metas if len(team & units) >= len(team) - 1 and len(team & units) >= 4]
+    return max(fits)[1] if fits else ""
+
+
 def replay_meta_counts(rosters):
     """(boss key, meta name) -> number of replays of raid attacks that ran that meta: the attack's team (heroes + machine of war) is made of the Core and Flex units the sheet lists
     for the boss's meta, one unit off at most (a Flex stands in for a Core); when several metas fit, the one the team overlaps most gets it."""
@@ -2874,19 +2888,17 @@ def replay_meta_counts(rosters):
             if not rid or key not in slots:
                 continue
             if key not in metas:
-                metas[key] = [(name, {uid for role, units in roles if role in ("Core", "Flex") for uid, _ in units}) for _avg, name, roles in rosters_mod.boss_metas(slots[key], rosters)]
-            team = {h["unitId"] for h in e.get("heroDetails") or []} | {(e.get("machineOfWarDetails") or {}).get("unitId")}
-            team.discard(None)
-            fits = [(len(team & units), name) for name, units in metas[key] if len(team & units) >= len(team) - 1 and len(team & units) >= 4]
-            if fits:
-                counts[(key, max(fits)[1])] += 1
+                metas[key] = meta_units(slots[key], rosters)
+            name = team_meta([h["unitId"] for h in e.get("heroDetails") or []], (e.get("machineOfWarDetails") or {}).get("unitId"), metas[key])
+            if name:
+                counts[(key, name)] += 1
     return dict(counts)
 
 
 BEST_ATTACKS = 20  # rows of the "Meilleures attaques" table of a Metas page (per map when a map is chosen)
 
 
-def best_attacks_html(key, attacks, names, members, unit_names, prefix):
+def best_attacks_html(key, attacks, names, members, unit_names, prefix, metas=()):
     """Best attacks (relative damage, best first) on a boss or prime over the stored seasons, L4 / L5 / M1-M3 only, by the current members: player, season and
     boss level, map, team, damage, type, relative damage. Finishing blows have no relative figure and are left out. The map thumbnails above the table filter it
     (raid-attacks.js): with no map chosen the BEST_ATTACKS best attacks show, with one chosen its own best ones (the other rows are hidden)."""
@@ -2894,21 +2906,25 @@ def best_attacks_html(key, attacks, names, members, unit_names, prefix):
     rows.sort(key=lambda r: -r[0])
     if not rows:
         return ""
-    # the table shows the BEST_ATTACKS best attacks of what is chosen: all, a map, a level, or a map and a level (the two filters above it); every row says which of those lists it is in
-    # (data-t, space-separated: "a" all, "m:<board>", "l:<level>", "ml:<board>|<level>"), raid-attacks.js shows the rows of the chosen list
+    # the table shows the BEST_ATTACKS best attacks of what is chosen: a map, a level and a meta, any of the three or none (the filters above it). Every row lists the lists it is in
+    # (data-t, space-separated "<map>/<level>/<meta>", "" for a filter left open, spaces of a meta name as "_"); raid-attacks.js shows the rows of the chosen list
+    def slug(x):
+        return (x or "").replace(" ", "_")
+
+    for r in rows:
+        r[2]["_meta"] = team_meta(r[2]["heroes"], r[2]["mow"], metas)
     lists = defaultdict(list)
     for r in rows:
         a = r[2]
-        lists["a"].append(r)
-        lists["l:" + a["lvl"]].append(r)
-        if a["map"]:
-            lists["m:" + a["map"].lower()].append(r)
-            lists["ml:" + a["map"].lower() + "|" + a["lvl"]].append(r)
+        for m in {"", (a["map"] or "").lower()}:
+            for l in {"", a["lvl"]}:
+                for t in {"", slug(a["_meta"])}:
+                    lists[f"{m}/{l}/{t}"].append(r)
     member_of = defaultdict(list)
     for name, lst in lists.items():
         for r in lst[:BEST_ATTACKS]:
             member_of[id(r[2])].append(name)
-    per_map = {k for k in lists if k.startswith("m:")}
+    per_map = {a["map"] for _, _, a in rows if a["map"]}
     rows = [r for r in rows if id(r[2]) in member_of]
     lo, hi = rows[min(len(rows), BEST_ATTACKS) - 1][0], rows[0][0]
 
@@ -2930,7 +2946,7 @@ def best_attacks_html(key, attacks, names, members, unit_names, prefix):
         board = a["map"]
         atk = f' data-atk="{a["uid"]}|{season}|{key}"'  # every cell but Joueur and Saison opens the attacks dialog
         # the row opens the player (row-link.js, linkify_rows); the season cell opens that season, like a season column does in the other tables
-        body += (f'<tr{player_row_attrs(a["uid"], prefix)} data-map="{board.lower() if board else ""}" data-lvl="{a["lvl"]}" data-t="{" ".join(member_of[id(a)])}"{"" if "a" in member_of[id(a)] else " hidden"}>'
+        body += (f'<tr{player_row_attrs(a["uid"], prefix)} data-map="{board.lower() if board else ""}" data-lvl="{a["lvl"]}" data-t="{" ".join(member_of[id(a)])}"{"" if "//" in member_of[id(a)] else " hidden"}>'
                  f'<td>{who}</td>'
                  f'<td class="alt-link" data-sort="{season}.{["L4", "L5", "M1", "M2", "M3"].index(a["lvl"]) + 1}" title="Boucle {a["tier"]}"><a class="cl" href="{prefix}raid/{season}.html">S{season} · {a["lvl"]}</a></td>'
                  f'<td data-sort="{board or ""}"{atk}>{map_thumb(board) if board else "—"}</td><td{atk}><div class="atk-team">{team}</div></td>'
@@ -2947,12 +2963,17 @@ def best_attacks_html(key, attacks, names, members, unit_names, prefix):
         chips = ('<div class="map-filter" role="group" aria-label="Filtrer par map"><button type="button" class="map-chip" data-map="" aria-pressed="true"><span>Toutes</span></button>'
                  + "".join(f'<button type="button" class="map-chip" data-map="{b.lower()}" aria-pressed="false" title="{html_escape(medals_mod.map_label(b))} · {", ".join("S" + str(x) for x in sorted(set(ss), reverse=True))}">'
                            f'{map_thumb(b, "map-chip-img")}</button>' for b, ss in used.items()) + "</div>")
-    levels = [lv for lv in ("L4", "L5", "M1", "M2", "M3") if lists.get("l:" + lv)]
+    levels = [lv for lv in ("L4", "L5", "M1", "M2", "M3") if lists.get("/" + lv + "/")]
     lvl_chips = ""
     if len(levels) > 1:  # the levels these attacks were played at, under the maps
         lvl_chips = ('<div class="lvl-filter" role="group" aria-label="Filtrer par niveau"><button type="button" class="lvl-chip" data-lvl="" aria-pressed="true">Tous</button>'
                      + "".join(f'<button type="button" class="lvl-chip" data-lvl="{lv}" aria-pressed="false">{lv}</button>' for lv in levels) + "</div>")
-    return (f'<h2>Meilleures attaques</h2>{chips}{lvl_chips}<div class="table-scroll"><table class="sortable raid-table atk-top" data-atk-base="{prefix}data/"><thead><tr>{head}</tr></thead><tbody>{body}</tbody></table></div>')
+    used_metas = [name for name, _ in metas if lists.get("//" + slug(name))]
+    meta_chips = ""
+    if len(used_metas) > 1:  # the metas these attacks played, under the levels
+        meta_chips = ('<div class="lvl-filter meta-filter" role="group" aria-label="Filtrer par méta"><button type="button" class="lvl-chip meta-chip" data-meta="" aria-pressed="true">Toutes</button>'
+                      + "".join(f'<button type="button" class="lvl-chip meta-chip" data-meta="{html_escape(slug(n))}" aria-pressed="false">{rosters_mod._meta_icon(n, prefix).replace("meta-ico", "meta-ico mc-ico")}{html_escape(n)}</button>' for n in used_metas) + "</div>")
+    return (f'<h2>Meilleures attaques</h2>{chips}{lvl_chips}{meta_chips}<div class="table-scroll"><table class="sortable raid-table atk-top" data-atk-base="{prefix}data/"><thead><tr>{head}</tr></thead><tbody>{body}</tbody></table></div>')
 
 
 def render_metas_page(all_wars):
@@ -2972,7 +2993,7 @@ def render_metas_page(all_wars):
     unit_names = rosters_mod._unit_names()
     slots = medals_mod.slots()
     for slot in slots:
-        body = rosters_mod.render_boss_metas_body(slot, rosters) + best_attacks_html(slot["key"], attacks, names, members, unit_names, "../")
+        body = rosters_mod.render_boss_metas_body(slot, rosters) + best_attacks_html(slot["key"], attacks, names, members, unit_names, "../", meta_units(slot, rosters))
         html = render_page(nav_active="metas", page_kind="boss", title=slot["name"], asset_prefix="../", body=body,
                            back_link=back_link_html("../metas.html", "Métas"), title_class="", header_extra="", header_action="", v=ASSETS_VERSION,
                            title_icon=f'<img class="title-ico" src="../assets/{slot["art"]}" alt="">')

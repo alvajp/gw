@@ -141,18 +141,23 @@
     open(td);
   }, true);
 
-  // Metas pages: two filters above the best attacks, the maps and the levels (L4 ... M3). Each row says which lists of the best attacks it belongs to (data-t: "a" all,
-  // "m:<map>", "l:<level>", "ml:<map>|<level>"); the table shows the list of what is chosen.
+  // Metas pages: three filters above the best attacks, the maps, the levels (L4 ... M3) and the metas. Each row lists the lists of the best attacks it belongs to (data-t, space-separated
+  // "<map>/<level>/<meta>", empty for a filter left open); the table shows the list of what is chosen.
   function filter(chip) {
     const bar = chip.closest(".map-filter, .lvl-filter"), table = document.querySelector(".atk-top");
     if (!bar || !table) return;
-    const isLvl = chip.classList.contains("lvl-chip");
-    bar.querySelectorAll(isLvl ? ".lvl-chip" : ".map-chip").forEach(function (c) { c.setAttribute("aria-pressed", c === chip ? "true" : "false"); });
-    if (isLvl) table.dataset.fl = chip.dataset.lvl; else table.dataset.fm = chip.dataset.map;
-    const board = table.dataset.fm || "", lvl = table.dataset.fl || "";
-    const list = board && lvl ? "ml:" + board + "|" + lvl : board ? "m:" + board : lvl ? "l:" + lvl : "a";
+    const kind = chip.classList.contains("meta-chip") ? "meta" : chip.classList.contains("lvl-chip") ? "lvl" : "map";
+    bar.querySelectorAll(kind === "meta" ? ".meta-chip" : kind === "lvl" ? ".lvl-chip:not(.meta-chip)" : ".map-chip").forEach(function (c) { c.setAttribute("aria-pressed", c === chip ? "true" : "false"); });
+    table.dataset[kind === "meta" ? "ft" : kind === "lvl" ? "fl" : "fm"] = kind === "meta" ? chip.dataset.meta : kind === "lvl" ? chip.dataset.lvl : chip.dataset.map;
+    const list = (table.dataset.fm || "") + "/" + (table.dataset.fl || "") + "/" + (table.dataset.ft || "");
+    let shown = 0;
     table.querySelectorAll("tbody tr").forEach(function (tr) {
       tr.hidden = (" " + (tr.dataset.t || "") + " ").indexOf(" " + list + " ") < 0;
+      if (!tr.hidden) shown++;
     });
+    const wrap = table.closest(".table-scroll");
+    let none = wrap.nextElementSibling && wrap.nextElementSibling.classList.contains("atk-none") ? wrap.nextElementSibling : null;
+    if (!shown && !none) { none = document.createElement("p"); none.className = "mnone atk-none"; none.textContent = "Aucune attaque avec ces filtres."; wrap.after(none); }
+    if (none) none.hidden = shown > 0;
   }
 })();
