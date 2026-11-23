@@ -2942,3 +2942,16 @@ body[data-page="replay"]::before {
 /* Metas landing: the number of replays of each meta, on the meta's line */
 .mc-cards .boss-card li { grid-template-columns: 2.4rem 1fr auto; }
 .mc-rep { color: var(--accent); font-size: 0.75rem; white-space: nowrap; align-self: center; }
+
+/* Saison en cours / prochaine: the button at the right of the title swaps the view */
+.ns-view[hidden] { display: none; }
+.ns-switch { display: inline-flex; align-items: center; gap: 0.4rem; font: inherit; font-size: 0.88rem; font-weight: 600; padding: 0.45rem 0.9rem; border-radius: var(--radius-sm); border: 1px solid var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--table-header-bg)); color: var(--text); cursor: pointer; }
+.ns-switch:hover, .ns-switch:focus-visible { background: color-mix(in srgb, var(--accent) 26%, var(--table-header-bg)); }
+.ns-switch.ns-switch-back .arrow { transform: scaleX(-1); }
+.ns-switch-back { flex-direction: row-reverse; }
+
+/* Metas pages: the level chips under the map chips (best attacks table) */
+.lvl-filter { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: -0.4rem 0 1rem; }
+.lvl-chip { font: inherit; font-size: 0.8rem; font-weight: 600; padding: 0.3rem 0.8rem; border-radius: 999px; border: 1px solid var(--border); background: var(--table-header-bg); color: var(--text-muted); cursor: pointer; }
+.lvl-chip:hover { color: var(--text); border-color: var(--text-muted); }
+.lvl-chip[aria-pressed="true"] { color: var(--text); border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--table-header-bg)); }

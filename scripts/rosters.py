@@ -1130,6 +1130,6 @@ def render_boss_metas_body(slot, rosters, prefix="../"):
     metas = boss_metas(slot, rosters)
     top = metas[:3]  # up to three recommended metas share the first table
     out = f"<h2>{'Métas recommandées' if len(top) > 1 else 'Méta recommandée'}</h2>" + table(top) if metas else ""
-    if len(metas) > 2:
-        out += f"<h2>{'Autre méta' if len(metas) == 3 else 'Autres métas'}</h2>" + table(metas[2:])
+    if len(metas) > 3:  # the three recommended ones are above: the others come after them (never the same meta twice)
+        out += f"<h2>{'Autre méta' if len(metas) == 4 else 'Autres métas'}</h2>" + table(metas[3:])
     return f'<div class="mt-detail">{out}</div>'

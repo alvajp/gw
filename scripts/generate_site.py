@@ -437,12 +437,12 @@ def render_topbar(prefix, active, sub=None, wars=None):
     if GUILD == "ljp":
         top_items = (("raid", "raid.html", "Raid"), ("war", "war.html", "War"), ("players", "joueurs.html", "Joueurs"))
     else:
-        top_items = (("next", "saison-prochaine.html", '<span class="lab-long">Saison prochaine</span><span class="lab-short">Prochaine</span>'),
+        top_items = (("next", "saison-prochaine.html", '<span class="lab-long">Saison en cours</span><span class="lab-short">En cours</span>'),
                      ("metas", "metas.html", "Métas"), ("players", "joueurs.html", "Joueurs"))
     top = "".join(link(href, label, key == section) for key, href, label in top_items)
     sub_html = ""
     if section == "raid":
-        first = [("next", "saison-prochaine.html", '<span class="lab-long">Saison prochaine</span><span class="lab-short">Prochaine</span>'),
+        first = [("next", "saison-prochaine.html", '<span class="lab-long">Saison en cours</span><span class="lab-short">En cours</span>'),
                  ("metas", "metas.html", "Métas"), ("boss", "records.html", "Records")]
         seasons = [(f"raid-{n}", f"raid/{n}.html", f"S{n}") for n in NAV_SEASONS["raid"]]
     elif section == "war":
@@ -2550,7 +2550,7 @@ def render_home(all_wars, seasons):
         ]
     else:  # no raid / war history for this guild: only the pages the rosters allow
         cards = [
-            ("saison-prochaine.html", "Saison prochaine", "Qui peut jouer quoi", "Les joueurs de la guilde, par boss et par prime"),
+            ("saison-prochaine.html", "Saison en cours", "Qui peut jouer quoi", "Les joueurs de la guilde, par boss et par prime"),
             ("metas.html", "Métas", "Complétion par boss", "Les métas de chaque boss et les joueurs qui les ont"),
             ("joueurs.html", "Joueurs", f"{n_members} membres", "Rosters, complétion des métas et flex"),
         ]
@@ -2859,8 +2859,8 @@ def load_replay_index():
 
 
 def replay_meta_counts(rosters):
-    """(boss key, meta name) -> number of replays of raid attacks that ran that meta: the attack's team (heroes + machine of war) holds every Core unit the sheet lists for the
-    boss's meta; when several metas fit, the one with the most Core units (the most specific) gets it."""
+    """(boss key, meta name) -> number of replays of raid attacks that ran that meta: the attack's team (heroes + machine of war) is made of the Core and Flex units the sheet lists
+    for the boss's meta, one unit off at most (a Flex stands in for a Core); when several metas fit, the one the team overlaps most gets it."""
     index = load_replay_index()
     if not index:
         return {}
@@ -2874,9 +2874,10 @@ def replay_meta_counts(rosters):
             if not rid or key not in slots:
                 continue
             if key not in metas:
-                metas[key] = [(name, {uid for role, units in roles if role == "Core" for uid, _ in units}) for _avg, name, roles in rosters_mod.boss_metas(slots[key], rosters)]
+                metas[key] = [(name, {uid for role, units in roles if role in ("Core", "Flex") for uid, _ in units}) for _avg, name, roles in rosters_mod.boss_metas(slots[key], rosters)]
             team = {h["unitId"] for h in e.get("heroDetails") or []} | {(e.get("machineOfWarDetails") or {}).get("unitId")}
-            fits = [(len(core), name) for name, core in metas[key] if core and core <= team]
+            team.discard(None)
+            fits = [(len(team & units), name) for name, units in metas[key] if len(team & units) >= len(team) - 1 and len(team & units) >= 4]
             if fits:
                 counts[(key, max(fits)[1])] += 1
     return dict(counts)
@@ -2893,15 +2894,22 @@ def best_attacks_html(key, attacks, names, members, unit_names, prefix):
     rows.sort(key=lambda r: -r[0])
     if not rows:
         return ""
-    per_map = defaultdict(list)
+    # the table shows the BEST_ATTACKS best attacks of what is chosen: all, a map, a level, or a map and a level (the two filters above it); every row says which of those lists it is in
+    # (data-t, space-separated: "a" all, "m:<board>", "l:<level>", "ml:<board>|<level>"), raid-attacks.js shows the rows of the chosen list
+    lists = defaultdict(list)
     for r in rows:
-        if r[2]["map"]:
-            per_map[r[2]["map"]].append(r)
-    top = {id(r[2]) for r in rows[:BEST_ATTACKS]}  # shown when no map is chosen
-    keep = set(top)
-    for lst in per_map.values():  # a chosen map shows its own best attacks
-        keep.update(id(r[2]) for r in lst[:BEST_ATTACKS])
-    rows = [r for r in rows if id(r[2]) in keep]
+        a = r[2]
+        lists["a"].append(r)
+        lists["l:" + a["lvl"]].append(r)
+        if a["map"]:
+            lists["m:" + a["map"].lower()].append(r)
+            lists["ml:" + a["map"].lower() + "|" + a["lvl"]].append(r)
+    member_of = defaultdict(list)
+    for name, lst in lists.items():
+        for r in lst[:BEST_ATTACKS]:
+            member_of[id(r[2])].append(name)
+    per_map = {k for k in lists if k.startswith("m:")}
+    rows = [r for r in rows if id(r[2]) in member_of]
     lo, hi = rows[min(len(rows), BEST_ATTACKS) - 1][0], rows[0][0]
 
     def unit(uid, cls=""):
@@ -2922,7 +2930,7 @@ def best_attacks_html(key, attacks, names, members, unit_names, prefix):
         board = a["map"]
         atk = f' data-atk="{a["uid"]}|{season}|{key}"'  # every cell but Joueur and Saison opens the attacks dialog
         # the row opens the player (row-link.js, linkify_rows); the season cell opens that season, like a season column does in the other tables
-        body += (f'<tr{player_row_attrs(a["uid"], prefix)} data-map="{board.lower() if board else ""}"{" data-top" if id(a) in top else " hidden"}>'
+        body += (f'<tr{player_row_attrs(a["uid"], prefix)} data-map="{board.lower() if board else ""}" data-lvl="{a["lvl"]}" data-t="{" ".join(member_of[id(a)])}"{"" if "a" in member_of[id(a)] else " hidden"}>'
                  f'<td>{who}</td>'
                  f'<td class="alt-link" data-sort="{season}.{["L4", "L5", "M1", "M2", "M3"].index(a["lvl"]) + 1}" title="Boucle {a["tier"]}"><a class="cl" href="{prefix}raid/{season}.html">S{season} · {a["lvl"]}</a></td>'
                  f'<td data-sort="{board or ""}"{atk}>{map_thumb(board) if board else "—"}</td><td{atk}><div class="atk-team">{team}</div></td>'
@@ -2939,7 +2947,12 @@ def best_attacks_html(key, attacks, names, members, unit_names, prefix):
         chips = ('<div class="map-filter" role="group" aria-label="Filtrer par map"><button type="button" class="map-chip" data-map="" aria-pressed="true"><span>Toutes</span></button>'
                  + "".join(f'<button type="button" class="map-chip" data-map="{b.lower()}" aria-pressed="false" title="{html_escape(medals_mod.map_label(b))} · {", ".join("S" + str(x) for x in sorted(set(ss), reverse=True))}">'
                            f'{map_thumb(b, "map-chip-img")}</button>' for b, ss in used.items()) + "</div>")
-    return (f'<h2>Meilleures attaques</h2>{chips}<div class="table-scroll"><table class="sortable raid-table atk-top" data-atk-base="{prefix}data/"><thead><tr>{head}</tr></thead><tbody>{body}</tbody></table></div>')
+    levels = [lv for lv in ("L4", "L5", "M1", "M2", "M3") if lists.get("l:" + lv)]
+    lvl_chips = ""
+    if len(levels) > 1:  # the levels these attacks were played at, under the maps
+        lvl_chips = ('<div class="lvl-filter" role="group" aria-label="Filtrer par niveau"><button type="button" class="lvl-chip" data-lvl="" aria-pressed="true">Tous</button>'
+                     + "".join(f'<button type="button" class="lvl-chip" data-lvl="{lv}" aria-pressed="false">{lv}</button>' for lv in levels) + "</div>")
+    return (f'<h2>Meilleures attaques</h2>{chips}{lvl_chips}<div class="table-scroll"><table class="sortable raid-table atk-top" data-atk-base="{prefix}data/"><thead><tr>{head}</tr></thead><tbody>{body}</tbody></table></div>')
 
 
 def render_metas_page(all_wars):
@@ -3041,14 +3054,17 @@ NEXT_STAGES = ("M3", "M2", "M1", "L5", "L4")  # the order of the page: the harde
 
 
 def render_next_season_page():
-    """docs/saison-prochaine.html: the five bosses of the next raid season (the latest one of data/raid_maps.json), each with its two primes' maps around the boss's bigger map,
-    the metas of each (and their units) at the bottom of its card, then the members' completion of the boss's best meta (and of its primes') under the maps, best first.
+    """docs/saison-prochaine.html: the season in progress (the title, "Saison en cours") and, behind the button at the right of the title, the next one ("Saison prochaine").
+    Each view shows the five bosses of that raid season (data/raid_maps.json), each with its two primes' maps around the boss's bigger map, the metas of each (and their units)
+    at the bottom of its card, then the members' completion of the boss's best meta (and of its primes') under the maps, best first.
     Chips (the boss's map with its logo in the middle): anchors stacked at the left and sticky on big screens (they scroll to each boss), a radio-like filter on small and medium ones (saison-prochaine.js)."""
     rosters = rosters_mod.load_rosters()
     if not rosters or not medals_mod.RAID_MAPS:
         return
-    season = max(medals_mod.RAID_MAPS)
-    stages = medals_mod.RAID_MAPS[season]
+    played = max(medals_mod.raid_seasons()) if medals_mod.season_files() else max(medals_mod.RAID_MAPS) - 1  # the latest season with attacks = the one in progress
+    known = sorted(medals_mod.RAID_MAPS)
+    current = max((n for n in known if n <= played), default=known[0])
+    upcoming = min((n for n in known if n > current), default=None)
     slots = medals_mod.slots()
     by_key = {sl["key"]: i for i, sl in enumerate(slots)}
     owned = {r["uid"]: {u["id"]: u for u in r["units"]} for r in rosters}
@@ -3089,33 +3105,41 @@ def render_next_season_page():
                      f'<span class="pg-v {rosters_mod._pct_class(pct)}">{pct}%</span></a></li>')
         return f'<ul class="ns-list">{rows}</ul>'
 
-    sections, chips = "", ""  # the chips are anchors to the boss sections
-    for stage in NEXT_STAGES:
-        triple = stages.get(stage)
-        if not triple:
-            continue
-        prefix_name = triple[1].split("_")[1].lower()
-        boss_key = BOARD_BOSS.get(prefix_name) or next((sl["key"] for sl in slots if " (" not in sl["name"] and sl["key"].lower().startswith(prefix_name)), None)
-        if boss_key not in by_key:
-            continue
-        boss, primes = slots[by_key[boss_key]], primes_of(boss_key)
-        prime_a = primes[0] if primes else boss
-        prime_b = primes[1] if len(primes) > 1 else prime_a
-        chips += (f'<a class="map-chip ns-chip" data-boss="{boss_key}" href="#boss-{boss_key}" title="{html_escape(boss["name"])} · {stage}">'
-                  f'<span class="ns-chip-map"><img class="map-chip-img" src="assets/raid-maps/{triple[1].lower()}.webp" alt="" loading="lazy">'
-                  f'<img class="ns-chip-logo" src="assets/{boss["art"]}" alt=""></span><span class="ns-chip-stage">{stage}</span></a>')
-        cards = card(prime_a, triple[0], "ns-prime ns-p1", "Prime") + card(boss, triple[1], "ns-main", f"Boss {stage}") + card(prime_b, triple[2], "ns-prime ns-p2", "Prime")
-        lists = players_list(prime_a) + players_list(boss) + players_list(prime_b)
-        sections += (f'<section class="ns-boss" id="boss-{boss_key}" data-boss="{boss_key}"><h2 class="ns-title"><img src="assets/{boss["art"]}" alt="">{html_escape(boss["name"])}<small>{stage}</small></h2>'
-                     f'<div class="ns-maps">{cards}{lists}</div></section>')
+    def view(season, vid, title, hidden):
+        stages = medals_mod.RAID_MAPS[season]
+        sections, chips = "", ""  # the chips are anchors to the boss sections
+        for stage in NEXT_STAGES:
+            triple = stages.get(stage)
+            if not triple:
+                continue
+            prefix_name = triple[1].split("_")[1].lower()
+            boss_key = BOARD_BOSS.get(prefix_name) or next((sl["key"] for sl in slots if " (" not in sl["name"] and sl["key"].lower().startswith(prefix_name)), None)
+            if boss_key not in by_key:
+                continue
+            boss, primes = slots[by_key[boss_key]], primes_of(boss_key)
+            prime_a = primes[0] if primes else boss
+            prime_b = primes[1] if len(primes) > 1 else prime_a
+            chips += (f'<a class="map-chip ns-chip" data-boss="{boss_key}" href="#boss-{vid}-{boss_key}" title="{html_escape(boss["name"])} · {stage}">'
+                      f'<span class="ns-chip-map"><img class="map-chip-img" src="assets/raid-maps/{triple[1].lower()}.webp" alt="" loading="lazy">'
+                      f'<img class="ns-chip-logo" src="assets/{boss["art"]}" alt=""></span><span class="ns-chip-stage">{stage}</span></a>')
+            cards = card(prime_a, triple[0], "ns-prime ns-p1", "Prime") + card(boss, triple[1], "ns-main", f"Boss {stage}") + card(prime_b, triple[2], "ns-prime ns-p2", "Prime")
+            lists = players_list(prime_a) + players_list(boss) + players_list(prime_b)
+            sections += (f'<section class="ns-boss" id="boss-{vid}-{boss_key}" data-boss="{boss_key}"><h2 class="ns-title"><img src="assets/{boss["art"]}" alt="">{html_escape(boss["name"])}<small>{stage}</small></h2>'
+                         f'<div class="ns-maps">{cards}{lists}</div></section>')
+        return (f'<div class="ns-view" id="ns-{vid}" data-view="{vid}" data-title="{html_escape(title)}" data-season="{season}"{" hidden" if hidden else ""}>'
+                f'<nav class="map-filter ns-filter" aria-label="Aller à un boss">{chips}</nav>{sections}</div>')
 
-    body = (f'<nav class="map-filter ns-filter" aria-label="Aller à un boss">{chips}</nav>{sections}'
-            f'<script src="assets/saison-prochaine.js?v={ASSETS_VERSION}"></script>')
-    html = render_page(nav_active="next", page_kind="boss", title=f"Saison {season}", asset_prefix="", body=body,
-                       back_link=raid_back(), title_class="hero-title", header_extra="", header_action="", v=ASSETS_VERSION)
+    body = view(current, "cur", "Saison en cours", False)
+    action = ""
+    if upcoming is not None:
+        body += view(upcoming, "next", "Saison prochaine", True)
+        action = '<button type="button" class="ns-switch" id="ns-switch" data-cur="Prochaine" data-next="En cours" aria-controls="ns-cur ns-next">Prochaine<svg class="arrow" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg></button>'
+    body += f'<script src="assets/saison-prochaine.js?v={ASSETS_VERSION}"></script>'
+    html = render_page(nav_active="next", page_kind="boss", title="Saison en cours", asset_prefix="", body=body,
+                       back_link=raid_back(), title_class="hero-title", header_extra="", header_action=action, v=ASSETS_VERSION)
     with open(os.path.join(DOCS_DIR, "saison-prochaine.html"), "w", encoding="utf-8") as f:
         f.write(html)
-    print(f"Generated saison-prochaine.html (season {season})")
+    print(f"Generated saison-prochaine.html (season {current} in progress" + (f", {upcoming} next)" if upcoming is not None else ")"))
 
 
 def render_profile_page():

@@ -130,8 +130,8 @@
   // capture phase: the row / column links of row-link.js must not run for these cells (drag-scroll.js, loaded before, swallows the click that ends a drag)
   document.addEventListener("click", function (e) {
     if (e.target.closest && e.target.closest("a.atk-playlink")) return;  // the play mark of a row of the best attacks (Metas pages) is a link to the replay: let it navigate
-    const chip = e.target.closest && e.target.closest(".map-chip");
-    if (chip) return filter(chip);
+    const chip = e.target.closest && e.target.closest(".map-chip, .lvl-chip");
+    if (chip && chip.closest(".map-filter, .lvl-filter")) return filter(chip);
     const sc = e.target.closest && e.target.closest("td[data-score]");
     if (sc) { e.preventDefault(); e.stopPropagation(); return document.getElementById("recap-data") ? openRecap(sc) : openScore(sc); }
     const td = e.target.closest && e.target.closest("td[data-atk]");
@@ -141,14 +141,18 @@
     open(td);
   }, true);
 
-  // Metas pages: no map chosen = the overall best attacks (rows marked in the HTML), a map = that map's own best ones
+  // Metas pages: two filters above the best attacks, the maps and the levels (L4 ... M3). Each row says which lists of the best attacks it belongs to (data-t: "a" all,
+  // "m:<map>", "l:<level>", "ml:<map>|<level>"); the table shows the list of what is chosen.
   function filter(chip) {
-    const bar = chip.closest(".map-filter"), table = document.querySelector(".atk-top");
+    const bar = chip.closest(".map-filter, .lvl-filter"), table = document.querySelector(".atk-top");
     if (!bar || !table) return;
-    bar.querySelectorAll(".map-chip").forEach(function (c) { c.setAttribute("aria-pressed", c === chip ? "true" : "false"); });
-    const board = chip.dataset.map;
+    const isLvl = chip.classList.contains("lvl-chip");
+    bar.querySelectorAll(isLvl ? ".lvl-chip" : ".map-chip").forEach(function (c) { c.setAttribute("aria-pressed", c === chip ? "true" : "false"); });
+    if (isLvl) table.dataset.fl = chip.dataset.lvl; else table.dataset.fm = chip.dataset.map;
+    const board = table.dataset.fm || "", lvl = table.dataset.fl || "";
+    const list = board && lvl ? "ml:" + board + "|" + lvl : board ? "m:" + board : lvl ? "l:" + lvl : "a";
     table.querySelectorAll("tbody tr").forEach(function (tr) {
-      tr.hidden = board ? tr.dataset.map !== board : tr.dataset.top === undefined;
+      tr.hidden = (" " + (tr.dataset.t || "") + " ").indexOf(" " + list + " ") < 0;
     });
   }
 })();
