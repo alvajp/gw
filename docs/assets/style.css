@@ -1555,6 +1555,141 @@ body[data-page="home"] h1.hero-title { font-size: 3.4rem; text-shadow: 0 2px 18p
 /* La Cabale Psychopathe: the same site with a pink / violet accent instead of the yellow (the rarity and medal golds keep theirs: they mean something), its own home wallpaper. */
 body[data-guild="cabale"] { --accent: #d77bff; --heat-rgb: 215, 123, 255; --bar-active: #d77bff; --team-us: #d77bff; }
 body[data-guild="cabale"][data-page="home"] { --bg-img: url("bg/thousand-sons.webp"); }
+/* ---- Raid attack rows with a replay (the attack dialog): a play mark before the damage, the whole row opens replay.html ---- */
+.atk-table tr.atk-play { cursor: pointer; }
+.atk-table tr.atk-play:hover td,
+.atk-table tr.atk-play:focus-visible td { background: color-mix(in srgb, var(--accent) 12%, var(--table-bg)); }
+.atk-playmark { display: inline-flex; align-items: center; justify-content: center; width: 1.25rem; height: 1.25rem; margin-right: 0.45rem; border-radius: 50%; background: var(--accent); color: #0d1014; font-size: 0.55rem; padding-left: 1px; box-sizing: border-box; vertical-align: 1px; }
+/* ---- Replay (replay.html): the player of a recorded raid battle ---- */
+.rp-top { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin: 0.25rem 0 1.1rem; }
+.rp-sum { display: flex; align-items: center; gap: 0.8rem; }
+.rp-boss { width: 3.2rem; height: 3.2rem; border-radius: 50%; object-fit: cover; border: 1px solid var(--border); background: var(--surface); }
+.rp-sum b { display: block; font-size: 1.15rem; }
+.rp-sum small { display: block; color: var(--text-muted); font-size: 0.85rem; margin-top: 0.15rem; }
+.rp-lvl { margin-left: 0.4rem; padding: 0.1rem 0.5rem; border-radius: 999px; background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--accent); font-size: 0.78rem; font-weight: 600; }
+.rp-dmg { text-align: right; }
+.rp-dmg b { display: block; font-size: 1.8rem; line-height: 1.1; color: var(--accent); font-variant-numeric: tabular-nums; }
+.rp-dmg small { color: var(--text-muted); font-size: 0.82rem; }
+/* three columns on a wide screen: the log of the fight (the thread), the board, the details; the blocks of the details keep a fixed height so that nothing moves from one step to the next */
+.rp-main { display: grid; gap: 1.25rem; align-items: start; grid-template-columns: minmax(0, 1fr); grid-template-areas: "board" "info" "log"; }
+.rp-left { grid-area: board; min-width: 0; }
+.rp-right { grid-area: info; min-width: 0; }
+.rp-logcol { grid-area: log; min-width: 0; }
+.rp-logcol h3 { margin: 0 0 0.4rem; font-size: 0.78rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); }
+@media (min-width: 901px) {
+  .rp-main { grid-template-columns: minmax(0, 1.5fr) minmax(17rem, 1fr); grid-template-areas: "board info" "board log"; }
+}
+@media (min-width: 1250px) {
+  .rp-main { grid-template-columns: minmax(14rem, 0.8fr) minmax(0, 1.45fr) minmax(17rem, 0.95fr); grid-template-areas: "log board info"; }
+  .rp-logcol,
+  .rp-right { position: sticky; top: 6.5rem; }
+  .rp-logcol { display: flex; flex-direction: column; height: calc(100dvh - 13rem); min-height: 22rem; }
+  .rp-logcol .rp-log { flex: 1; min-height: 0; max-height: none; margin-top: 0; }
+}
+/* the player stays at the bottom of the screen, whatever the scroll */
+.rp-dock { position: sticky; bottom: 0; z-index: 30; margin: 1.2rem calc(-1 * var(--gutter)) 0; padding: 0.7rem var(--gutter) calc(0.7rem + env(safe-area-inset-bottom, 0px)); background: color-mix(in srgb, var(--bg) 90%, transparent); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-top: 1px solid var(--border); }
+.rp-dock .rp-seek { margin: 0 0 0.55rem; }
+@media (max-width: 480px) { .rp-lab { display: none; } .rp-dock .rp-btn { padding: 0.5rem 0.75rem; } .rp-speed { margin-left: 0; } }
+/* the boss and the damage right under the top bar say what the page is: the big title makes room for the board */
+body[data-page="replay"] #title-row { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.rp-boardwrap { position: relative; }
+.rp-rounds { position: absolute; left: 0.75rem; top: 0.75rem; z-index: 2; display: flex; flex-direction: column; gap: 0.1rem; padding: 0.45rem 0.8rem; background: color-mix(in srgb, var(--bg) 78%, transparent); border: 1px solid var(--border); border-radius: var(--radius-sm); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); pointer-events: none; }
+.rp-rounds:empty { display: none; }
+.rp-rounds b { font-size: 1rem; }
+.rp-rounds span { font-size: 0.78rem; color: var(--text-muted); }
+/* the boards are all 7 x 10 cells: the board is as tall as the screen allows (minus the top bar, the page header and the dock) and as wide as its ratio needs */
+.rp-board { --ar: 0.6; width: min(100%, calc((100vh - 11rem) * var(--ar))); width: min(100%, calc((100dvh - 11rem) * var(--ar))); min-width: min(100%, 17rem); margin: 0 auto; }
+.rp-board svg { display: block; width: 100%; height: auto; aspect-ratio: var(--ar); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-sizing: border-box; }
+.rp-board.has-map .rp-cell { fill: transparent; stroke: rgba(255, 255, 255, 0.22); }
+.rp-board.has-map .rp-cell[data-k="2"] { fill: rgba(0, 0, 0, 0.3); }
+.rp-board.has-map .rp-el { fill: #fff; paint-order: stroke; stroke: rgba(0, 0, 0, 0.7); stroke-width: 2px; }
+.rp-board .rp-el { display: none; font-size: 9px; fill: rgba(255, 255, 255, 0.55); pointer-events: none; }
+.rp-board.show-el .rp-el { display: block; }
+.rp-board .tk { transition: transform 0.4s cubic-bezier(0.3, 0.7, 0.3, 1), opacity 0.3s ease; cursor: pointer; }
+.rp-board.rp-jump .tk { transition: none; }
+.rp-board .tk.gone { opacity: 0; pointer-events: none; }
+.rp-board .tk-body { transform-box: fill-box; transform-origin: center; }
+.rp-board .tk-new .tk-body { animation: rp-pop 0.35s ease-out; }
+.rp-board .tk .tk-hp { transform-box: fill-box; transform-origin: 0 50%; transition: transform 0.45s ease, fill 0.3s ease; }
+.rp-board .tk-ring { stroke: transparent; stroke-width: 2.5; }
+.rp-board .tk-act .tk-ring { stroke: #ffd45e; }
+.rp-board .tk-sel .tk-ring { stroke: #fff; stroke-dasharray: 4 3; }
+.rp-board .tk-hit .tk-body { animation: rp-shake 0.38s ease-out; }
+.rp-board .tk-hit .tk-ring { stroke: #ff6b6b; }
+.rp-board .tk-boss .tk-hit-glow { display: none; }
+.rp-board .rp-beam { stroke: #ffd45e; stroke-width: 3; stroke-linecap: round; opacity: 0; filter: drop-shadow(0 0 4px #ffd45e); animation: rp-beam 0.55s ease-out; pointer-events: none; }
+.rp-fig { font-size: 15px; font-weight: 700; fill: #ff9a9a; paint-order: stroke; stroke: #10151c; stroke-width: 3px; opacity: 0; animation: rp-float 1.3s ease-out forwards; pointer-events: none; }
+.rp-crit { fill: #ffd45e; font-size: 17px; }
+.rp-miss { fill: #9fb0c3; font-size: 12px; font-weight: 600; }
+@keyframes rp-pop { from { transform: scale(0.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes rp-shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-3px); } 55% { transform: translateX(3px); } 80% { transform: translateX(-1.5px); } }
+@keyframes rp-beam { 0% { opacity: 0.95; stroke-width: 4; } 100% { opacity: 0; stroke-width: 1; } }
+@keyframes rp-float { 0% { opacity: 0; transform: translateY(6px); } 15% { opacity: 1; } 80% { opacity: 1; } 100% { opacity: 0; transform: translateY(-20px); } }
+@media (prefers-reduced-motion: reduce) { .rp-board .tk, .rp-board .tk-hp { transition: none; } .rp-board .tk-new .tk-body, .rp-board .tk-hit .tk-body, .rp-board .rp-beam { animation: none; } .rp-fig { animation-duration: 0.01s; opacity: 1; } }
+.rp-seek { width: 100%; margin: 0.8rem 0 0.5rem; accent-color: var(--accent); }
+.rp-ctl { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+.rp-btn { font: inherit; font-size: 0.88rem; padding: 0.45rem 0.8rem; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; }
+.rp-btn:hover,
+.rp-btn:focus-visible { border-color: var(--accent); }
+.rp-play { background: var(--accent); color: #0d1014; border-color: var(--accent); font-weight: 700; }
+.rp-ctl2 { margin-top: 0.6rem; }
+.rp-tog[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+.rp-hint { color: var(--text-muted); font-size: 0.8rem; }
+.rp-none { margin: 0; font-size: 0.84rem; color: var(--text-muted); }
+.rp-speed { margin-left: auto; color: var(--text-muted); font-size: 0.85rem; }
+.rp-speed select { font: inherit; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.25rem 0.4rem; }
+.rp-bar { height: 0.7rem; background: #0b0e12; border: 1px solid var(--border); border-radius: 999px; overflow: hidden; }
+.rp-bar i { display: block; height: 100%; background: linear-gradient(90deg, #f87171, #f2b134); }
+.rp-bosshp small { display: block; margin-top: 0.35rem; color: var(--text-muted); font-size: 0.82rem; }
+.rp-ledger h3 { margin: 1rem 0 0.4rem; font-size: 0.78rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); }
+.rp-ledger ul { list-style: none; margin: 0; padding: 0; }
+.rp-ledger li { display: flex; align-items: center; gap: 0.55rem; padding: 0.2rem 0; }
+.rp-ledger img { width: 1.6rem; height: 1.6rem; border-radius: 50%; object-fit: cover; }
+.rp-ledger li > span { width: 1.6rem; height: 1.6rem; }
+.rp-ledger li b { flex: 1; font-weight: 500; }
+.rp-ledger li b small { display: block; margin-top: 0.05rem; font-weight: 400; font-size: 0.74rem; color: var(--text-muted); }
+.rp-luck { margin: 0.6rem 0 0; font-size: 0.82rem; color: var(--text-muted); }
+.rp-luck b { color: var(--text); font-weight: 600; }
+.rp-luck .pos { color: var(--win); }
+.rp-luck .neg { color: var(--loss); }
+.rp-tip { position: absolute; z-index: 6; width: 15.5rem; box-sizing: border-box; padding: 0.7rem 0.85rem 0.8rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55); font-size: 0.84rem; }
+.rp-tip[hidden] { display: none; }
+.rp-tip .rp-x { position: absolute; top: 0.25rem; right: 0.35rem; width: 1.6rem; height: 1.6rem; border: 0; border-radius: 50%; background: transparent; color: var(--text-muted); font-size: 1.1rem; line-height: 1; cursor: pointer; }
+.rp-tip .rp-x:hover { color: var(--text); background: var(--surface-hover); }
+.rp-tip-head { display: flex; align-items: center; gap: 0.65rem; margin-bottom: 0.55rem; padding-right: 1.4rem; }
+.rp-tip-head img { width: 2.4rem; height: 2.4rem; border-radius: 50%; object-fit: cover; flex: none; }
+.rp-tip-head b { display: block; font-size: 0.95rem; }
+.rp-tip-head small { display: block; color: var(--text-muted); font-size: 0.78rem; }
+.rp-stats { display: grid; grid-template-columns: 1fr auto; gap: 0.2rem 0.9rem; margin: 0; }
+.rp-stats dt { color: var(--text-muted); }
+.rp-stats dd { margin: 0; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+.rp-unit-modal .dm-def.rp-tip-head { margin: 0; padding: 0; }
+.rp-unit-modal .rp-stats { font-size: 0.95rem; row-gap: 0.45rem; }
+.rp-unit-modal .dm-body { padding: 1.1rem var(--gutter, 1.25rem) 1.5rem; }
+.rp-step { margin: 1rem 0 0; padding: 0.55rem 0.8rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.rp-step { height: 12rem; overflow: auto; box-sizing: border-box; }
+.rp-bosshp { height: 2.9rem; margin-top: 0.1rem; }
+.rp-ledger { height: 15.5rem; overflow: auto; }
+.rp-step h3 { margin: 0 0 0.35rem; font-size: 0.8rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-muted); }
+.rp-step ul { list-style: none; margin: 0; padding: 0; font-size: 0.86rem; }
+.rp-step li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.35rem; padding: 0.18rem 0; }
+.rp-step .rp-ic { width: 1.1rem; text-align: center; }
+.rp-step li b { font-variant-numeric: tabular-nums; }
+.rp-step .rp-lcrit b { color: #ffd45e; }
+.rp-step .rp-lturn { font-weight: 700; padding-left: 1.45rem; }
+.rp-tag { padding: 0.02rem 0.4rem; border-radius: 999px; background: color-mix(in srgb, var(--text-muted) 18%, transparent); color: var(--text-muted); font-size: 0.72rem; }
+.rp-tcrit { background: color-mix(in srgb, #ffd45e 22%, transparent); color: #ffd45e; font-weight: 600; }
+.rp-ledger li i { font-style: normal; font-variant-numeric: tabular-nums; }
+.rp-log { list-style: none; margin: 0; padding: 0; max-height: 24rem; overflow: auto; position: relative; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.rp-log li button { all: unset; display: block; box-sizing: border-box; width: 100%; padding: 0.4rem 0.75rem; font-size: 0.85rem; line-height: 1.35; color: var(--text-muted); cursor: pointer; }
+.rp-log li button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.rp-log li.is-cur button { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--text); }
+.rp-log li.rp-turn button { font-weight: 700; color: var(--text); background: var(--table-header-bg); }
+@media (max-width: 640px) {
+  .rp-log { max-height: 16rem; }
+  .rp-dmg { text-align: left; }
+  .rp-rounds { position: static; flex-direction: row; align-items: baseline; gap: 0.6rem; margin-bottom: 0.5rem; padding: 0.4rem 0.7rem; }
+}
 /* Metas table without a Meta column: the meta's icon and name lead the Core cell, then its %, like the % of the other cells. */
 .mcell-head { display: flex; align-items: center; gap: 0.6rem; min-height: 2.1rem; }
 .mcell-head .meta-ico { width: 2.1rem; height: 2.1rem; margin: 0; flex: none; }

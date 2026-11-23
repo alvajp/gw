@@ -3101,6 +3101,19 @@ def render_profile_page():
     print("Generated profil.html")
 
 
+def render_replay_page():
+    """docs/replay.html: the shell of the replay player (replay.html#<id>, see replay.js); the replays themselves are docs/data/replays/<id>.json (scripts/replays.py)."""
+    names = {r["uid"]: r["name"] for r in rosters_mod.load_rosters()}
+    body = ('<div class="rp" id="rp"><p class="mnone">Chargement du replay…</p></div>'
+            f'<script type="application/json" id="rp-names">{json.dumps(names, ensure_ascii=False).replace("<", chr(92) + "u003c")}</script>'
+            f'<script src="assets/replay.js?v={ASSETS_VERSION}"></script>')
+    html = render_page(nav_active="raid", page_kind="replay", title="Replay", asset_prefix="", body=body, back_link=back_link_html("raid.html", "Raid"),
+                       title_class="hero-title", header_extra="", header_action="", v=ASSETS_VERSION)
+    with open(os.path.join(DOCS_DIR, "replay.html"), "w", encoding="utf-8") as f:
+        f.write(html)
+    print("Generated replay.html")
+
+
 def render_players_pages(war_rank=None, raid_rank=None, medals=None, badges=None):
     """docs/joueurs.html (member list) + docs/joueurs/<id>.html (one roster each),
     from the API payloads in data/rosters/ (see fetch_rosters.py). Skipped when there are none."""
@@ -3233,6 +3246,7 @@ def main():
     render_players_pages(war_rank, raid_rank=medals_mod.raid_ranking(members), medals=medals, badges=compute_badges(seasons, medals))
     render_profile_page()
     render_next_season_page()
+    render_replay_page()
     render_raid_pages(all_wars)
     render_boss_pages(all_wars)
     render_metas_page(all_wars)

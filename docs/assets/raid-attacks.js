@@ -16,8 +16,9 @@
     const base = table.dataset.atkBase, assets = base.slice(0, -5) + "assets/";
     const pill = td.closest("tr").querySelector(".player-btn");
     const who = pill ? pill.textContent.trim() : "";
-    Promise.all([load(base + "raid-meta.json"), load(base + "raid-" + season + ".json")]).then(function (res) {
-      const meta = res[0], rows = res[1].a.filter(function (a) { return a[0] === uid && (!key || a[1] === key); }).sort(function (x, y) { return x[9] - y[9]; });
+    // replays.json: "player|time of the attack" -> id of the replay recorded for that attack (scripts/replays.py); the file may not exist yet
+    Promise.all([load(base + "raid-meta.json"), load(base + "raid-" + season + ".json"), load(base + "replays.json").catch(function () { return {}; })]).then(function (res) {
+      const replays = res[2] || {}, meta = res[0], rows = res[1].a.filter(function (a) { return a[0] === uid && (!key || a[1] === key); }).sort(function (x, y) { return x[9] - y[9]; });
       const thumb = function (id, cls) { return id ? '<img class="' + cls + '" src="' + assets + "raid-maps/" + id.toLowerCase() + '.webp" alt="" title="' + esc(mapLabel(id)) + '">' : "—"; };
       const unit = function (id, cls) {
         return '<img class="atk-u' + (cls || "") + '" src="' + assets + "units/" + id + '.webp" alt="" title="' + esc(meta.units[id] || id) + '" loading="lazy" onerror="this.style.visibility=\'hidden\'">';
@@ -28,9 +29,10 @@
         const b = meta.bosses[a[1]] || { n: a[1], a: "" };
         const team = a[7].map(function (h) { return unit(h); }).join("") + (a[8] ? unit(a[8], " atk-mow") : "");
         const kind = a[5], r = a[6];
-        body += "<tr>" + (key ? "" : '<td><div class="atk-boss"><img src="' + assets + b.a + '" alt=""><span>' + esc(b.n) + "</span></div></td>") +
+        const rid = replays[a[0] + "|" + a[9]];  // a replay exists for this attack: the row gets a play mark and opens the player
+        body += "<tr" + (rid ? ' class="atk-play" data-replay="' + rid + '" tabindex="0" title="Voir le replay"' : "") + ">" + (key ? "" : '<td><div class="atk-boss"><img src="' + assets + b.a + '" alt=""><span>' + esc(b.n) + "</span></div></td>") +
           '<td title="Boucle ' + a[3] + '">' + esc(a[2]) + "</td>" + (key ? "" : "<td>" + thumb(a[10], "atk-map") + "</td>") +
-          '<td class="atk-c"><div class="atk-team">' + team + '</div></td><td class="atk-n">' + a[4].toLocaleString("fr-FR") + '</td><td><span class="atk-kind' +
+          '<td class="atk-c"><div class="atk-team">' + team + '</div></td><td class="atk-n">' + (rid ? '<span class="atk-playmark" aria-label="Replay disponible">▶</span>' : "") + a[4].toLocaleString("fr-FR") + '</td><td><span class="atk-kind' +
           (kind === "OS" ? " atk-os" : kind === "Finish" ? " atk-fin" : "") + '">' + kind + '</span></td><td class="atk-n atk-rel' + (r === null ? "" : r >= 0 ? " pos" : " neg") + '">' + rel(r) + "</td></tr>";
       });
       const head = (key ? "" : "<th>Boss</th>") + "<th>Niv.</th>" + (key ? "" : "<th>Map</th>") + '<th class="atk-c">Compo</th><th class="atk-n">Dégâts</th><th>Type</th><th class="atk-n">Relatif</th>';
@@ -45,7 +47,15 @@
       dlg.className = "defense-modal atk-modal";
       dlg.innerHTML = '<div class="dm-head"><div class="dm-title"><div class="dm-def">' + (boss ? '<span class="dm-def-player">' + esc(who) + "</span>" : "") + zone + '</div></div>' + seeSeason + '<button type="button" class="dm-close" aria-label="Fermer">×</button></div><div class="dm-body">' +
         (rows.length ? '<table class="atk-table"><thead><tr>' + head + "</tr></thead><tbody>" + body + "</tbody></table>" : '<p class="mnone">Aucune attaque.</p>') + "</div>";
-      dlg.addEventListener("click", function (e) { if (e.target === dlg || e.target.closest(".dm-close")) dlg.close(); });  // the backdrop is the dialog itself
+      dlg.addEventListener("click", function (e) {
+        if (e.target === dlg || e.target.closest(".dm-close")) return dlg.close();  // the backdrop is the dialog itself
+        const tr = e.target.closest("tr[data-replay]");
+        if (tr) location.href = assets.slice(0, -7) + "replay.html#" + tr.dataset.replay;
+      });
+      dlg.addEventListener("keydown", function (e) {
+        const tr = e.key === "Enter" && e.target.closest && e.target.closest("tr[data-replay]");
+        if (tr) location.href = assets.slice(0, -7) + "replay.html#" + tr.dataset.replay;
+      });
       dlg.addEventListener("close", function () { dlg.remove(); });
       document.body.appendChild(dlg);
       dlg.showModal();
