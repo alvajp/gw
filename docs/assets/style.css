@@ -2956,7 +2956,8 @@ body[data-page="replay"]::before {
 .lvl-chip:hover { color: var(--text); border-color: var(--text-muted); }
 .lvl-chip[aria-pressed="true"] { color: var(--text); border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--table-header-bg)); }
 .meta-chip { display: inline-flex; align-items: center; gap: 0.4rem; }
-.meta-chip .meta-ico { width: 1.1rem; height: 1.1rem; }
+.meta-chip:has(.meta-ico) { padding-left: 0.3rem; }
+.meta-chip .meta-ico { width: 1.3rem; height: 1.3rem; margin: 0; flex: none; display: block; border-width: 1px; }
 
 /* Saisons: replays of a meta on the card's map, next to the meta's name */
 .ns-rep { margin-left: 0.5rem; color: var(--accent); font-size: 0.75rem; font-weight: 600; white-space: nowrap; }
@@ -2966,4 +2967,5 @@ body[data-page="replay"]::before {
 #title-row:has(.ns-switch) #header-action { margin: 0; flex: none; }
 .rep-toggle { display: inline-flex; align-items: center; gap: 0.4rem; }
 .rep-toggle small { opacity: 0.7; font-size: 0.72rem; }
-.rep-toggle .atk-playmark { color: var(--accent); }
+.rep-toggle .atk-playmark { margin-right: 0; flex: none; vertical-align: baseline; }
+.rep-toggle { padding-left: 0.35rem; }
