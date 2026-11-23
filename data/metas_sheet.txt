@@ -21,7 +21,7 @@ Battlesuit|Core|Actus|A2|1 étoile bleue|50/50||Magnus,Szarekh,Gazhghkull,Lion
 Battlesuit|Core|Lhykhis|A2|2 étoiles bleues|36/60||Magnus,Szarekh,Gazhghkull,Lion
 Battlesuit|Core|Réa||skulled|50/60||Magnus,Lion
 Battlesuit|Flex|PBC||skulled|1/36||Szarekh,Gazhghkull
-Battlesuit|Flex|Anuphet|A2|1 étoile bleue|60/60|1|Magnus,Szarekh,Gazhghkull,Lion
+Battlesuit|Flex|Anuphet|A2|1 étoile bleue|60/50|1|Magnus,Szarekh,Gazhghkull,Lion
 Battlesuit|Niche|Revas|A2|skulled|50/60|10|Menhirs
 Battlesuit|Niche|Farsight|A2|1 étoile bleue|60/60|10|Menhirs
 Battlesuit|Niche|Darkstrider|A2|2 étoiles bleues|35/60||Menhirs
