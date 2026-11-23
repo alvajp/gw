@@ -129,6 +129,7 @@
   }
   // capture phase: the row / column links of row-link.js must not run for these cells (drag-scroll.js, loaded before, swallows the click that ends a drag)
   document.addEventListener("click", function (e) {
+    if (e.target.closest && e.target.closest("a.atk-playlink")) return;  // the play mark of a row of the best attacks (Metas pages) is a link to the replay: let it navigate
     const chip = e.target.closest && e.target.closest(".map-chip");
     if (chip) return filter(chip);
     const sc = e.target.closest && e.target.closest("td[data-score]");

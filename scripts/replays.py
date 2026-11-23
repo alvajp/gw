@@ -29,7 +29,26 @@ INDEX = os.path.join(ROOT, "docs", "data", "replays.json")
 DEFAULT_DIR = os.path.expanduser("~/tacticus-replays-archive")
 RAID_DIR = os.path.join(ROOT, "data", "raid")
 MAPS_DIR = os.path.join(ROOT, "docs", "assets", "replay-maps")
-BUNDLES = os.path.expanduser("~/Library/Caches/tacticus/games/*/Tacticus.app/Contents/Resources/Data/StreamingAssets/Bundles/boards/gb")
+BUNDLES = os.path.expanduser("~/Library/Caches/tacticus/games/*/Tacticus.app/Contents/Resources/Data/StreamingAssets/Bundles/boards/*")  # gb (raid), lhe (guild war) ...
+UNITS_ART = os.path.join(ROOT, "docs", "assets", "units")
+
+
+# names of enemies the game's configuration does not name (as TacticusDB shows them)
+NPC_NAMES = {"GuildBoss12Npc2DarkaHellblaster": "Hellblaster", "GuildBoss12Npc4DarkaWatcher": "Guetteur des ténèbres"}
+_GAME_UNITS = None
+
+
+def game_units():
+    """The units section of the game's own configuration (~/Library/Application Support/.../gameconfig/*.json): `summons` (id -> name, ...) and `abilities`
+    (an ability that summons names the unit in its constants: unitId / unitId_2). {} when the game is not installed on this Mac."""
+    global _GAME_UNITS
+    if _GAME_UNITS is None:
+        files = sorted(glob.glob(os.path.expanduser("~/Library/Application Support/com.snowprintstudios.tacticus/gameconfig/*.json")), key=os.path.getmtime)
+        try:
+            _GAME_UNITS = json.load(open(files[-1], encoding="utf-8"))["clientGameConfig"]["units"] if files else {}
+        except (OSError, ValueError, KeyError):
+            _GAME_UNITS = {}
+    return _GAME_UNITS
 
 
 def load(path):
@@ -128,6 +147,7 @@ def convert(rp, file_id):
     units = {}  # entity id -> static info
     steps = []
     boss_unit = (bc.get("BossUnit") or {}).get("UnitId")
+    defenders = {x["UnitId"] for p in (bc.get("PredefinedUnits") or []) for x in p.get("Units", [])}  # the units the enemy side starts with (a war's defence)
     setup_end = next((i for i, m in enumerate(inputs) if m.get("Name") == "StartBattleMessage"), -1)
     round_no = 0
 
@@ -187,11 +207,45 @@ def convert(rp, file_id):
                         units[_int(a["e"])]["id"] = inp.get("UnitId")
                         units[_int(a["e"])]["mow"] = inp.get("Name") == "AddMachineMessage"
                         break
+    # the defence: the replay lists its units in the order they are put on the board (PredefinedUnits); the enemy units added at the set-up come in that same order, so the
+    # n-th one is the n-th unit of the list. Only trusted when the counts agree and every health matches the unit's configured health (it does not depend on what your own team is)
+    pre = [x["UnitId"] for p0 in (bc.get("PredefinedUnits") or []) for x in p0.get("Units", [])]
+    cfg_hp = {x["Id"]: x["Health"] for x in bc.get("Units", [])}
+    setup_enemies = [e for e in sorted(units) if units[e]["o"] == 1 and not units[e]["parent"] and not units[e]["b"] and units[e]["t"] and units[e].get("hp")]
+    if pre and len(pre) == len(setup_enemies) and all(cfg_hp.get(pid) == units[e]["hp"] for pid, e in zip(pre, setup_enemies)):
+        for pid, e in zip(pre, setup_enemies):
+            units[e]["id"] = pid
     for e, u in units.items():
         if u["b"] and boss_unit:
             u["id"] = boss_unit
-        elif "id" not in u and u.get("st") and len(by_stats.get(u["st"], ())) == 1:
-            u["id"] = next(iter(by_stats[u["st"]]))
+        elif "id" not in u and u.get("st") and by_stats.get(u["st"]):
+            cands = by_stats[u["st"]]
+            if len(cands) > 1 and defenders:  # a unit and its war variant ("genesPatriarch" / "genesPatriarch:pvp") share their stats: the defence's units are the ones the replay lists as predefined
+                cands = {c for c in cands if (c in defenders) == (u["o"] == 1)} or cands
+            if len(cands) == 1:
+                u["id"] = next(iter(cands))
+    gu = game_units()
+    summon_ids, abilities = gu.get("summons", {}), gu.get("abilities", {})
+    made = {}  # entity -> the ability whose step added it
+    for st in steps:
+        for ev in st["ev"]:
+            if ev[0] == "add":
+                made[ev[1]] = st["l"] if st["n"] == "User_UseAbility" else None
+    for e, u in units.items():
+        if u.get("parent") and not u.get("id") and made.get(e):
+            consts = (abilities.get(made[e]) or {}).get("constants") or {}
+            cands = {consts[k] for k in ("unitId", "unitId_2") if consts.get(k) in summon_ids}
+            decoys = {c for c in cands if "Decoy" in c}
+            if len(cands) == 2 and len(decoys) == 1:  # an ability that summons a decoy or a unit (the cult's Demagogue): the decoy has no health at all
+                cands = decoys if u.get("hp") == 0 else cands - decoys
+            if len(cands) == 1:  # any other ability that summons two kinds is left alone
+                u["id"] = next(iter(cands))
+    for pm in bc.get("PredefinedMachines") or []:  # the enemy side's machine of war (a war's defence)
+        mu = (pm.get("MachineOfWar") or {}).get("UnitId")
+        for e, u in units.items():
+            if mu and u["o"] == 1 and not u.get("id") and not u["t"] and not u.get("parent") and u.get("hp") == 0:
+                u["id"], u["mow"] = mu, True
+                break
     for u in units.values():
         u.pop("st", None)
         u["t"] = [pos(t) for t in u["t"]]
@@ -220,7 +274,7 @@ GEO = {"R": 91.5, "sy": 0.90, "ox": 104.0, "oy": 32.0}
 
 
 def _bundle_config(name):
-    """(PlayableMinCol, PlayableMaxRow) from the board's visual configuration in the game's bundle, None when unreadable."""
+    """(PlayableMinCol, PlayableMaxRow, visual grid width, height) from the board's visual configuration in the game's bundle, None when unreadable."""
     import UnityPy
     for f in glob.glob(os.path.join(BUNDLES, name + "_*.resource")):
         if "_texture_" in f:
@@ -232,7 +286,7 @@ def _bundle_config(name):
                 except Exception:
                     continue
                 if "PlayableMinCol" in t:
-                    return t["PlayableMinCol"], t["PlayableMaxRow"]
+                    return t["PlayableMinCol"], t["PlayableMaxRow"], t["Width"], t["Height"]
     return None
 
 
@@ -248,14 +302,17 @@ def extract_map(board, cols, rows):
     cfg = _bundle_config(name)
     if cfg is None:
         return None
-    c0, r0 = cfg
-    R, sy, ox, oy = GEO["R"], GEO["sy"], GEO["ox"], GEO["oy"]
+    c0, r0, vw, vh = cfg
+    R, sy = GEO["R"], GEO["sy"]
     hs = sy * 3 ** 0.5 * R
+    # the picture is centred on the visual grid: GEO was fitted on 13 x 15 grids, other sizes shift by half the difference (a war board is 13 x 14: half a row lower)
+    ox = GEO["ox"] + (13 - vw) * 0.75 * R
+    oy = GEO["oy"] + (15 - vh) * hs / 2
     xs = [ox + R + (c + c0) * 1.5 * R for c in range(cols)]
     ys = [oy + (r0 - r + (0.5 if (c + c0) % 2 == 0 else 0)) * hs + hs / 2 for c in range(cols) for r in range(rows)]
     m = 0.6 * R
     box = [max(0, int(min(xs) - R - m)), max(0, int(min(ys) - hs / 2 - m)), min(2048, int(max(xs) + R + m) + 1), min(2048, int(max(ys) + hs / 2 + m) + 1)]
-    pic = {"src": "replay-maps/" + name + ".webp", "x0": box[0], "y0": box[1], "w": box[2] - box[0], "h": box[3] - box[1], "c0": c0, "r0": r0, **GEO}
+    pic = {"src": "replay-maps/" + name + ".webp", "x0": box[0], "y0": box[1], "w": box[2] - box[0], "h": box[3] - box[1], "c0": c0, "r0": r0, "R": R, "sy": sy, "ox": ox, "oy": oy}
     out = os.path.join(MAPS_DIR, name + ".webp")
     found = glob.glob(os.path.join(BUNDLES, name + "_texture_*.resource"))
     if not found:
@@ -292,10 +349,11 @@ def main():
     for f in files:
         rp = load(f)
         md = rp["MetaData"]
-        if md.get("Mode") != "GuildBoss":  # raids only for now (guild wars next)
+        if md.get("Mode") not in ("GuildBoss", "GuildWars"):
             print("skip", os.path.basename(f), md.get("Mode"))
             continue
-        boss = rp["BattleConfiguration"]["BossUnit"]
+        war = md.get("Mode") == "GuildWars"
+        boss = rp["BattleConfiguration"].get("BossUnit") or {}
         rid = hashlib.sha256(open(f, "rb").read()).hexdigest()[:12]
         data = convert(rp, rid)
         pic = extract_map(data["map"], data["w"], data["h"])
@@ -303,7 +361,22 @@ def main():
             data["pic"] = pic
         boss_entities = {k for k, u in data["units"].items() if u["b"]}
         data["dmg"] = sum(ev[3] for s in data["steps"] for ev in s["ev"] if ev[0] == "dmg" and str(ev[1]) in boss_entities)  # damage dealt to the boss in the battle
-        hit = raid.get((md["UserId"], boss["UnitId"], data["dmg"]))
+        ids = {(u.get("id") or "").split(":")[0] for u in data["units"].values()} - {""}
+        unit_names = {k: v["name"] for k, v in json.load(open(os.path.join(ROOT, "data", "units.json"), encoding="utf-8")).items()}
+        unit_names.update({k: v["name"] for k, v in game_units().get("summons", {}).items() if k not in unit_names})  # the game's own names of the summons
+        unit_names.update({k: v for k, v in NPC_NAMES.items() if k not in unit_names})
+        data["names"] = {i: unit_names[i] for i in sorted(ids) if i in unit_names}
+        data["art"] = {i: sub + "/" + i + ".webp" for i in sorted(ids) for sub in ("units", "npcs") if os.path.exists(os.path.join(ROOT, "docs", "assets", sub, i + ".webp"))}
+        missing = sorted(i for i in ids if i not in data["art"])
+        if missing:  # units without a portrait on the site: scripts/sync_npcs.py takes them from TacticusDB, sync_units.py from the Planner
+            print("  pas de portrait pour :", ", ".join(missing))
+        if war:  # no boss, no API entry to match: the result and the day (from the file's name)
+            m = re.search(r"-(\d+)\.(\d+)\.(\d+)-(\d{2})(\d{2})\.replay", os.path.basename(f))
+            data["result"] = rp["BattleResult"].get("EndReason")
+            data["rec"] = f"{m.group(3)}-{int(m.group(2)):02d}-{int(m.group(1)):02d}" if m else None  # the day the replay was recorded (from the file's name, UTC)
+            hit = None
+        else:
+            hit = raid.get((md["UserId"], boss["UnitId"], data["dmg"]))
         at = hit and hit.get("completedOn")
         if hit:  # what the raid API knows about the attack: the boss's key (records / metas pages), the level, the season, when
             data.update({"key": medals_mod._medal_key(hit), "lvl": medals_mod.level_label(hit), "season": hit["season"], "at": at})

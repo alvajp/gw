@@ -2849,6 +2849,15 @@ def render_raid_pages(all_wars):
     print(f"Generated raid.html + {len(season_order)} season page(s)")
 
 
+def load_replay_index():
+    """docs/data/replays.json: "player|time of the attack" -> id of its replay (scripts/replays.py). Only the main guild has replays."""
+    try:
+        with open(os.path.join(ROOT, "docs", "data", "replays.json"), encoding="utf-8") as f:
+            return json.load(f) if GUILD == "ljp" else {}
+    except (OSError, ValueError):
+        return {}
+
+
 BEST_ATTACKS = 20  # rows of the "Meilleures attaques" table of a Metas page (per map when a map is chosen)
 
 
@@ -2877,8 +2886,11 @@ def best_attacks_html(key, attacks, names, members, unit_names, prefix):
     def map_thumb(board, cls="atk-map"):
         return f'<img class="{cls}" src="{prefix}assets/raid-maps/{board.lower()}.webp" alt="" title="{html_escape(medals_mod.map_label(board))}" loading="lazy">'
 
+    replays = load_replay_index()
     body = ""
     for rel, season, a in rows:
+        rid = replays.get(f'{a["uid"]}|{a["at"]}')  # a replay of this attack: a play mark before the damage, a link to replay.html (the cell still opens the season's attacks elsewhere)
+        play = f'<a class="atk-playlink" href="{prefix}replay.html#{rid}" title="Voir le replay"><span class="atk-playmark" aria-label="Replay disponible">▶</span></a>' if rid else ""
         team = "".join(unit(h) for h in a["heroes"]) + (unit(a["mow"], " atk-mow") if a["mow"] else "")
         kind_cls = " atk-os" if a["kind"] == "OS" else ""
         dmg = f"{a['dmg']:,}".replace(",", "\u202f")  # thin spaces between the thousands
@@ -2890,7 +2902,7 @@ def best_attacks_html(key, attacks, names, members, unit_names, prefix):
                  f'<td>{who}</td>'
                  f'<td class="alt-link" data-sort="{season}.{["L4", "L5", "M1", "M2", "M3"].index(a["lvl"]) + 1}" title="Boucle {a["tier"]}"><a class="cl" href="{prefix}raid/{season}.html">S{season} · {a["lvl"]}</a></td>'
                  f'<td data-sort="{board or ""}"{atk}>{map_thumb(board) if board else "—"}</td><td{atk}><div class="atk-team">{team}</div></td>'
-                 f'<td data-sort="{a["dmg"]}"{atk}>{dmg}</td><td{atk}><span class="atk-kind{kind_cls}">{a["kind"]}</span></td>'
+                 f'<td data-sort="{a["dmg"]}"{atk}>{play}{dmg}</td><td{atk}><span class="atk-kind{kind_cls}">{a["kind"]}</span></td>'
                  f'<td{value_to_bg(rel, lo, hi)} data-sort="{rel:.4f}"{atk}>{_fmt_rel(rel)}</td></tr>')
     head = "".join(f"<th>{h}</th>" for h in ("Joueur", "Saison", "Map", "Compo", "Dégâts", "Type", "Relatif"))
     chips = ""

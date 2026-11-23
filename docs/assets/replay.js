@@ -10,6 +10,9 @@
   const id = location.hash.replace(/^#/, "");
   const esc = function (s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); };
   const fmt = function (n) { return Number(n).toLocaleString("fr-FR"); };
+  const ICO = function (d0) { return '<svg class="rp-ico" viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true">' + d0 + "</svg>"; };
+  const I_FIRST = ICO('<path d="M5 5h2.5v14H5zM19 5.5v13L9 12z"/>'), I_PREV = ICO('<path d="M17 5.5v13L7 12z"/>'), I_PLAY = ICO('<path d="M7 5.5v13L18 12z"/>'),
+    I_PAUSE = ICO('<path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/>'), I_LAST = ICO('<path d="M16.5 5H19v14h-2.5zM5 5.5v13L15 12z"/>');
   const R = 30, W = Math.sqrt(3) * R;  // hexagon radius, height of a cell
   let names = {};
   try { names = JSON.parse(document.getElementById("rp-names").textContent); } catch (e) {}
@@ -24,7 +27,8 @@
 
   function start(d, meta) {
     const bossEnts = Object.keys(d.units).filter(function (e) { return d.units[e].b; });
-    const bossInfo = meta.bosses[d.key] || { n: pretty(d.boss), a: "" };
+    const WAR = d.mode === "GuildWars";  // a guild war attack: your team against a defence, no boss; the damage figures count what your team deals to theirs
+    const bossInfo = WAR ? { n: "Guerre de guilde", a: "" } : meta.bosses[d.key] || { n: pretty(d.boss), a: "" };
     document.title = bossInfo.n + " · Replay";
     // the summons: the log says who summoned them (the unit's parent) and the step that made them (the ability)
     const made = {};
@@ -35,6 +39,7 @@
       if (!u) return "?";
       if (u.b) return bossInfo.n;
       const id0 = (u.id || "").split(":")[0];
+      if (d.names && d.names[id0]) return d.names[id0];
       if (meta.units[id0]) return meta.units[id0];
       if (u.id) return pretty(id0.replace(/^GuildBoss\d+/, "").replace(/^(MiniBoss|Boss|Npc|Minion)\d+/, ""));
       if (u.parent && d.units[u.parent]) return (SUMMON_FR[made[e]] || (made[e] ? pretty(made[e]) : "Invocation")) + " (" + unitName(u.parent) + ")";  // "Mine à spores (Biovore)"
@@ -43,6 +48,8 @@
     const portrait = function (e) {
       const u = d.units[e];
       if (u.b && bossInfo.a) return assets + bossInfo.a;
+      const id0 = (u.id || "").split(":")[0];
+      if (d.art) { const f = Array.isArray(d.art) ? (d.art.indexOf(id0) >= 0 ? "units/" + id0 + ".webp" : "") : d.art[id0]; return f ? assets + f : ""; }  // the replay says which units have a portrait (and where)
       return u.id && u.o === 0 ? assets + "units/" + u.id + ".webp" : "";
     };
 
@@ -94,8 +101,10 @@
           if (t) t.hp = ev[7];
           const a = s.all[ev[2]] = s.all[ev[2]] || { n: 0, c: 0 };  // every hit of the attacker, and how many were critical
           if (!ev[6]) { a.n++; a.c += ev[4]; }
-          if (bossEnts.indexOf(String(e)) >= 0) {
-            s.boss = ev[7]; s.dealt[ev[2]] = (s.dealt[ev[2]] || 0) + ev[3];
+          const au = d.units[ev[2]], tu = d.units[e];
+          if (WAR ? (au && tu && au.o === 0 && tu.o === 1) : bossEnts.indexOf(String(e)) >= 0) {  // what counts: the hits on the boss, in a war the hits of your team on theirs
+            if (!WAR) s.boss = ev[7];
+            s.dealt[ev[2]] = (s.dealt[ev[2]] || 0) + ev[3];
             const h = s.hits[ev[2]] = s.hits[ev[2]] || { n: 0, c: 0 };  // the hits on the boss (the ledger): critical ones, and what the attacker's crit chance expected
             if (!ev[6]) { h.n++; h.c += ev[4]; s.exp[ev[2]] = (s.exp[ev[2]] || 0) + ((d.units[ev[2]] && d.units[ev[2]].stats ? d.units[ev[2]].stats.crit : 0) / 100); }
           }
@@ -117,20 +126,22 @@
     // ---- layout ----
     const player = names[d.user] || "";
     root.innerHTML =
-      '<div class="rp-top"><div class="rp-sum"><img class="rp-boss" src="' + (bossInfo.a ? assets + bossInfo.a : "") + '" alt="">' +
+      '<div class="rp-top"><div class="rp-sum">' + (bossInfo.a ? '<img class="rp-boss" src="' + assets + bossInfo.a + '" alt="">' : "") +
       '<div><b>' + esc(bossInfo.n) + (d.lvl ? ' <span class="rp-lvl">' + esc(d.lvl) + "</span>" : "") + '</b><small>' + esc(player) + (player ? " · " : "") + (d.season ? "Saison " + d.season + " · " : "") +
       esc(String(d.map || "").replace(/^GB_/, "").replace(/_/g, " ")) + " · v" + esc(d.ver) + '</small></div></div>' +
-      '<div class="rp-dmg"><b>' + fmt(d.dmg) + '</b><small>dégâts au boss</small></div></div>' +
+      (WAR ? '<div class="rp-dmg"><b class="' + (d.result === "PlayerWon" ? "rp-win" : "rp-loss") + '">' + (d.result === "PlayerWon" ? "Victoire" : "Défaite") + "</b><small>" + esc(d.rec ? d.rec.split("-").reverse().join("/") : "") + "</small></div></div>"
+        : '<div class="rp-dmg"><b>' + fmt(d.dmg) + '</b><small>dégâts au boss</small></div></div>') +
       '<div class="rp-main"><div class="rp-logcol"><h3>Fil du combat</h3><ol class="rp-log" id="rp-log"></ol></div><div class="rp-left"><div class="rp-boardwrap"><div class="rp-rounds" id="rp-round"></div><div class="rp-board" id="rp-board"></div><div class="rp-tip" id="rp-tip" hidden></div></div>' +
       '<div class="rp-ctl rp-ctl2"><button type="button" class="rp-btn rp-tog" id="rp-el" aria-pressed="false">Altitude</button>' +
       '<span class="rp-hint">Clique une unité pour voir ses stats · ← → pour avancer, espace pour lancer.</span></div></div>' +
       '<div class="rp-right"><div class="rp-bosshp" id="rp-bosshp"></div><div class="rp-step" id="rp-step"></div><div class="rp-ledger" id="rp-ledger"></div></div></div>' +
       '<div class="rp-dock"><input type="range" class="rp-seek" id="rp-seek" min="' + (first - 1) + '" max="' + last + '" value="' + (first - 1) + '" aria-label="Position dans le replay">' +
-      '<div class="rp-ctl"><button type="button" class="rp-btn" id="rp-r0" title="Début du round">⏮<span class="rp-lab"> Round</span></button><button type="button" class="rp-btn" id="rp-prev" title="Étape précédente">◀<span class="rp-lab"> Préc.</span></button>' +
-      '<button type="button" class="rp-btn rp-play" id="rp-play" title="Lecture / pause">▶<span class="rp-lab"> Lecture</span></button><button type="button" class="rp-btn" id="rp-next" title="Étape suivante"><span class="rp-lab">Suiv. </span>▶</button>' +
-      '<button type="button" class="rp-btn" id="rp-r1" title="Round suivant"><span class="rp-lab">Round </span>⏭</button>' +
+      '<div class="rp-ctl"><button type="button" class="rp-btn" id="rp-r0" title="Début du round">' + I_FIRST + '<span class="rp-lab"> Round</span></button><button type="button" class="rp-btn" id="rp-prev" title="Étape précédente">' + I_PREV + '<span class="rp-lab"> Préc.</span></button>' +
+      '<button type="button" class="rp-btn rp-play" id="rp-play" title="Lecture / pause">' + I_PLAY + '<span class="rp-lab"> Lecture</span></button><button type="button" class="rp-btn" id="rp-next" title="Étape suivante"><span class="rp-lab">Suiv. </span>' + I_PLAY + '</button>' +
+      '<button type="button" class="rp-btn" id="rp-r1" title="Round suivant"><span class="rp-lab">Round </span>' + I_LAST + '</button>' +
       '<label class="rp-speed">Vitesse <select id="rp-speed"><option value="1">×1</option><option value="2">×2</option><option value="4">×4</option></select></label></div></div>';
     const $ = function (x) { return document.getElementById(x); };
+    if (WAR) $("rp-bosshp").classList.add("rp-war");
 
     // ---- the board: cells once, then the layers the tokens and the effects live in ----
     let cells = "";
@@ -159,7 +170,7 @@
       g.dataset.e = e;
       g.innerHTML = '<g class="tk-foot"></g><g class="tk-body"><circle r="' + r.toFixed(1) + '" fill="#10151c" stroke="' + col + '" stroke-width="2"/>' +
         (img ? '<clipPath id="cp' + e + '"><circle r="' + (r - 1.5).toFixed(1) + '"/></clipPath><image href="' + img + '" x="' + (-r).toFixed(1) + '" y="' + (-r).toFixed(1) + '" width="' + (2 * r).toFixed(1) + '" height="' +
-          (2 * r).toFixed(1) + '" clip-path="url(#cp' + e + ')" preserveAspectRatio="xMidYMid slice"/>' : '<text y="4" text-anchor="middle" font-size="12" fill="' + col + '">' + (info.o === 0 ? "◆" : "✦") + "</text>") +
+          (2 * r).toFixed(1) + '" clip-path="url(#cp' + e + ')" preserveAspectRatio="xMidYMid slice"/>' : '<path d="' + (info.o === 0 ? "M0 -7L6 0L0 7L-6 0Z" : "M0 -8L2 -2L8 0L2 2L0 8L-2 2L-8 0L-2 -2Z") + '" fill="' + col + '"/>') +
         '<circle class="tk-ring" r="' + (r + 3).toFixed(1) + '" fill="none"/></g>' +
         // the health bar sits inside the hexagon, over the bottom of the portrait: under the token it was hidden by the unit standing on the next cell
         '<g class="tk-bar" transform="translate(' + (-r * 0.65).toFixed(1) + "," + (r * 0.5).toFixed(1) + ')"><rect width="' + (1.3 * r).toFixed(1) + '" height="6" rx="3" fill="#0b0e12" stroke="rgba(255,255,255,.4)" stroke-width="0.8"/>' +
@@ -190,14 +201,14 @@
       step.ev.forEach(function (ev) {
         if (ev[0] === "mv") moved[ev[1]] = true;
       });
-      Object.keys(moved).forEach(function (e) { lines.push('<li><span class="rp-ic">🏃</span>' + esc(unitName(e)) + " se déplace</li>"); });
+      Object.keys(moved).forEach(function (e) { lines.push('<li>' + esc(unitName(e)) + " se déplace</li>"); });
       step.ev.forEach(function (ev) {
         if (ev[0] === "dmg") {
           const flags = (ev[4] ? ' <span class="rp-tag rp-tcrit">★ critique</span>' : "") + (ev[5] ? ' <span class="rp-tag">bloqué</span>' : "") + (ev[6] ? ' <span class="rp-tag">esquivé</span>' : "");
-          lines.push('<li class="' + (ev[4] ? "rp-lcrit" : "") + '"><span class="rp-ic">⚔</span>' + esc(unitName(ev[2])) + " → " + esc(unitName(ev[1])) + " <b>" + (ev[6] ? "0" : "−" + fmt(ev[3])) + "</b>" + flags + "</li>");
-        } else if (ev[0] === "rm") lines.push('<li><span class="rp-ic">✖</span>' + esc(unitName(ev[1])) + " est retiré</li>");
-        else if (ev[0] === "add" && step.n !== "StartTurn" && cur >= first) lines.push('<li><span class="rp-ic">＋</span>' + esc(unitName(ev[1])) + " arrive</li>");
-        else if (ev[0] === "turn") lines.push('<li class="rp-lturn">' + (ev[1] === 0 ? "Round " + ev[2] + " · votre tour" : "Round " + ev[2] + " · tour du boss") + "</li>");
+          lines.push('<li class="' + (ev[4] ? "rp-lcrit" : "") + '">' + esc(unitName(ev[2])) + " → " + esc(unitName(ev[1])) + " <b>" + (ev[6] ? "0" : "−" + fmt(ev[3])) + "</b>" + flags + "</li>");
+        } else if (ev[0] === "rm") lines.push('<li>' + esc(unitName(ev[1])) + " est retiré</li>");
+        else if (ev[0] === "add" && step.n !== "StartTurn" && cur >= first) lines.push('<li>' + esc(unitName(ev[1])) + " arrive</li>");
+        else if (ev[0] === "turn") lines.push('<li class="rp-lturn">' + (ev[1] === 0 ? "Round " + ev[2] + " · votre tour" : "Round " + ev[2] + " · " + (WAR ? "tour de la défense" : "tour du boss")) + "</li>");
       });
       if (!lines.length) return '<h3>Étape</h3><p class="rp-none">Rien à signaler dans cette étape.</p>';
       const title = step.n === "User_UseAbility" ? unitName(step.a) + " · " + pretty(step.l) : step.l === "User_MoveUnit" ? "Déplacement" : "Étape " + (step.i - first + 1);
@@ -257,10 +268,16 @@
       requestAnimationFrame(function () { $("rp-board").querySelectorAll(".tk-new").forEach(function (g) { g.classList.remove("tk-new"); }); });
       // panels
       const left = d.rounds && s.round ? d.rounds - s.round + (s.side === 0 ? 1 : 0) : null;
-      $("rp-round").innerHTML = cur < first ? "<b>Mise en place</b>" : s.round ? "<b>Round " + s.round + (d.rounds ? " / " + d.rounds : "") + "</b><span>" + (s.side === 0 ? "votre tour" : "tour du boss") +
+      $("rp-round").innerHTML = cur < first ? "<b>Mise en place</b>" : s.round ? "<b>Round " + s.round + (d.rounds ? " / " + d.rounds : "") + "</b><span>" + (s.side === 0 ? "votre tour" : (WAR ? "tour de la défense" : "tour du boss")) +
         (left !== null ? " · " + left + (left > 1 ? " rounds restants" : " round restant") : "") + "</span>" : "";
-      const pct = Math.max(0, s.boss / d.max * 100);
-      $("rp-bosshp").innerHTML = '<div class="rp-bar"><i style="width:' + pct.toFixed(2) + '%"></i></div><small>' + fmt(Math.max(0, s.boss)) + " / " + fmt(d.max) + " PV · " + fmt(d.hp0 - Math.max(0, s.boss)) + " infligés</small>";
+      if (WAR) {  // the health of the main units (no summons) of each side
+        const tot = [[0, 0], [0, 0]];
+        Object.keys(d.units).forEach(function (e) { const u = d.units[e], x = s.units[e]; if (u.parent || !u.hp) return; tot[u.o][1] += u.hp; tot[u.o][0] += x && x.alive ? Math.max(0, Math.min(u.hp, x.hp)) : 0; });
+        const bar = function (lab, t, cls) { return '<div class="rp-team"><span>' + lab + '</span><div class="rp-bar ' + cls + '"><i style="width:' + (t[1] ? 100 * t[0] / t[1] : 0).toFixed(1) + '%"></i></div><small>' + fmt(t[0]) + " / " + fmt(t[1]) + "</small></div>"; };
+        $("rp-bosshp").innerHTML = bar("Votre équipe", tot[0], "rp-bar-us") + bar("Défense", tot[1], "rp-bar-them");
+      }
+      const pct = WAR ? 0 : Math.max(0, s.boss / d.max * 100);
+      if (!WAR) $("rp-bosshp").innerHTML = '<div class="rp-bar"><i style="width:' + pct.toFixed(2) + '%"></i></div><small>' + fmt(Math.max(0, s.boss)) + " / " + fmt(d.max) + " PV · " + fmt(d.hp0 - Math.max(0, s.boss)) + " infligés</small>";
       const grp = {};  // the summons of one kind (same name) are one line: "Mine à spores (Biovore) ×3"
       Object.keys(s.dealt).forEach(function (e) {
         const k = unitName(e), g = grp[k] = grp[k] || { e: e, dmg: 0, n: 0, c: 0, ents: 0 }, h = s.hits[e] || { n: 0, c: 0 };
@@ -273,8 +290,8 @@
       }).join("");
       let n = 0, c = 0, ex = 0;
       Object.keys(s.hits).forEach(function (e) { n += s.hits[e].n; c += s.hits[e].c; ex += s.exp[e] || 0; });
-      const luck = n ? '<p class="rp-luck">Critiques sur le boss : <b>' + c + " sur " + n + " coups</b> · attendu ≈ " + ex.toFixed(1).replace(".", ",") + (n >= 5 ? (c > ex + 0.5 ? ' <span class="pos">de la chance</span>' : c < ex - 0.5 ? ' <span class="neg">de la malchance</span>' : "") : "") + "</p>" : "";
-      $("rp-ledger").innerHTML = "<h3>Dégâts au boss</h3>" + (rows ? "<ul>" + rows + "</ul>" + luck : '<p class="rp-none">Aucun coup au boss pour l\'instant.</p>');
+      const luck = n ? '<p class="rp-luck">Critiques ' + (WAR ? "de votre équipe" : "sur le boss") + ' : <b>' + c + " sur " + n + " coups</b> · attendu ≈ " + ex.toFixed(1).replace(".", ",") + (n >= 5 ? (c > ex + 0.5 ? ' <span class="pos">de la chance</span>' : c < ex - 0.5 ? ' <span class="neg">de la malchance</span>' : "") : "") + "</p>" : "";
+      $("rp-ledger").innerHTML = "<h3>" + (WAR ? "Dégâts infligés" : "Dégâts au boss") + "</h3>" + (rows ? "<ul>" + rows + "</ul>" + luck : '<p class="rp-none">Aucun coup ' + (WAR ? "porté" : "au boss") + " pour l\'instant.</p>");
       // the detail of the current step, hit by hit
       $("rp-step").innerHTML = stepDetail(step, s);
       $("rp-seek").value = cur;
@@ -325,7 +342,7 @@
     // ---- the log: one line per step ----
     const lineText = function (s) {
       const turn = s.ev.find(function (ev) { return ev[0] === "turn"; });
-      if (turn) return (turn[1] === 0 ? "Round " + turn[2] + " · votre tour" : "Round " + turn[2] + " · tour du boss");
+      if (turn) return (turn[1] === 0 ? "Round " + turn[2] + " · votre tour" : "Round " + turn[2] + " · " + (WAR ? "tour de la défense" : "tour du boss"));
       const dm = {};
       s.ev.forEach(function (ev) { if (ev[0] === "dmg") dm[ev[1]] = (dm[ev[1]] || 0) + ev[3]; });
       const dmgTxt = Object.keys(dm).map(function (t) { return unitName(t) + " −" + fmt(dm[t]); }).join(", ");
@@ -345,7 +362,7 @@
 
     // ---- controls ----
     const go = function (k) { cur = Math.max(first - 1, Math.min(last, k)); draw(); };
-    const stop = function () { if (timer) { clearInterval(timer); timer = null; } $("rp-play").innerHTML = '▶<span class="rp-lab"> Lecture</span>'; };
+    const stop = function () { if (timer) { clearInterval(timer); timer = null; } $("rp-play").innerHTML = I_PLAY + '<span class="rp-lab"> Lecture</span>'; };
     const roundStarts = d.steps.map(function (s, i) { return s.ev.some(function (ev) { return ev[0] === "turn" && ev[1] === 0; }) ? i : -1; }).filter(function (i) { return i >= 0; });
     $("rp-next").onclick = function () { stop(); go(cur + 1); };
     $("rp-prev").onclick = function () { stop(); go(cur - 1); };
@@ -356,7 +373,7 @@
     $("rp-play").onclick = function () {
       if (timer) return stop();
       if (cur >= last) go(first - 1);
-      $("rp-play").innerHTML = '❚❚<span class="rp-lab"> Pause</span>';
+      $("rp-play").innerHTML = I_PAUSE + '<span class="rp-lab"> Pause</span>';
       timer = setInterval(function () { if (cur >= last) return stop(); go(cur + 1); }, 900 / speed);
     };
     $("rp-log").onclick = function (e) { const li = e.target.closest("li"); if (li) { stop(); go(+li.dataset.i); } };
