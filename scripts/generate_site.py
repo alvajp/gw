@@ -3229,7 +3229,7 @@ def render_players_pages(war_rank=None, raid_rank=None, medals=None, badges=None
         html = render_page(
             nav_active="players", title=r["name"], asset_prefix="../", body=rosters_mod.render_player_body(r, "../", war=(war_rank or {}).get(r["uid"]), medals=(medals or {}).get(r["uid"]),
                                                 raid=(raid_rank or {}).get(r["uid"]), raid_known=bool(raid_rank), badges=(badges or {}).get(r["uid"], ())),
-            back_link=back_link_html("../joueurs.html", "Joueurs"), title_class="", header_extra="",
+            back_link=back_link_html("../joueurs.html", "Joueurs"), title_class="", header_extra="", title_icon=rosters_mod.avatar_html(r["uid"], "../", "title-av"),
             header_action=(f'<span class="role-inline">· {roles[r["uid"]]}</span>' if r["uid"] in roles else ""), v=ASSETS_VERSION,
             bg=player_background((war_rank or {}).get(r["uid"]), (raid_rank or {}).get(r["uid"])),
         )

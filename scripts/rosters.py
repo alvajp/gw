@@ -961,6 +961,25 @@ def _kind(slot):
     return "pg-k-prime" if " (" in slot["name"] else "pg-k-boss"
 
 
+_AVATARS = None
+
+
+def avatar_html(uid, prefix, cls="pav", blank=False):
+    """The member's avatar (the game's portrait in its frame, composed by sync_avatars.py: data/avatars.json); when unknown nothing, or an empty box of the same size
+    (blank) so that the names of a list stay aligned."""
+    global _AVATARS
+    if _AVATARS is None:
+        try:
+            with open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "avatars.json"), encoding="utf-8") as f:
+                _AVATARS = json.load(f)
+        except (OSError, ValueError):
+            _AVATARS = {}
+    key = _AVATARS.get(uid)
+    if not key:
+        return f'<span class="{cls}" aria-hidden="true"></span>' if blank else ""
+    return f'<img class="{cls}" src="{prefix}assets/avatars/{key}.webp" alt="" loading="lazy">'
+
+
 def render_players_index_body(rosters, war=None, raid=None, medals=None):
     """Players list as a grid (not a real table, so each name stays a primary button): one row per member, in alphabetical
     order. A toggle above it chooses the columns: Metas (the member's completion for every raid meta, Core / Flex; clicking a meta's percentages
@@ -1019,7 +1038,7 @@ def render_players_index_body(rosters, war=None, raid=None, medals=None):
         for place, k in enumerate(sorted(best_pcts, key=lambda k: (-best_pcts[k], k))):  # --o: the boss's place when the cards of a phone list the best ones first
             bcells = bcells.replace(f"__O{k}__", str(place))
         href = f'joueurs/{player_slug(r["uid"])}.html'
-        rows += (f'<div class="pg-row" data-i="{pi}"{avgs}><a class="pg-rowlink" href="{href}" tabindex="-1" aria-hidden="true"></a><div class="pg-who"><a class="chip player-btn" href="{href}">{escape(r["name"])}</a>'
+        rows += (f'<div class="pg-row" data-i="{pi}"{avgs}><a class="pg-rowlink" href="{href}" tabindex="-1" aria-hidden="true"></a><div class="pg-who">{avatar_html(r["uid"], "", blank=True)}<a class="chip player-btn" href="{href}">{escape(r["name"])}</a>'
                  f'</div>{cells}<div class="pg-bwrap">{bcells}</div></div>')
         # this player's own dialog for every meta (their values next to the requirements)
         player_modals += "".join(_meta_modal(f"{pi}-{i}", team, roles, owned, names, "", who=r["name"], href=f'joueurs/{player_slug(r["uid"])}.html') for i, (team, roles) in metas)
