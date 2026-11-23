@@ -74,25 +74,29 @@ def disc(frame):
     return (min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2, pts
 
 
+# every portrait texture (256 px) is a round picture whose base circle is 156 px wide and centred at (128, 127); the artwork (a head, a helmet ...) may stick out of it. The circle is
+# what sits on the frame's disc, so the portraits are centred on it, not on their own bounding box.
+AV_CENTRE, AV_DIAM = (128, 127), 156
+
+
 def compose(unit, frame):
     from PIL import Image, ImageDraw
     av = textures("avatars/" + unit + "_*.resource").get(f"ui_avatar_{unit}")
     if av is None:
         return None
-    bbox = av.getbbox()
-    av = av.crop(bbox) if bbox else av
     tex = FRAME_TEX.get(frame)
     fr = textures("idunvisualconfiguration_*.resource").get("ui_avatar_frame_" + tex) if tex else None
-    if fr is None:
-        av.thumbnail((SIZE, SIZE), Image.LANCZOS)
-        out = Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 0))
-        out.paste(av, ((SIZE - av.size[0]) // 2, (SIZE - av.size[1]) // 2), av)
-        return out
+    if fr is None:  # no frame: the square around the circle that holds the whole artwork
+        bb = av.getbbox() or (0, 0, 256, 256)
+        half = max(AV_CENTRE[0] - bb[0], bb[2] - AV_CENTRE[0], AV_CENTRE[1] - bb[1], bb[3] - AV_CENTRE[1])
+        box = (AV_CENTRE[0] - half, AV_CENTRE[1] - half, AV_CENTRE[0] + half, AV_CENTRE[1] + half)
+        return av.crop(box).resize((SIZE, SIZE), Image.LANCZOS)
     cx, cy, pts = disc(fr)
-    diam = max(max(p[0] for p in pts) - min(p[0] for p in pts), max(p[1] for p in pts) - min(p[1] for p in pts))
-    av.thumbnail((int(diam), int(diam)), Image.LANCZOS)
+    diam = (max(p[0] for p in pts) - min(p[0] for p in pts) + max(p[1] for p in pts) - min(p[1] for p in pts)) / 2
+    k = diam / AV_DIAM
+    scaled = av.resize((round(av.size[0] * k), round(av.size[1] * k)), Image.LANCZOS)
     canvas = Image.new("RGBA", fr.size, (0, 0, 0, 0))
-    canvas.paste(av, (int(cx - av.size[0] / 2), int(cy - av.size[1] / 2)), av)
+    canvas.paste(scaled, (round(cx - AV_CENTRE[0] * k), round(cy - AV_CENTRE[1] * k)), scaled)
     hole = Image.new("L", fr.size, 255)
     ImageDraw.Draw(hole).polygon(pts, fill=0)  # the blue disc is cut out of the frame, the portrait shows through
     ring = fr.copy()
