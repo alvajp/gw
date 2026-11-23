@@ -1583,6 +1583,11 @@ body[data-guild="cabale"][data-page="home"] { --bg-img: url("bg/thousand-sons.we
   .rp-main { grid-template-columns: minmax(14rem, 0.8fr) minmax(0, 1.45fr) minmax(17rem, 0.95fr); grid-template-areas: "log board info"; }
   .rp-logcol,
   .rp-right { position: sticky; top: 6.5rem; }
+  /* the details column is as tall as the log: the damage ranking takes what the other blocks leave */
+  .rp-right { display: flex; flex-direction: column; height: calc(100dvh - 13rem); min-height: 22rem; }
+  .rp-right .rp-bosshp,
+  .rp-right .rp-step { flex: none; }
+  .rp-right .rp-ledger { flex: 1; height: auto; min-height: 0; }
   .rp-logcol { display: flex; flex-direction: column; height: calc(100dvh - 13rem); min-height: 22rem; }
   .rp-logcol .rp-log { flex: 1; min-height: 0; max-height: none; margin-top: 0; }
 }

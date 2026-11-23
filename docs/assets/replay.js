@@ -26,12 +26,19 @@
     const bossEnts = Object.keys(d.units).filter(function (e) { return d.units[e].b; });
     const bossInfo = meta.bosses[d.key] || { n: pretty(d.boss), a: "" };
     document.title = bossInfo.n + " · Replay";
+    // the summons: the log says who summoned them (the unit's parent) and the step that made them (the ability)
+    const made = {};
+    d.steps.forEach(function (st0) { st0.ev.forEach(function (ev) { if (ev[0] === "add" && d.units[ev[1]] && d.units[ev[1]].parent) made[ev[1]] = st0.n === "User_UseAbility" ? st0.l : ""; }); });
+    const SUMMON_FR = { SporeMineLauncher: "Mine à spores", BioMinefield: "Mine à spores" };  // the names of the abilities that summon, in French when known
     const unitName = function (e) {
       const u = d.units[e];
       if (!u) return "?";
       if (u.b) return bossInfo.n;
       const id0 = (u.id || "").split(":")[0];
-      return meta.units[id0] || (u.id ? pretty(id0.replace(/^GuildBoss\d+/, "").replace(/^(MiniBoss|Boss|Npc|Minion)\d+/, "")) : (u.o === 0 ? "Invocation" : "Ennemi"));
+      if (meta.units[id0]) return meta.units[id0];
+      if (u.id) return pretty(id0.replace(/^GuildBoss\d+/, "").replace(/^(MiniBoss|Boss|Npc|Minion)\d+/, ""));
+      if (u.parent && d.units[u.parent]) return (SUMMON_FR[made[e]] || (made[e] ? pretty(made[e]) : "Invocation")) + " (" + unitName(u.parent) + ")";  // "Mine à spores (Biovore)"
+      return u.o === 0 ? "Invocation" : "Ennemi";
     };
     const portrait = function (e) {
       const u = d.units[e];
@@ -254,10 +261,15 @@
         (left !== null ? " · " + left + (left > 1 ? " rounds restants" : " round restant") : "") + "</span>" : "";
       const pct = Math.max(0, s.boss / d.max * 100);
       $("rp-bosshp").innerHTML = '<div class="rp-bar"><i style="width:' + pct.toFixed(2) + '%"></i></div><small>' + fmt(Math.max(0, s.boss)) + " / " + fmt(d.max) + " PV · " + fmt(d.hp0 - Math.max(0, s.boss)) + " infligés</small>";
-      const rows = Object.keys(s.dealt).sort(function (a, b) { return s.dealt[b] - s.dealt[a]; }).map(function (e) {
-        const img = portrait(e), h = s.hits[e] || { n: 0, c: 0 }, pc = h.n ? Math.round(100 * h.c / h.n) : 0;
-        return "<li>" + (img ? '<img src="' + img + '" alt="">' : "<span></span>") + "<b>" + esc(unitName(e)) + '<small title="' + h.c + " critique" + (h.c > 1 ? "s" : "") + " sur " + h.n + " coup" + (h.n > 1 ? "s" : "") + ' sur le boss">' +
-          pc + " % crit · " + h.c + "/" + h.n + "</small></b><i>" + fmt(s.dealt[e]) + "</i></li>";
+      const grp = {};  // the summons of one kind (same name) are one line: "Mine à spores (Biovore) ×3"
+      Object.keys(s.dealt).forEach(function (e) {
+        const k = unitName(e), g = grp[k] = grp[k] || { e: e, dmg: 0, n: 0, c: 0, ents: 0 }, h = s.hits[e] || { n: 0, c: 0 };
+        g.dmg += s.dealt[e]; g.n += h.n; g.c += h.c; g.ents++;
+      });
+      const rows = Object.keys(grp).sort(function (a, b) { return grp[b].dmg - grp[a].dmg; }).map(function (k) {
+        const g = grp[k], img = portrait(g.e), pc = g.n ? Math.round(100 * g.c / g.n) : 0;
+        return "<li>" + (img ? '<img src="' + img + '" alt="">' : "<span></span>") + "<b>" + esc(k) + (g.ents > 1 ? " ×" + g.ents : "") + '<small title="' + g.c + " critique" + (g.c > 1 ? "s" : "") + " sur " + g.n + " coup" + (g.n > 1 ? "s" : "") + ' sur le boss">' +
+          pc + " % crit · " + g.c + "/" + g.n + "</small></b><i>" + fmt(g.dmg) + "</i></li>";
       }).join("");
       let n = 0, c = 0, ex = 0;
       Object.keys(s.hits).forEach(function (e) { n += s.hits[e].n; c += s.hits[e].c; ex += s.exp[e] || 0; });
@@ -276,7 +288,8 @@
     function unitBody(e) {
       const u = st && st.units[e], info = d.units[e], s = info.stats || {}, max = info.b ? d.max : info.hp, a = st && st.all[e];
       const row = function (k, v) { return "<dt>" + k + "</dt><dd>" + v + "</dd>"; };
-      return '<dl class="rp-stats">' + row("PV", fmt(Math.max(0, u ? u.hp : 0)) + " / " + fmt(max)) + row("Attaque", fmt(s.atk || 0)) + row("Armure", fmt(s.arm || 0)) + row("Mouvement", s.mov || 0) +
+      const par = info.parent && d.units[info.parent] ? row("Invoqué par", esc(unitName(info.parent)) + (made[e] ? " · " + esc(SUMMON_FR[made[e]] || pretty(made[e])) : "")) : "";
+      return '<dl class="rp-stats">' + par + row("PV", fmt(Math.max(0, u ? u.hp : 0)) + " / " + fmt(max)) + row("Attaque", fmt(s.atk || 0)) + row("Armure", fmt(s.arm || 0)) + row("Mouvement", s.mov || 0) +
         row("Chance de crit", (s.crit || 0) + " %") + (s.rng ? row("Portée", s.rng) : "") + (a ? row("Crits dans ce combat", a.c + " sur " + a.n + " coup" + (a.n > 1 ? "s" : "")) : "") + "</dl>";
     }
     function unitHead(e) {
