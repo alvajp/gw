@@ -1,5 +1,5 @@
 {
- "_comment": "Raid maps per season, from https://www.tacticustable.com/maps/guild-raid-season/guild_boss_season_config_<n> (config n = the season's guild_boss_season_config_n). Per stage (L4, L5, M1, M2, M3) the board of [first prime (encounterIndex 1), boss (encounterIndex 0), second prime (encounterIndex 2)]; the image is https://www.tacticustable.com/images/maps/<board>_Visual.png (scripts/fetch_raid_maps.py). Add a season here to give its attacks a map; seasons older than 110 are not known yet.",
+ "_comment": "Raid maps per season, from https://www.tacticustable.com/maps/guild-raid-season/guild_boss_season_config_<n> (config n = the season's guild_boss_season_config_n). Per stage (L4, L5, M1, M2, M3) the board of [first prime (encounterIndex 1), boss (encounterIndex 0), second prime (encounterIndex 2)]; the image is https://www.tacticustable.com/images/maps/<board>_Visual.png (scripts/fetch_raid_maps.py). Add a season here to give its attacks a map; seasons older than 110 are not known yet. From season 115 on the boards come from the game's own configuration (scripts/raid_maps_from_game.py), which also gives the next season in advance.",
  "seasons": {
   "110": {
    "M3": [
@@ -134,6 +134,33 @@
     "GB_Riptide_support_01",
     "GB_Riptide_02",
     "GB_Riptide_support_03"
+   ]
+  },
+  "115": {
+   "M1": [
+    "GB_Belisarius_support_03",
+    "GB_Belisarius_03",
+    "GB_Belisarius_support_06"
+   ],
+   "M2": [
+    "GB_Dakka_support_01",
+    "GB_Dakka_01",
+    "GB_Dakka_support_02"
+   ],
+   "M3": [
+    "GB_Lion_support_01",
+    "GB_Lion_01",
+    "GB_Lion_support_03"
+   ],
+   "L4": [
+    "GB_RogalDorn_support_05",
+    "GB_RogalDorn_06",
+    "GB_RogalDorn_support_06"
+   ],
+   "L5": [
+    "GB_Khaine_support_05",
+    "GB_Khaine_05",
+    "GB_Khaine_support_06"
    ]
   }
  }

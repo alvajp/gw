@@ -3000,7 +3000,7 @@ def render_boss_pages(all_wars):
     print(f"Generated records.html + {len(slots)} boss page(s)")
 
 
-BOARD_BOSS = {"magnus": "Magnus", "lion": "Lion", "sk": "SilentKing", "mortarion": "Mortarion", "dakka": "Ghazghkull", "belisarius": "BelisariusRW", "riptide": "Riptide"}  # board name -> boss slot key
+BOARD_BOSS = {"magnus": "Magnus", "lion": "Lion", "sk": "SilentKing", "mortarion": "Mortarion", "dakka": "Ghazghkull", "belisarius": "BelisariusRW", "riptide": "Riptide", "khaine": "AvatarOfKhaine", "screamer": "ScreamerKiller"}  # board name -> boss slot key
 NEXT_STAGES = ("M3", "M2", "M1", "L5", "L4")  # the order of the page: the hardest boss first
 
 
