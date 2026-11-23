@@ -2964,3 +2964,6 @@ body[data-page="replay"]::before {
 #title-row:has(.ns-switch) { flex-wrap: nowrap; padding-bottom: 0.9rem; }
 #title-row:has(.ns-switch) #page-title { margin: 0; min-width: 0; }
 #title-row:has(.ns-switch) #header-action { margin: 0; flex: none; }
+.rep-toggle { display: inline-flex; align-items: center; gap: 0.4rem; }
+.rep-toggle small { opacity: 0.7; font-size: 0.72rem; }
+.rep-toggle .atk-playmark { color: var(--accent); }

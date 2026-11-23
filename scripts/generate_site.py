@@ -2913,19 +2913,22 @@ def best_attacks_html(key, attacks, names, members, unit_names, prefix, metas=()
     if not rows:
         return ""
     # the table shows the BEST_ATTACKS best attacks of what is chosen: a map, a level and a meta, any of the three or none (the filters above it). Every row lists the lists it is in
-    # (data-t, space-separated "<map>/<level>/<meta>", "" for a filter left open, spaces of a meta name as "_"); raid-attacks.js shows the rows of the chosen list
+    # (data-t, space-separated "<map>/<level>/<meta>/<R or empty>", "" for a filter left open, spaces of a meta name as "_"); raid-attacks.js shows the rows of the chosen list
     def slug(x):
         return (x or "").replace(" ", "_")
 
+    replays = load_replay_index()
     for r in rows:
         r[2]["_meta"] = team_meta(r[2]["heroes"], r[2]["mow"], metas)
+        r[2]["_rid"] = replays.get(f'{r[2]["uid"]}|{r[2]["at"]}')  # a replay of this attack: a play mark before the damage, a link to replay.html
     lists = defaultdict(list)
     for r in rows:
         a = r[2]
         for m in {"", (a["map"] or "").lower()}:
             for l in {"", a["lvl"]}:
                 for t in {"", slug(a["_meta"])}:
-                    lists[f"{m}/{l}/{t}"].append(r)
+                    for rf in {"", "R" if a["_rid"] else ""}:  # "R": the "Replays uniquement" toggle, only the attacks that have a replay
+                        lists[f"{m}/{l}/{t}/{rf}"].append(r)
     member_of = defaultdict(list)
     for name, lst in lists.items():
         for r in lst[:BEST_ATTACKS]:
@@ -2940,10 +2943,9 @@ def best_attacks_html(key, attacks, names, members, unit_names, prefix, metas=()
     def map_thumb(board, cls="atk-map"):
         return f'<img class="{cls}" src="{prefix}assets/raid-maps/{board.lower()}.webp" alt="" title="{html_escape(medals_mod.map_label(board))}" loading="lazy">'
 
-    replays = load_replay_index()
     body = ""
     for rel, season, a in rows:
-        rid = replays.get(f'{a["uid"]}|{a["at"]}')  # a replay of this attack: a play mark before the damage, a link to replay.html (the cell still opens the season's attacks elsewhere)
+        rid = a["_rid"]  # the play mark links to replay.html (the cell still opens the season's attacks elsewhere)
         play = f'<a class="atk-playlink" href="{prefix}replay.html#{rid}" title="Voir le replay"><span class="atk-playmark" aria-label="Replay disponible">▶</span></a>' if rid else ""
         team = "".join(unit(h) for h in a["heroes"]) + (unit(a["mow"], " atk-mow") if a["mow"] else "")
         kind_cls = " atk-os" if a["kind"] == "OS" else ""
@@ -2952,7 +2954,7 @@ def best_attacks_html(key, attacks, names, members, unit_names, prefix, metas=()
         board = a["map"]
         atk = f' data-atk="{a["uid"]}|{season}|{key}"'  # every cell but Joueur and Saison opens the attacks dialog
         # the row opens the player (row-link.js, linkify_rows); the season cell opens that season, like a season column does in the other tables
-        body += (f'<tr{player_row_attrs(a["uid"], prefix)} data-map="{board.lower() if board else ""}" data-lvl="{a["lvl"]}" data-t="{" ".join(member_of[id(a)])}"{"" if "//" in member_of[id(a)] else " hidden"}>'
+        body += (f'<tr{player_row_attrs(a["uid"], prefix)} data-map="{board.lower() if board else ""}" data-lvl="{a["lvl"]}" data-t="{" ".join(member_of[id(a)])}"{"" if "///" in member_of[id(a)] else " hidden"}>'
                  f'<td>{who}</td>'
                  f'<td class="alt-link" data-sort="{season}.{["L4", "L5", "M1", "M2", "M3"].index(a["lvl"]) + 1}" title="Boucle {a["tier"]}"><a class="cl" href="{prefix}raid/{season}.html">S{season} · {a["lvl"]}</a></td>'
                  f'<td data-sort="{board or ""}"{atk}>{map_thumb(board) if board else "—"}</td><td{atk}><div class="atk-team">{team}</div></td>'
@@ -2969,17 +2971,21 @@ def best_attacks_html(key, attacks, names, members, unit_names, prefix, metas=()
         chips = ('<div class="map-filter" role="group" aria-label="Filtrer par map"><button type="button" class="map-chip" data-map="" aria-pressed="true"><span>Toutes</span></button>'
                  + "".join(f'<button type="button" class="map-chip" data-map="{b.lower()}" aria-pressed="false" title="{html_escape(medals_mod.map_label(b))} · {", ".join("S" + str(x) for x in sorted(set(ss), reverse=True))}">'
                            f'{map_thumb(b, "map-chip-img")}</button>' for b, ss in used.items()) + "</div>")
-    levels = [lv for lv in ("L4", "L5", "M1", "M2", "M3") if lists.get("/" + lv + "/")]
+    levels = [lv for lv in ("L4", "L5", "M1", "M2", "M3") if lists.get("/" + lv + "//")]
     lvl_chips = ""
     if len(levels) > 1:  # the levels these attacks were played at, under the maps
         lvl_chips = ('<div class="lvl-filter" role="group" aria-label="Filtrer par niveau"><button type="button" class="lvl-chip" data-lvl="" aria-pressed="true">Tous</button>'
                      + "".join(f'<button type="button" class="lvl-chip" data-lvl="{lv}" aria-pressed="false">{lv}</button>' for lv in levels) + "</div>")
-    used_metas = [name for name, _ in metas if lists.get("//" + slug(name))]
+    used_metas = [name for name, _ in metas if lists.get("//" + slug(name) + "/")]
     meta_chips = ""
     if len(used_metas) > 1:  # the metas these attacks played, under the levels
         meta_chips = ('<div class="lvl-filter meta-filter" role="group" aria-label="Filtrer par méta"><button type="button" class="lvl-chip meta-chip" data-meta="" aria-pressed="true">Toutes</button>'
                       + "".join(f'<button type="button" class="lvl-chip meta-chip" data-meta="{html_escape(slug(n))}" aria-pressed="false">{rosters_mod._meta_icon(n, prefix).replace("meta-ico", "meta-ico mc-ico")}{html_escape(n)}</button>' for n in used_metas) + "</div>")
-    return (f'<h2>Meilleures attaques</h2>{chips}{lvl_chips}{meta_chips}<div class="table-scroll"><table class="sortable raid-table atk-top" data-atk-base="{prefix}data/"><thead><tr>{head}</tr></thead><tbody>{body}</tbody></table></div>')
+    rep_toggle = ""
+    if lists.get("///R"):  # at least one attack of this boss has a replay
+        rep_toggle = ('<div class="lvl-filter rep-filter"><button type="button" class="lvl-chip rep-toggle" aria-pressed="false" title="Ne garder que les attaques dont le replay est disponible">'
+                      f'<span class="atk-playmark" aria-hidden="true">▶</span> Replays uniquement <small>({sum(1 for r in lists["///R"])})</small></button></div>')
+    return (f'<h2>Meilleures attaques</h2>{chips}{lvl_chips}{meta_chips}{rep_toggle}<div class="table-scroll"><table class="sortable raid-table atk-top" data-atk-base="{prefix}data/"><thead><tr>{head}</tr></thead><tbody>{body}</tbody></table></div>')
 
 
 def render_metas_page(all_wars):

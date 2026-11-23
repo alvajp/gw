@@ -142,14 +142,20 @@
   }, true);
 
   // Metas pages: three filters above the best attacks, the maps, the levels (L4 ... M3) and the metas. Each row lists the lists of the best attacks it belongs to (data-t, space-separated
-  // "<map>/<level>/<meta>", empty for a filter left open); the table shows the list of what is chosen.
+  // "<map>/<level>/<meta>/<R when only the replays>", empty for a filter left open); the table shows the list of what is chosen.
   function filter(chip) {
     const bar = chip.closest(".map-filter, .lvl-filter"), table = document.querySelector(".atk-top");
     if (!bar || !table) return;
-    const kind = chip.classList.contains("meta-chip") ? "meta" : chip.classList.contains("lvl-chip") ? "lvl" : "map";
-    bar.querySelectorAll(kind === "meta" ? ".meta-chip" : kind === "lvl" ? ".lvl-chip:not(.meta-chip)" : ".map-chip").forEach(function (c) { c.setAttribute("aria-pressed", c === chip ? "true" : "false"); });
-    table.dataset[kind === "meta" ? "ft" : kind === "lvl" ? "fl" : "fm"] = kind === "meta" ? chip.dataset.meta : kind === "lvl" ? chip.dataset.lvl : chip.dataset.map;
-    const list = (table.dataset.fm || "") + "/" + (table.dataset.fl || "") + "/" + (table.dataset.ft || "");
+    if (chip.classList.contains("rep-toggle")) {  // a toggle: only the attacks that have a replay
+      const on = chip.getAttribute("aria-pressed") !== "true";
+      chip.setAttribute("aria-pressed", String(on));
+      table.dataset.fr = on ? "R" : "";
+    } else {
+      const kind = chip.classList.contains("meta-chip") ? "meta" : chip.classList.contains("lvl-chip") ? "lvl" : "map";
+      bar.querySelectorAll(kind === "meta" ? ".meta-chip" : kind === "lvl" ? ".lvl-chip:not(.meta-chip)" : ".map-chip").forEach(function (c) { c.setAttribute("aria-pressed", c === chip ? "true" : "false"); });
+      table.dataset[kind === "meta" ? "ft" : kind === "lvl" ? "fl" : "fm"] = kind === "meta" ? chip.dataset.meta : kind === "lvl" ? chip.dataset.lvl : chip.dataset.map;
+    }
+    const list = (table.dataset.fm || "") + "/" + (table.dataset.fl || "") + "/" + (table.dataset.ft || "") + "/" + (table.dataset.fr || "");
     let shown = 0;
     table.querySelectorAll("tbody tr").forEach(function (tr) {
       tr.hidden = (" " + (tr.dataset.t || "") + " ").indexOf(" " + list + " ") < 0;
