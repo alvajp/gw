@@ -21,13 +21,13 @@ BUNDLES = (glob.glob(os.path.expanduser("~/Library/Caches/tacticus/games/*/Tacti
 SIZE = 96
 # frame id -> (bundle glob under Bundles/, texture name, share of the frame's side the picture takes[, (x, y, radius) of an opaque disc in its middle to cut out])
 FRAME_SRC = {
-    "frameFebruary2026": ("liveevents/seasonal/frame/february_2026_*.resource", "ui_frame_february_2026", 0.80),
-    "frameHalloween2025": ("liveevents/seasonal/frame/halloween_2025_event_*.resource", "ui_frame_halloween_25", 0.80),
-    "frameMythic01": ("liveevents/seasonal/frame/mythic_01_event_*.resource", "ui_frame", 0.80),
-    "frameApril2026": ("liveevents/seasonal/season_april_2026_*.resource", "ui_frame_april_2026", 0.80),
-    "frameMay2026": ("liveevents/seasonal/season_may_2026_*.resource", "ui_frame_may_2026", 0.80),
-    "frameSeptember2026": ("liveevents/seasonal/season_september_2026_*.resource", "ui_frame_september_2026", 0.80),
-    "frameTyranids": ("ui/seasonal_event_progress_*.resource", "ui_avatar_frame_tyranids", 0.60, (0.5, 0.46, 0.30)),
+    "frameFebruary2026": ("liveevents/seasonal/frame/february_2026_*.resource", "ui_frame_february_2026", 0.84),
+    "frameHalloween2025": ("liveevents/seasonal/frame/halloween_2025_event_*.resource", "ui_frame_halloween_25", 0.84),
+    "frameMythic01": ("liveevents/seasonal/frame/mythic_01_event_*.resource", "ui_frame", 0.84),
+    "frameApril2026": ("liveevents/seasonal/season_april_2026_*.resource", "ui_frame_april_2026", 0.84),
+    "frameMay2026": ("liveevents/seasonal/season_may_2026_*.resource", "ui_frame_may_2026", 0.84),
+    "frameSeptember2026": ("liveevents/seasonal/season_september_2026_*.resource", "ui_frame_september_2026", 0.84),
+    "frameTyranids": ("ui/seasonal_event_progress_*.resource", "ui_avatar_frame_tyranids", 0.54, (0.5, 0.46, 0.265)),
 }
 
 
@@ -64,6 +64,9 @@ def compose(unit, frame):
             ImageDraw.Draw(hole).ellipse((cx - rad, cy - rad, cx + rad, cy + rad), fill=0)
             fr.putalpha(Image.composite(fr.getchannel("A"), Image.new("L", fr.size, 0), hole))
     inner = int(side * share)
+    if fr is not None and len(FRAME_SRC[frame]) == 3:  # a square frame: the round portrait sits on a dark square filling the frame's opening (no bare corners)
+        pad = (side - inner) // 2
+        canvas.paste(Image.new("RGBA", (inner, inner), (22, 28, 40, 255)), (pad, pad))
     av.thumbnail((inner, inner), Image.LANCZOS)
     ay = int(FRAME_SRC[frame][3][1] * side - av.size[1] / 2) if fr is not None and len(FRAME_SRC[frame]) > 3 else (side - av.size[1]) // 2
     canvas.paste(av, ((side - av.size[0]) // 2, ay), av)
