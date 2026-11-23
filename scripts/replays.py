@@ -240,6 +240,13 @@ def convert(rp, file_id):
                 cands = decoys if u.get("hp") == 0 else cands - decoys
             if len(cands) == 1:  # any other ability that summons two kinds is left alone
                 u["id"] = next(iter(cands))
+    for e, u in units.items():  # the Genestealer Cult's summons that have no health at all are decoys, whatever made them (a passive, a move, a hit ...); the ones Xybia (Magus) makes with health are neophytes
+        pid = ((units.get(u.get("parent")) or {}).get("id") or "") if u.get("parent") else ""
+        if u.get("parent") and not u.get("id") and pid.startswith("genes"):
+            if u.get("hp") == 0 and "genesSmnDecoy" in summon_ids:
+                u["id"] = "genesSmnDecoy"
+            elif u.get("hp") and pid.startswith("genesMagus") and "genesSmnNeophyte" in summon_ids:
+                u["id"] = "genesSmnNeophyte"
     for pm in bc.get("PredefinedMachines") or []:  # the enemy side's machine of war (a war's defence)
         mu = (pm.get("MachineOfWar") or {}).get("UnitId")
         for e, u in units.items():
