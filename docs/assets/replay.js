@@ -23,7 +23,7 @@
     fetch(data + "raid-meta.json").then(function (r) { return r.json(); }).catch(function () { return { units: {}, bosses: {} }; }),
   ]).then(function (res) { start(res[0], res[1]); }).catch(function () { root.innerHTML = '<p class="mnone">Replay introuvable.</p>'; });
 
-  function pretty(s) { return /NormalAttack$/.test(s || "") ? "Attaque" : String(s || "").replace(/_/g, " ").replace(/([a-z])([A-Z])/g, "$1 $2"); }
+  function pretty(s) { return s === "StartTurn" ? "Début du tour" : /NormalAttack$/.test(s || "") ? "Attaque" : String(s || "").replace(/_/g, " ").replace(/([a-z])([A-Z])/g, "$1 $2"); }
 
   function start(d, meta) {
     const bossEnts = Object.keys(d.units).filter(function (e) { return d.units[e].b; });
@@ -73,7 +73,9 @@
     let minX = 1e9, maxX = -1e9, minY = 1e9, maxY = -1e9;
     d.cells.forEach(function (c) { const x = cx(c[0]), y = cy(c[0], c[1]); minX = Math.min(minX, x - R); maxX = Math.max(maxX, x + R); minY = Math.min(minY, y - HS / 2); maxY = Math.max(maxY, y + HS / 2); });
     const M = R * 0.6;  // a little terrain around the cells
-    const vb = HD ? [d.pic.x0 * K, d.pic.y0 * K, d.pic.w * K, d.pic.h * K] : [minX - M, minY - M, maxX - minX + 2 * M, maxY - minY + 2 * M + 24];
+    // the machines of war are not on the board: ours has its platform under the cells at the left, the enemy's above them at the right (the picture is cropped with room for them)
+    const dock = function (side) { return side === 0 ? [minX + 1.9 * R, maxY + 1.6 * R] : [maxX - 1.9 * R, minY - 1.6 * R]; };
+    const vb = HD ? [d.pic.x0 * K, d.pic.y0 * K, d.pic.w * K, d.pic.h * K] : [minX - M, minY - 2.7 * R, maxX - minX + 2 * M, maxY - minY + 5.4 * R + 24];
     const tint = function (cell) {  // [col, row, tile, elevation, kind]
       const t = cell[2], el = cell[3], l = 24 + Math.min(el, 4) * 5;
       if (cell[4] === 1) return t === "Water" ? "hsl(210 45% 30%)" : "hsl(25 12% " + (30 + el * 3) + "%)";
@@ -90,8 +92,9 @@
 
     // ---- state: what is on the board after step k ----
     let st = null, at = -1;
-    const fresh = function () { return { units: {}, dealt: {}, hits: {}, all: {}, exp: {}, round: 0, side: 0, boss: d.hp0 }; };
+    const fresh = function () { return { units: {}, dealt: {}, hits: {}, all: {}, exp: {}, tfx: {}, round: 0, side: 0, boss: d.hp0 }; };
     function apply(s, step) {
+      if (step.n === "User_UseAbility" && step.l && s.units[step.a]) (s.units[step.a].used = s.units[step.a].used || {})[step.l] = true;  // the unit used one of its named abilities
       step.ev.forEach(function (ev) {
         const e = ev[1];
         if (ev[0] === "add") { const u = d.units[e]; s.units[e] = { t: u.t, hp: u.b ? d.hp0 : u.hp0, alive: true }; }
@@ -110,6 +113,8 @@
           }
         }
         else if (ev[0] === "rm" && s.units[e]) s.units[e].alive = false;
+        else if (ev[0] === "res" && s.units[e]) { const u = s.units[e]; u.alive = true; if (ev[2].length) u.t = ev[2]; if (ev[3]) u.hp = ev[3]; }  // reborn (in place of a decoy)
+        else if (ev[0] === "fx") { if (ev[4]) s.tfx[ev[3]] = { c: ev[1], k: ev[2] }; else delete s.tfx[ev[3]]; }  // an effect on a tile (fire, contamination, a strike aimed at it)
         else if (ev[0] === "turn") { s.side = ev[1]; s.round = ev[2] || s.round; }
       });
     }
@@ -126,22 +131,33 @@
     // ---- layout ----
     const player = names[d.user] || "";
     root.innerHTML =
-      '<div class="rp-top"><div class="rp-sum">' + (bossInfo.a ? '<img class="rp-boss" src="' + assets + bossInfo.a + '" alt="">' : "") +
+      '<div class="rp-main"><div class="rp-top"><a class="rp-back" href="' + (WAR ? "war.html" : "raid.html") + '">← ' + (WAR ? "War" : "Raid") + '</a><div class="rp-sum">' + (bossInfo.a ? '<img class="rp-boss" src="' + assets + bossInfo.a + '" alt="">' : "") +
       '<div><b>' + esc(bossInfo.n) + (d.lvl ? ' <span class="rp-lvl">' + esc(d.lvl) + "</span>" : "") + '</b><small>' + esc(player) + (player ? " · " : "") + (d.season ? "Saison " + d.season + " · " : "") +
       esc(String(d.map || "").replace(/^GB_/, "").replace(/_/g, " ")) + " · v" + esc(d.ver) + '</small></div></div>' +
       (WAR ? '<div class="rp-dmg"><b class="' + (d.result === "PlayerWon" ? "rp-win" : "rp-loss") + '">' + (d.result === "PlayerWon" ? "Victoire" : "Défaite") + "</b><small>" + esc(d.rec ? d.rec.split("-").reverse().join("/") : "") + "</small></div></div>"
         : '<div class="rp-dmg"><b>' + fmt(d.dmg) + '</b><small>dégâts au boss</small></div></div>') +
-      '<div class="rp-main"><div class="rp-logcol"><h3>Fil du combat</h3><ol class="rp-log" id="rp-log"></ol></div><div class="rp-left"><div class="rp-boardwrap"><div class="rp-rounds" id="rp-round"></div><div class="rp-board" id="rp-board"></div><div class="rp-tip" id="rp-tip" hidden></div></div>' +
-      '<div class="rp-ctl rp-ctl2"><button type="button" class="rp-btn rp-tog" id="rp-el" aria-pressed="false">Altitude</button>' +
-      '<span class="rp-hint">Clique une unité pour voir ses stats · ← → pour avancer, espace pour lancer.</span></div></div>' +
-      '<div class="rp-right"><div class="rp-bosshp" id="rp-bosshp"></div><div class="rp-step" id="rp-step"></div><div class="rp-ledger" id="rp-ledger"></div></div></div>' +
+      '<div class="rp-left"><div class="rp-boardwrap"><div class="rp-rounds" id="rp-round"></div><div class="rp-board" id="rp-board"></div><div class="rp-tip" id="rp-tip" hidden></div></div>' +
+      '</div>' +
+      '<div class="rp-right"><div class="rp-bosshp" id="rp-bosshp"></div><div class="rp-step" id="rp-step"></div><div class="rp-ledger" id="rp-ledger"></div></div>' +
+      '<div class="rp-logcol"><h3>Fil du combat</h3><ol class="rp-log" id="rp-log"></ol></div></div>' +
       '<div class="rp-dock"><input type="range" class="rp-seek" id="rp-seek" min="' + (first - 1) + '" max="' + last + '" value="' + (first - 1) + '" aria-label="Position dans le replay">' +
       '<div class="rp-ctl"><button type="button" class="rp-btn" id="rp-r0" title="Début du round">' + I_FIRST + '<span class="rp-lab"> Round</span></button><button type="button" class="rp-btn" id="rp-prev" title="Étape précédente">' + I_PREV + '<span class="rp-lab"> Préc.</span></button>' +
       '<button type="button" class="rp-btn rp-play" id="rp-play" title="Lecture / pause">' + I_PLAY + '<span class="rp-lab"> Lecture</span></button><button type="button" class="rp-btn" id="rp-next" title="Étape suivante"><span class="rp-lab">Suiv. </span>' + I_PLAY + '</button>' +
       '<button type="button" class="rp-btn" id="rp-r1" title="Round suivant"><span class="rp-lab">Round </span>' + I_LAST + '</button>' +
-      '<label class="rp-speed">Vitesse <select id="rp-speed"><option value="1">×1</option><option value="2">×2</option><option value="4">×4</option></select></label></div></div>';
+      '<button type="button" class="rp-btn rp-tog" id="rp-el" aria-pressed="false" title="Afficher l\'altitude de chaque case">Altitude</button><label class="rp-speed">Vitesse <select id="rp-speed"><option value="1">×1</option><option value="2">×2</option><option value="4">×4</option></select></label></div></div>';
     const $ = function (x) { return document.getElementById(x); };
     if (WAR) $("rp-bosshp").classList.add("rp-war");
+    // a short fake loading of the central screen: the board fades in after 1 second
+    const wrap = document.querySelector(".rp-boardwrap");
+    if (wrap) {
+      wrap.classList.add("is-loading");
+      wrap.insertAdjacentHTML("beforeend", '<div class="rp-loading" role="status" aria-live="polite"><i class="rp-spin" aria-hidden="true"></i><span>Chargement du replay…</span></div>');
+      setTimeout(function () { wrap.classList.remove("is-loading"); const l = wrap.querySelector(".rp-loading"); if (l) l.remove(); }, 1000);
+    }
+    // wide screens: the page does not scroll, the replay takes the height left under the top bar (--rp-chrome)
+    const chrome = function () { const tb = document.querySelector(".topbar"); if (tb) document.documentElement.style.setProperty("--rp-chrome", tb.getBoundingClientRect().height + "px"); };
+    chrome();
+    window.addEventListener("resize", chrome);
 
     // ---- the board: cells once, then the layers the tokens and the effects live in ----
     let cells = "";
@@ -149,7 +165,7 @@
       cells += '<polygon class="rp-cell" data-k="' + c[4] + '" points="' + hexAt(cx(c[0]), cy(c[0], c[1]), 0.97) + '" fill="' + tint(c) + '" stroke="rgba(0,0,0,.35)" stroke-width="1"/>' +
         '<text class="rp-el" x="' + (cx(c[0]) - R * 0.55).toFixed(1) + '" y="' + (cy(c[0], c[1]) - R * 0.45).toFixed(1) + '">' + c[3] + "</text>";
     });
-    $("rp-board").innerHTML = '<svg viewBox="' + vb.map(function (v) { return v.toFixed(1); }).join(" ") + '" role="img" aria-label="Plateau du combat">' + cells + '<g id="rp-tok"></g><g id="rp-fx"></g></svg>';
+    $("rp-board").innerHTML = '<svg viewBox="' + vb.map(function (v) { return v.toFixed(1); }).join(" ") + '" role="img" aria-label="Plateau du combat">' + cells + '<g id="rp-tfx"></g><g id="rp-tok"></g><g id="rp-fx"></g></svg>';
     // the game's own picture of the board (a crop of its 2048-pixel "visual" texture, see scripts/replays.py) goes under the cells; without it the coloured cells stay
     if (HD) {
       const im = document.createElementNS(NS, "image"), svg = $("rp-board").querySelector("svg");
@@ -164,17 +180,28 @@
     const toks = {};
 
     function makeToken(e) {
-      const info = d.units[e], col = info.o === 0 ? "#4ad1c0" : "#f06b6b", r = info.b ? R * 0.95 : R * 0.72, img = portrait(e);
+      const info = d.units[e], col = info.o === 0 ? "#4ad1c0" : "#f06b6b", mow = !!info.mow && !info.parent, r = info.b ? R * 0.95 : mow ? R * 0.88 : R * 0.72, img = portrait(e);
       const g = document.createElementNS(NS, "g");
-      g.setAttribute("class", "tk" + (info.o === 0 ? " tk-us" : " tk-them") + (info.b ? " tk-boss" : ""));
+      g.setAttribute("class", "tk" + (info.o === 0 ? " tk-us" : " tk-them") + (info.b ? " tk-boss" : "") + (mow ? " tk-mow" : ""));
       g.dataset.e = e;
       g.innerHTML = '<g class="tk-foot"></g><g class="tk-body"><circle r="' + r.toFixed(1) + '" fill="#10151c" stroke="' + col + '" stroke-width="2"/>' +
         (img ? '<clipPath id="cp' + e + '"><circle r="' + (r - 1.5).toFixed(1) + '"/></clipPath><image href="' + img + '" x="' + (-r).toFixed(1) + '" y="' + (-r).toFixed(1) + '" width="' + (2 * r).toFixed(1) + '" height="' +
           (2 * r).toFixed(1) + '" clip-path="url(#cp' + e + ')" preserveAspectRatio="xMidYMid slice"/>' : '<path d="' + (info.o === 0 ? "M0 -7L6 0L0 7L-6 0Z" : "M0 -8L2 -2L8 0L2 2L0 8L-2 2L-8 0L-2 -2Z") + '" fill="' + col + '"/>') +
         '<circle class="tk-ring" r="' + (r + 3).toFixed(1) + '" fill="none"/></g>' +
-        // the health bar sits inside the hexagon, over the bottom of the portrait: under the token it was hidden by the unit standing on the next cell
-        '<g class="tk-bar" transform="translate(' + (-r * 0.65).toFixed(1) + "," + (r * 0.5).toFixed(1) + ')"><rect width="' + (1.3 * r).toFixed(1) + '" height="6" rx="3" fill="#0b0e12" stroke="rgba(255,255,255,.4)" stroke-width="0.8"/>' +
-        '<rect class="tk-hp" x="1" y="1" width="' + (1.3 * r - 2).toFixed(1) + '" height="4" rx="2" fill="#34d399"/></g>';
+        // the health bar sits inside the hexagon, over the bottom of the portrait: under the token it was hidden by the unit standing on the next cell (a machine of war has none)
+        (mow ? "" : '<g class="tk-bar" transform="translate(' + (-r * 0.65).toFixed(1) + "," + (r * 0.34).toFixed(1) + ')"><rect width="' + (1.3 * r).toFixed(1) + '" height="6" rx="3" fill="#0b0e12" stroke="rgba(255,255,255,.4)" stroke-width="0.8"/>' +
+        '<rect class="tk-hp" x="1" y="1" width="' + (1.3 * r - 2).toFixed(1) + '" height="4" rx="2" fill="#34d399"/></g>');
+      // the character's active ability (its named skill): a small round icon under the health bar, spent (it flies up and fades) when the character uses it
+      const acts = ((d.act && d.act[(info.id || "").split(":")[0]]) || []).filter(function (n) { return d.abil && d.abil[n]; });
+      if (acts.length) {
+        const ir = mow ? 8.5 : 5.7;  // a machine of war: its two abilities, bigger, inside the token (lower half, like the heroes' under the bar); they can be played again and again, so they never leave (they flash when played)
+        const ics = acts.map(function (n, i) {
+          const x = mow ? (i - (acts.length - 1) / 2) * (2 * ir + 2) : (i - (acts.length - 1) / 2) * 13, cid = "ab" + e + "_" + i;
+          return '<g class="tk-ab' + (mow ? " tk-ab-mow" : "") + '" data-n="' + esc(n) + '" style="--x:' + x.toFixed(1) + 'px"><title>' + esc(pretty(n)) + '</title><circle r="' + ir + '" fill="#0b0e12" stroke="rgba(255,255,255,.55)" stroke-width="0.8"/><clipPath id="' + cid + '"><circle r="' + (ir - 0.8) +
+            '"/></clipPath><image href="' + assets + d.abil[n] + '" x="' + (-ir + 0.7) + '" y="' + (-ir + 0.7) + '" width="' + (2 * ir - 1.4) + '" height="' + (2 * ir - 1.4) + '" clip-path="url(#' + cid + ')" preserveAspectRatio="xMidYMid slice"/></g>';
+        }).join("");
+        g.insertAdjacentHTML("beforeend", '<g class="tk-acts" transform="translate(0,' + (mow ? (r * 0.4).toFixed(1) : (r * 0.34 + 11.6).toFixed(1)) + ')">' + ics + "</g>");
+      }
       g.addEventListener("click", function (ev) {
         ev.stopPropagation();
         if (phone.matches) { sel = e; refreshSel(); return openUnit(e); }  // phones: a modal, like the other dialogs of the site
@@ -207,11 +234,12 @@
           const flags = (ev[4] ? ' <span class="rp-tag rp-tcrit">★ critique</span>' : "") + (ev[5] ? ' <span class="rp-tag">bloqué</span>' : "") + (ev[6] ? ' <span class="rp-tag">esquivé</span>' : "");
           lines.push('<li class="' + (ev[4] ? "rp-lcrit" : "") + '">' + esc(unitName(ev[2])) + " → " + esc(unitName(ev[1])) + " <b>" + (ev[6] ? "0" : "−" + fmt(ev[3])) + "</b>" + flags + "</li>");
         } else if (ev[0] === "rm") lines.push('<li>' + esc(unitName(ev[1])) + " est retiré</li>");
+        else if (ev[0] === "res") lines.push("<li>" + esc(unitName(ev[1])) + " renaît</li>");
         else if (ev[0] === "add" && step.n !== "StartTurn" && cur >= first) lines.push('<li>' + esc(unitName(ev[1])) + " arrive</li>");
-        else if (ev[0] === "turn") lines.push('<li class="rp-lturn">' + (ev[1] === 0 ? "Round " + ev[2] + " · votre tour" : "Round " + ev[2] + " · " + (WAR ? "tour de la défense" : "tour du boss")) + "</li>");
+        else if (ev[0] === "turn") lines.push('<li class="rp-lturn">' + (ev[1] === 0 ? "Round " + ev[2] + " · votre tour" : "Round " + ev[2] + " · " + (WAR ? "tour de l'adversaire" : "tour du boss")) + "</li>");
       });
       if (!lines.length) return '<h3>Étape</h3><p class="rp-none">Rien à signaler dans cette étape.</p>';
-      const title = step.n === "User_UseAbility" ? unitName(step.a) + " · " + pretty(step.l) : step.l === "User_MoveUnit" ? "Déplacement" : "Étape " + (step.i - first + 1);
+      const title = step.n === "User_UseAbility" ? unitName(step.a) + " · " + pretty(step.l) : step.l === "User_MoveUnit" ? "Déplacement" : step.l === "StartTurn" ? "Début du tour" : "Étape " + (step.i - first + 1);
       return "<h3>" + esc(title) + "</h3><ul>" + lines.slice(0, 14).join("") + (lines.length > 14 ? "<li>… " + (lines.length - 14) + " de plus</li>" : "") + "</ul>";
     }
     function draw() {
@@ -226,24 +254,46 @@
       Object.keys(d.units).forEach(function (e) {
         const u = s.units[e], info = d.units[e];
         let tk = toks[e];
-        const alive = u && u.alive && u.t.length;
+        const mow = !!info.mow && !info.parent, alive = u && u.alive && (u.t.length || mow);
         if (!tk) { if (!alive) return; tk = toks[e] = makeToken(e); tk.g.classList.add("tk-new"); }
         tk.g.classList.toggle("gone", !alive);
         if (!alive) return;
-        const c = centre(u.t);
-        footprint(tk, u.t, c[0], c[1], info);
+        const c = mow ? dock(info.o) : centre(u.t);
+        if (!mow) footprint(tk, u.t, c[0], c[1], info);
+        if (mow) {
+          pos(tk.g, c);
+          tk.g.querySelectorAll(".tk-ab").forEach(function (ic) { ic.classList.toggle("tk-pulse", step.n === "User_UseAbility" && +e === step.a && ic.dataset.n === step.l); });
+          tk.g.classList.toggle("tk-act", step.a !== null && step.a !== undefined && +e === step.a);
+          tk.g.classList.toggle("tk-hit", !!hit[e]);
+          return;
+        }
         if (paths[e] && paths[e].length > 1) {
           paths[e].forEach(function (xy, i) { pathTimers.push(setTimeout(function () { pos(tk.g, xy); }, i * 170 / speed)); });
         } else pos(tk.g, c);
         const max = info.b ? d.max : info.hp, pct = Math.max(0, Math.min(1, u.hp / (max || 1)));
         tk.hp.style.transform = "scaleX(" + pct.toFixed(3) + ")";
         tk.hp.setAttribute("fill", pct > 0.5 ? "#34d399" : pct > 0.25 ? "#f2b134" : "#f87171");
+        tk.g.querySelectorAll(".tk-ab").forEach(function (ic) { ic.classList.toggle("is-used", !!(u.used && u.used[ic.dataset.n])); });
         tk.g.classList.toggle("tk-act", step.a !== null && step.a !== undefined && +e === step.a);
         tk.g.classList.toggle("tk-hit", !!hit[e]);
       });
       // effects of the step: a beam from the acting unit to what it hits, and the figures
       fx.innerHTML = "";
-      const at0 = step.a !== null && step.a !== undefined && s.units[step.a] && s.units[step.a].t.length ? centre(s.units[step.a].t) : null;
+      // the effects on the tiles (under the tokens): a tinted cell and the game's own icon; one icon per kind and cell
+      const TFX = { fire: ["Feu", "rgba(255,110,30,.38)", "#ff8a3d"], cont: ["Contamination", "rgba(170,70,210,.36)", "#c57be6"], target: ["Frappe en approche", "rgba(255,70,70,.16)", "#ff5a5a"], mark: ["Case marquée", "rgba(255,70,70,.14)", "#ff7a7a"] };
+      let tl = "";
+      const seenFx = {};
+      Object.keys(s.tfx).forEach(function (id) {
+        const f = s.tfx[id], key = f.k + ":" + f.c[0] + "," + f.c[1];
+        if (seenFx[key] || !TFX[f.k]) return;
+        seenFx[key] = 1;
+        const x = cx(f.c[0]), y = cy(f.c[0], f.c[1]), z = R * 0.85;
+        tl += '<g class="rp-tfx rp-tfx-' + f.k + '"><title>' + TFX[f.k][0] + '</title><polygon points="' + hexAt(x, y, 0.97) + '" fill="' + TFX[f.k][1] + '" stroke="' + TFX[f.k][2] + '" stroke-width="' + (f.k === "target" || f.k === "mark" ? 2 : 1.4) + '"' + (f.k === "target" || f.k === "mark" ? ' stroke-dasharray="5 4"' : "") + '/>' +
+          (f.k === "mark" ? "" : '<image href="' + assets + "tile-fx/" + f.k + '.webp" x="' + (x - z / 2).toFixed(1) + '" y="' + (y - z / 2).toFixed(1) + '" width="' + z.toFixed(1) + '" height="' + z.toFixed(1) + '" preserveAspectRatio="xMidYMid meet"/>') + "</g>";
+      });
+      $("rp-tfx").innerHTML = tl;
+      const au0 = step.a !== null && step.a !== undefined ? s.units[step.a] : null;
+      const at0 = au0 && au0.alive !== false && au0.t.length ? centre(au0.t) : au0 && d.units[step.a].mow ? dock(d.units[step.a].o) : null;
       const targets = [];
       step.ev.forEach(function (ev) { if (ev[0] === "dmg" && s.units[ev[1]] && s.units[ev[1]].t.length && targets.indexOf(ev[1]) < 0) targets.push(ev[1]); });
       if (at0 && step.n === "User_UseAbility") {
@@ -268,13 +318,13 @@
       requestAnimationFrame(function () { $("rp-board").querySelectorAll(".tk-new").forEach(function (g) { g.classList.remove("tk-new"); }); });
       // panels
       const left = d.rounds && s.round ? d.rounds - s.round + (s.side === 0 ? 1 : 0) : null;
-      $("rp-round").innerHTML = cur < first ? "<b>Mise en place</b>" : s.round ? "<b>Round " + s.round + (d.rounds ? " / " + d.rounds : "") + "</b><span>" + (s.side === 0 ? "votre tour" : (WAR ? "tour de la défense" : "tour du boss")) +
+      $("rp-round").innerHTML = cur < first ? "<b>Mise en place</b>" : s.round ? "<b>Round " + s.round + (d.rounds ? " / " + d.rounds : "") + "</b><span>" + (s.side === 0 ? "votre tour" : (WAR ? "tour de l'adversaire" : "tour du boss")) +
         (left !== null ? " · " + left + (left > 1 ? " rounds restants" : " round restant") : "") + "</span>" : "";
       if (WAR) {  // the health of the main units (no summons) of each side
         const tot = [[0, 0], [0, 0]];
         Object.keys(d.units).forEach(function (e) { const u = d.units[e], x = s.units[e]; if (u.parent || !u.hp) return; tot[u.o][1] += u.hp; tot[u.o][0] += x && x.alive ? Math.max(0, Math.min(u.hp, x.hp)) : 0; });
         const bar = function (lab, t, cls) { return '<div class="rp-team"><span>' + lab + '</span><div class="rp-bar ' + cls + '"><i style="width:' + (t[1] ? 100 * t[0] / t[1] : 0).toFixed(1) + '%"></i></div><small>' + fmt(t[0]) + " / " + fmt(t[1]) + "</small></div>"; };
-        $("rp-bosshp").innerHTML = bar("Votre équipe", tot[0], "rp-bar-us") + bar("Défense", tot[1], "rp-bar-them");
+        $("rp-bosshp").innerHTML = bar("Votre équipe", tot[0], "rp-bar-us") + bar("Adversaire", tot[1], "rp-bar-them");
       }
       const pct = WAR ? 0 : Math.max(0, s.boss / d.max * 100);
       if (!WAR) $("rp-bosshp").innerHTML = '<div class="rp-bar"><i style="width:' + pct.toFixed(2) + '%"></i></div><small>' + fmt(Math.max(0, s.boss)) + " / " + fmt(d.max) + " PV · " + fmt(d.hp0 - Math.max(0, s.boss)) + " infligés</small>";
@@ -306,12 +356,12 @@
       const u = st && st.units[e], info = d.units[e], s = info.stats || {}, max = info.b ? d.max : info.hp, a = st && st.all[e];
       const row = function (k, v) { return "<dt>" + k + "</dt><dd>" + v + "</dd>"; };
       const par = info.parent && d.units[info.parent] ? row("Invoqué par", esc(unitName(info.parent)) + (made[e] ? " · " + esc(SUMMON_FR[made[e]] || pretty(made[e])) : "")) : "";
-      return '<dl class="rp-stats">' + par + row("PV", fmt(Math.max(0, u ? u.hp : 0)) + " / " + fmt(max)) + row("Attaque", fmt(s.atk || 0)) + row("Armure", fmt(s.arm || 0)) + row("Mouvement", s.mov || 0) +
+      return '<dl class="rp-stats">' + par + (info.mow && !info.parent ? "" : row("PV", fmt(Math.max(0, u ? u.hp : 0)) + " / " + fmt(max))) + row("Attaque", fmt(s.atk || 0)) + row("Armure", fmt(s.arm || 0)) + row("Mouvement", s.mov || 0) +
         row("Chance de crit", (s.crit || 0) + " %") + (s.rng ? row("Portée", s.rng) : "") + (a ? row("Crits dans ce combat", a.c + " sur " + a.n + " coup" + (a.n > 1 ? "s" : "")) : "") + "</dl>";
     }
     function unitHead(e) {
       const info = d.units[e], img = portrait(e);
-      return (img ? '<img src="' + img + '" alt="">' : "") + "<div><b>" + esc(unitName(e)) + "</b><small>" + (info.o === 0 ? "Votre camp" : "Camp du boss") + "</small></div>";
+      return (img ? '<img src="' + img + '" alt="">' : "") + "<div><b>" + esc(unitName(e)) + "</b><small>" + (info.o === 0 ? "Votre camp" : WAR ? "Adversaire" : "Camp du boss") + "</small></div>";
     }
     function openUnit(e) {
       const dlg = document.createElement("dialog");
@@ -325,12 +375,13 @@
     function refreshSel() {
       Object.keys(toks).forEach(function (e) { toks[e].g.classList.toggle("tk-sel", e === sel); });
       const tip = $("rp-tip"), u = sel && st && st.units[sel], info = sel && d.units[sel];
-      if (!u || !info || !u.alive || !u.t.length || phone.matches) { tip.hidden = true; return; }
+      const mow = !!info && !!info.mow && !info.parent;
+      if (!u || !info || !u.alive || !(u.t.length || mow) || phone.matches) { tip.hidden = true; return; }
       tip.innerHTML = '<button type="button" class="rp-x" aria-label="Fermer">×</button><div class="rp-tip-head">' + unitHead(sel) + "</div>" + unitBody(sel);
       tip.hidden = false;
       // placed above the unit (below when there is no room), kept inside the board's frame; the position comes from the unit's cell, not from its gliding token
       const svg = $("rp-board").querySelector("svg"), sr = svg.getBoundingClientRect(), wr = $("rp-board").parentNode.getBoundingClientRect(), sc = sr.width / vb[2];
-      const c = centre(u.t), px = sr.left - wr.left + (c[0] - vb[0]) * sc, py = sr.top - wr.top + (c[1] - vb[1]) * sc, rr = (info.b ? 0.95 : 0.72) * R * sc;
+      const c = mow ? dock(info.o) : centre(u.t), px = sr.left - wr.left + (c[0] - vb[0]) * sc, py = sr.top - wr.top + (c[1] - vb[1]) * sc, rr = (info.b ? 0.95 : mow ? 0.88 : 0.72) * R * sc;
       const w = tip.offsetWidth, h = tip.offsetHeight;
       let top = py - rr - h - 10;
       if (top < 4) top = py + rr + 10;
@@ -342,23 +393,41 @@
     // ---- the log: one line per step ----
     const lineText = function (s) {
       const turn = s.ev.find(function (ev) { return ev[0] === "turn"; });
-      if (turn) return (turn[1] === 0 ? "Round " + turn[2] + " · votre tour" : "Round " + turn[2] + " · " + (WAR ? "tour de la défense" : "tour du boss"));
+      if (turn) return (turn[1] === 0 ? "Round " + turn[2] + " · votre tour" : "Round " + turn[2] + " · " + (WAR ? "tour de l'adversaire" : "tour du boss"));
       const dm = {};
       s.ev.forEach(function (ev) { if (ev[0] === "dmg") dm[ev[1]] = (dm[ev[1]] || 0) + ev[3]; });
       const dmgTxt = Object.keys(dm).map(function (t) { return unitName(t) + " −" + fmt(dm[t]); }).join(", ");
       if (s.l === "User_MoveUnit") return unitName(s.a) + " se déplace";
       if (s.n === "User_UseAbility") return unitName(s.a) + " · " + pretty(s.l) + (dmgTxt ? " → " + dmgTxt : "");
       const adds = s.ev.filter(function (ev) { return ev[0] === "add"; }), rms = s.ev.filter(function (ev) { return ev[0] === "rm"; });
+      const res = s.ev.filter(function (ev) { return ev[0] === "res"; });
+      if (res.length && !dmgTxt) return "Renaissance : " + res.map(function (ev) { return unitName(ev[1]); }).join(", ");
       if (adds.length) return "Arrivée : " + adds.map(function (ev) { return unitName(ev[1]); }).join(", ");
       if (rms.length) return "Retirés : " + rms.map(function (ev) { return unitName(ev[1]); }).join(", ");
       return pretty(s.l || s.n) + (dmgTxt ? " → " + dmgTxt : "");
     };
-    let logHtml = "";
+    const logItems = [];
     for (let i = first; i <= last; i++) {
       const s = d.steps[i], turn = s.ev.some(function (ev) { return ev[0] === "turn"; });
-      logHtml += '<li data-i="' + i + '" class="' + (turn ? "rp-turn" : "") + '"><button type="button">' + esc(lineText(s)) + "</button></li>";
+      logItems.push('<li data-i="' + i + '" class="' + (turn ? "rp-turn" : "") + '"><button type="button">' + esc(lineText(s)) + "</button></li>");
     }
-    $("rp-log").innerHTML = logHtml;
+    // the log "loads" very quickly during the fake loading of the board: the lines pour in, then the list goes back to the top
+    const logBox = $("rp-log"), batch = Math.max(1, Math.ceil(logItems.length / 30));
+    let shown = 0;
+    const pour = setInterval(function () {
+      const done = shown >= logItems.length;
+      if (!done) {
+        logBox.insertAdjacentHTML("beforeend", logItems.slice(shown, shown + batch).join(""));
+        shown += batch;
+        logBox.scrollTop = logBox.scrollHeight;
+      }
+      if (shown >= logItems.length) {
+        clearInterval(pour);
+        logBox.querySelectorAll("li").forEach(function (x) { x.classList.toggle("is-cur", +x.dataset.i === cur); });
+        const on = logBox.querySelector("li.is-cur");
+        logBox.scrollTop = on ? on.offsetTop - logBox.clientHeight / 2 + on.clientHeight / 2 : 0;
+      }
+    }, 30);
 
     // ---- controls ----
     const go = function (k) { cur = Math.max(first - 1, Math.min(last, k)); draw(); };

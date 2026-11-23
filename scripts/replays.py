@@ -31,9 +31,26 @@ RAID_DIR = os.path.join(ROOT, "data", "raid")
 MAPS_DIR = os.path.join(ROOT, "docs", "assets", "replay-maps")
 BUNDLES = os.path.expanduser("~/Library/Caches/tacticus/games/*/Tacticus.app/Contents/Resources/Data/StreamingAssets/Bundles/boards/*")  # gb (raid), lhe (guild war) ...
 UNITS_ART = os.path.join(ROOT, "docs", "assets", "units")
+ABILITIES_ART = os.path.join(ROOT, "docs", "assets", "abilities")
+ABILITY_BUNDLES = os.path.expanduser("~/Library/Caches/tacticus/games/*/Tacticus.app/Contents/Resources/Data/StreamingAssets/Bundles/abilities/active2")
 
 
 # names of enemies the game's configuration does not name (as TacticusDB shows them)
+# effects that sit on a tile (the engine gives tiles effects like units): name of the effect (the group that hands it out) -> what the player sees; the others are not shown
+def tile_fx_kind(name):
+    if name == "Fire":
+        return "fire"
+    if name == "Contaminated":
+        return "cont"
+    if name.endswith("_MarkedTile"):
+        return "mark"  # a tile marked by the boss (Rogal Dorn's gunners): many at once, so tint only
+    if name.endswith("_PendingTarget") or name.endswith("_LocationTarget") or name == "MalleusRocketLauncher":
+        return "target"  # a strike on its way: the tile is aimed at
+    return None
+
+
+# the boss Lion El'Jonson's Instruments of Vengeance calls Deathwing Knights (its ability names no unit in the game config)
+ABILITY_SUMMONS = {"InstrumentsOfVengeance_PendingAttack": "darkaSmnTerminator"}
 NPC_NAMES = {"GuildBoss12Npc2DarkaHellblaster": "Hellblaster", "GuildBoss12Npc4DarkaWatcher": "Guetteur des ténèbres"}
 _GAME_UNITS = None
 
@@ -49,6 +66,28 @@ def game_units():
         except (OSError, ValueError, KeyError):
             _GAME_UNITS = {}
     return _GAME_UNITS
+
+
+def ability_icon(name):
+    """docs/assets/abilities/<ability>.webp (64 px), the round icon of a character's active ability, taken from the game's own files (Bundles/abilities/active2/<name>_*.resource,
+    sprite ui_icon_ability2_<name>). True when it is there, False when it cannot be read (needs UnityPy + Pillow and the game's files on this Mac)."""
+    out = os.path.join(ABILITIES_ART, name + ".webp")
+    if os.path.exists(out):
+        return True
+    try:
+        import UnityPy
+    except ImportError:
+        return False
+    UnityPy.config.FALLBACK_UNITY_VERSION = "6000.3.13f1"
+    for f in glob.glob(os.path.join(ABILITY_BUNDLES, name.lower() + "_*.resource")):
+        for obj in UnityPy.load(f).objects:
+            if obj.type.name in ("Sprite", "Texture2D"):
+                img = obj.read().image.convert("RGBA")
+                img.thumbnail((64, 64))
+                os.makedirs(ABILITIES_ART, exist_ok=True)
+                img.save(out, "WEBP", quality=85)
+                return True
+    return False
 
 
 def load(path):
@@ -136,6 +175,22 @@ def convert(rp, file_id):
                     tile_pos[_int(a["e"])] = (_int(a["tags"].get("Tile_Column")), _int(a["tags"].get("Tile_Row")))
                 elif a["n"] == "AddPlayer":
                     owner_side[a["e"]] = 0 if _int(a["tags"].get("Player_Id")) == me else 1  # 0 = the player's side, 1 = the boss's side
+    # the effects on tiles: effect id -> kind (the name is on the group that hands the effect out, the Receive/LoseEffect actions only carry the id)
+    fx_kind = {}
+
+    def fx_scan(node, src):
+        if node["t"] == "G" and node["n"].startswith("Effect_"):
+            src = node["s"]
+        if node["t"] == "A" and node["n"] == "ReceiveEffect" and _int(node["e"]) in tile_pos and src:
+            k = tile_fx_kind(src)
+            if k:
+                fx_kind[node["tags"].get("Effect_Id")] = k
+        for c in node["ch"]:
+            fx_scan(c, src)
+
+    for stream in streams:
+        for node in stream:
+            fx_scan(node, None)
     # stats of the configured units, to name the enemies the log does not name (unit stats are the same for a given unit)
     by_stats = {}
     for u in bc.get("Units", []):
@@ -150,6 +205,7 @@ def convert(rp, file_id):
     defenders = {x["UnitId"] for p in (bc.get("PredefinedUnits") or []) for x in p.get("Units", [])}  # the units the enemy side starts with (a war's defence)
     setup_end = next((i for i, m in enumerate(inputs) if m.get("Name") == "StartBattleMessage"), -1)
     round_no = 0
+    pending_res = {}  # entity -> its "res" event, waiting for the health the next ChangeStats gives
 
     for mi, (inp, stream) in enumerate(zip(inputs, streams)):
         name = inp.get("Name")
@@ -166,6 +222,8 @@ def convert(rp, file_id):
                     e = _int(a["e"])
                     units[e] = {"o": owner_side.get(tg.get("Unit_Owner_Id"), 1), "b": False, "t": [], "parent": 0, "hp": 0, "hp0": 0, "m": 1}
                     ev.append(["add", e])
+                elif an == "ChangeStats" and _int(a["e"]) in pending_res and "UnitStats_InitRemainingHealth" in tg:
+                    pending_res.pop(_int(a["e"]))[3] = _int(tg["UnitStats_InitRemainingHealth"])
                 elif an == "ChangeStats" and _int(a["e"]) in units and "UnitStats_MaxHealth" in tg:
                     u = units[_int(a["e"])]
                     if "hp" not in u:
@@ -184,6 +242,12 @@ def convert(rp, file_id):
                                _int(tg.get("UnitStats_NumberOfMembers"))])
                 elif an in ("RemoveUnit", "DirectlyKillUnit"):
                     ev.append(["rm", _int(a["e"])])
+                elif an == "Resurrect":  # a unit comes back (the cult's members are reborn in place of a decoy): same entity, at the tile it names, with fresh health (set by the ChangeStats that follows)
+                    res = ["res", _int(a["e"]), [pos(t) for t in tile_ids(tg)], None]
+                    ev.append(res)
+                    pending_res[_int(a["e"])] = res
+                elif an in ("ReceiveEffect", "LoseEffect") and _int(a["e"]) in tile_pos and tg.get("Effect_Id") in fx_kind:
+                    ev.append(["fx", pos(_int(a["e"])), fx_kind[tg["Effect_Id"]], tg["Effect_Id"], 1 if an == "ReceiveEffect" else 0])
                 elif an == "PrepareTurn":
                     pid = tg.get("Match_CurrentPlayerId")  # whose turn it starts
                     side = owner_side.get(pid, None)
@@ -226,15 +290,31 @@ def convert(rp, file_id):
                 u["id"] = next(iter(cands))
     gu = game_units()
     summon_ids, abilities = gu.get("summons", {}), gu.get("abilities", {})
-    made = {}  # entity -> the ability whose step added it
-    for st in steps:
-        for ev in st["ev"]:
-            if ev[0] == "add":
-                made[ev[1]] = st["l"] if st["n"] == "User_UseAbility" else None
+    made, decoys = {}, set()  # entity -> the INNERMOST ability that added it (an Ambush inside a unit's ability is the Ambush, not that ability); entities the log itself calls a Decoy
+
+    def sources(node, stack):
+        if node["t"] == "G":
+            if node["n"] == "Ability_Power" and node.get("s") == "Decoy":
+                decoys.add(_int(node["e"]))
+            if node.get("s"):
+                stack = stack + [node["s"]]
+        elif node["n"] == "AddUnit":
+            made[_int(node["e"])] = stack[-1] if stack else None
+        for c in node["ch"]:
+            sources(c, stack)
+
+    for stream in streams:
+        for node in stream:
+            sources(node, [])
+    for e in decoys:  # the log says it: "Ability_Power Source=Decoy" on the new unit
+        if e in units and "genesSmnDecoy" in summon_ids and units[e].get("parent"):
+            units[e]["id"] = "genesSmnDecoy"
     for e, u in units.items():
         if u.get("parent") and not u.get("id") and made.get(e):
             consts = (abilities.get(made[e]) or {}).get("constants") or {}
             cands = {consts[k] for k in ("unitId", "unitId_2") if consts.get(k) in summon_ids}
+            if not cands and ABILITY_SUMMONS.get(made[e]) in summon_ids:
+                cands = {ABILITY_SUMMONS[made[e]]}
             decoys = {c for c in cands if "Decoy" in c}
             if len(cands) == 2 and len(decoys) == 1:  # an ability that summons a decoy or a unit (the cult's Demagogue): the decoy has no health at all
                 cands = decoys if u.get("hp") == 0 else cands - decoys
@@ -317,8 +397,8 @@ def extract_map(board, cols, rows):
     oy = GEO["oy"] + (15 - vh) * hs / 2
     xs = [ox + R + (c + c0) * 1.5 * R for c in range(cols)]
     ys = [oy + (r0 - r + (0.5 if (c + c0) % 2 == 0 else 0)) * hs + hs / 2 for c in range(cols) for r in range(rows)]
-    m = 0.6 * R
-    box = [max(0, int(min(xs) - R - m)), max(0, int(min(ys) - hs / 2 - m)), min(2048, int(max(xs) + R + m) + 1), min(2048, int(max(ys) + hs / 2 + m) + 1)]
+    m, my = 0.6 * R, 1.9 * hs  # the machines of war have their platform above (the enemy's) and under (ours) the cells: room for them
+    box = [max(0, int(min(xs) - R - m)), max(0, int(min(ys) - hs / 2 - my)), min(2048, int(max(xs) + R + m) + 1), min(2048, int(max(ys) + hs / 2 + my) + 1)]
     pic = {"src": "replay-maps/" + name + ".webp", "x0": box[0], "y0": box[1], "w": box[2] - box[0], "h": box[3] - box[1], "c0": c0, "r0": r0, "R": R, "sy": sy, "ox": ox, "oy": oy}
     out = os.path.join(MAPS_DIR, name + ".webp")
     found = glob.glob(os.path.join(BUNDLES, name + "_texture_*.resource"))
@@ -377,6 +457,9 @@ def main():
         missing = sorted(i for i in ids if i not in data["art"])
         if missing:  # units without a portrait on the site: scripts/sync_npcs.py takes them from TacticusDB, sync_units.py from the Planner
             print("  pas de portrait pour :", ", ".join(missing))
+        lineup = game_units().get("lineup", {})  # each character's active ability (its named skill), shown under its health bar and spent when used
+        data["act"] = {i: lineup[i]["activeAbilities"] for i in sorted(ids) if lineup.get(i, {}).get("activeAbilities")}
+        data["abil"] = {n: "abilities/" + n + ".webp" for n in sorted({n for v in data["act"].values() for n in v}) if ability_icon(n)}
         if war:  # no boss, no API entry to match: the result and the day (from the file's name)
             m = re.search(r"-(\d+)\.(\d+)\.(\d+)-(\d{2})(\d{2})\.replay", os.path.basename(f))
             data["result"] = rp["BattleResult"].get("EndReason")
