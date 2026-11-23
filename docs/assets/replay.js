@@ -154,8 +154,9 @@
         (img ? '<clipPath id="cp' + e + '"><circle r="' + (r - 1.5).toFixed(1) + '"/></clipPath><image href="' + img + '" x="' + (-r).toFixed(1) + '" y="' + (-r).toFixed(1) + '" width="' + (2 * r).toFixed(1) + '" height="' +
           (2 * r).toFixed(1) + '" clip-path="url(#cp' + e + ')" preserveAspectRatio="xMidYMid slice"/>' : '<text y="4" text-anchor="middle" font-size="12" fill="' + col + '">' + (info.o === 0 ? "◆" : "✦") + "</text>") +
         '<circle class="tk-ring" r="' + (r + 3).toFixed(1) + '" fill="none"/></g>' +
-        '<g class="tk-bar" transform="translate(' + (-r).toFixed(1) + "," + (r + 3).toFixed(1) + ')"><rect width="' + (2 * r).toFixed(1) + '" height="4" rx="2" fill="#0b0e12"/><rect class="tk-hp" width="' + (2 * r).toFixed(1) +
-        '" height="4" rx="2" fill="#34d399"/></g>';
+        // the health bar sits inside the hexagon, over the bottom of the portrait: under the token it was hidden by the unit standing on the next cell
+        '<g class="tk-bar" transform="translate(' + (-r * 0.65).toFixed(1) + "," + (r * 0.5).toFixed(1) + ')"><rect width="' + (1.3 * r).toFixed(1) + '" height="6" rx="3" fill="#0b0e12" stroke="rgba(255,255,255,.4)" stroke-width="0.8"/>' +
+        '<rect class="tk-hp" x="1" y="1" width="' + (1.3 * r - 2).toFixed(1) + '" height="4" rx="2" fill="#34d399"/></g>';
       g.addEventListener("click", function (ev) {
         ev.stopPropagation();
         if (phone.matches) { sel = e; refreshSel(); return openUnit(e); }  // phones: a modal, like the other dialogs of the site
