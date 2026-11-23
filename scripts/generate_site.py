@@ -2858,6 +2858,30 @@ def load_replay_index():
         return {}
 
 
+def replay_meta_counts(rosters):
+    """(boss key, meta name) -> number of replays of raid attacks that ran that meta: the attack's team (heroes + machine of war) holds every Core unit the sheet lists for the
+    boss's meta; when several metas fit, the one with the most Core units (the most specific) gets it."""
+    index = load_replay_index()
+    if not index:
+        return {}
+    slots = {sl["key"]: sl for sl in medals_mod.slots()}
+    metas = {}
+    counts = defaultdict(int)
+    for entries in medals_mod.season_files().values():
+        for e in entries:
+            rid = index.get(f'{e.get("userId")}|{e.get("completedOn") or 0}')
+            key = medals_mod._medal_key(e)
+            if not rid or key not in slots:
+                continue
+            if key not in metas:
+                metas[key] = [(name, {uid for role, units in roles if role == "Core" for uid, _ in units}) for _avg, name, roles in rosters_mod.boss_metas(slots[key], rosters)]
+            team = {h["unitId"] for h in e.get("heroDetails") or []} | {(e.get("machineOfWarDetails") or {}).get("unitId")}
+            fits = [(len(core), name) for name, core in metas[key] if core and core <= team]
+            if fits:
+                counts[(key, max(fits)[1])] += 1
+    return dict(counts)
+
+
 BEST_ATTACKS = 20  # rows of the "Meilleures attaques" table of a Metas page (per map when a map is chosen)
 
 
@@ -2925,7 +2949,7 @@ def render_metas_page(all_wars):
     if not rosters:
         return
     os.makedirs(os.path.join(DOCS_DIR, "metas"), exist_ok=True)
-    html = render_page(nav_active="metas", page_kind="boss", title="Métas", asset_prefix="", body=rosters_mod.render_metas_index_body(rosters),
+    html = render_page(nav_active="metas", page_kind="boss", title="Métas", asset_prefix="", body=rosters_mod.render_metas_index_body(rosters, replay_meta_counts(rosters)),
                        back_link=raid_back(), title_class="hero-title", header_extra="", header_action="", v=ASSETS_VERSION)
     with open(os.path.join(DOCS_DIR, "metas.html"), "w", encoding="utf-8") as f:
         f.write(html)

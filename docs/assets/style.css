@@ -2938,3 +2938,7 @@ body[data-page="replay"]::before {
 .rp-btn { justify-content: center; }
 .rp-play { min-width: 6.8rem; }
 @media (max-width: 480px) { .rp-play { min-width: 0; } }
+
+/* Metas landing: the number of replays of each meta, on the meta's line */
+.mc-cards .boss-card li { grid-template-columns: 2.4rem 1fr auto; }
+.mc-rep { color: var(--accent); font-size: 0.75rem; white-space: nowrap; align-self: center; }

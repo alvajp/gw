@@ -1055,15 +1055,21 @@ def boss_metas(slot, rosters):
     return sorted(out, key=lambda c: -c[0])
 
 
-def render_metas_index_body(rosters):
+def render_metas_index_body(rosters, replay_counts=None):
     """Metas landing: the same small cards as the Records page (a boss and its primes on a line), each listing the names of the metas for that boss
     (with the icon that stands for the meta) and opening the detail page metas/<key>.html."""
     cards = ""
     for slot in medals_mod.slots():
         if " (" not in slot["name"]:
             cards += ("</div>" if cards else "") + '<div class="boss-group">'
+        replay_counts = replay_counts or {}
+
+        def n_replays(team):  # the replays of runs that used this meta, right of its name
+            n = replay_counts.get((slot["key"], team), 0)
+            return f'<span class="bp-val mc-rep" title="{n} replay{"s" if n > 1 else ""} disponible{"s" if n > 1 else ""}">▶ {n}</span>' if n else ""
+
         lines = "".join(
-            f'<li><span class="bp-rank">{_meta_icon(team, "").replace("meta-ico", "meta-ico mc-ico")}</span><span class="bp-name">{escape(team)}</span></li>'
+            f'<li><span class="bp-rank">{_meta_icon(team, "").replace("meta-ico", "meta-ico mc-ico")}</span><span class="bp-name">{escape(team)}</span>{n_replays(team)}</li>'
             for _, team, _ in boss_metas(slot, rosters)) or '<li class="bp-none">Pas de méta</li>'
         cards += (f'<a class="boss-card" href="metas/{slot["key"]}.html"><span class="boss-card-head"><img src="assets/{slot["art"]}" alt="">'
                   f'<b>{escape(slot["name"].split(" (")[0])}</b></span><ol>{lines}</ol></a>')
