@@ -105,9 +105,16 @@ def compose(unit, frame):
     return canvas.resize((SIZE, SIZE), Image.LANCZOS)
 
 
+# members that never appear in a war capture: their avatar as the player says it (member id -> (portrait unit, frame id)); a capture wins as soon as there is one
+MANUAL = {
+    "fa88f74f-f5d9-42ad-83cc-ad8a40cd7cd8": ("aelda_lhykhis_01", "frameOctober2026"),  # Erebus: Lhykhis, "War for Armageddon" frame
+    "421892f7-fd74-4a04-8fd1-e136f1b4de5d": ("tauta_farsight_01", "frameMythic01"),  # Arkkanan: Farsight, Mythic frame
+}
+
+
 def main():
     members = {r["uid"] for r in rosters_mod.load_rosters()}
-    seen = {}
+    seen = {uid: v for uid, v in MANUAL.items() if uid in members}
     for path in sorted(glob.glob(os.path.join(ROOT, "data", "wars", "war-vs-*.json"))):  # chronological: the latest capture wins
         def walk(o):
             if isinstance(o, dict):
