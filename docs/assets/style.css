@@ -2984,3 +2984,4 @@ body[data-page="replay"]::before {
 .rp-fxinfo-cont b { color: #4cd964; }
 .rp-fxinfo-target b, .rp-fxinfo-mark b { color: #ff7a7a; }
 .rp-board .rp-cell { cursor: default; }
+.rp-board .rp-cell.rp-cell-fx { cursor: pointer; }

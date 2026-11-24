@@ -155,7 +155,7 @@
     // ---- layout ----
     const player = names[d.user] || "";
     root.innerHTML =
-      '<div class="rp-main"><div class="rp-top"><a class="rp-back" href="' + (WAR ? "war.html" : "raid.html") + '">← ' + (WAR ? "War" : "Raid") + '</a><div class="rp-sum">' + (bossInfo.a ? '<img class="rp-boss" src="' + assets + bossInfo.a + '" alt="">' : "") +
+      '<div class="rp-main"><div class="rp-top"><a class="rp-back" href="' + base + (WAR ? "war.html" : "raid.html") + '">← ' + (WAR ? "War" : "Raid") + '</a><div class="rp-sum">' + (bossInfo.a ? '<img class="rp-boss" src="' + assets + bossInfo.a + '" alt="">' : "") +
       '<div><b>' + esc(bossInfo.n) + (d.lvl ? ' <span class="rp-lvl">' + esc(d.lvl) + "</span>" : "") + '</b><small>' + esc(player) + (player ? " · " : "") + (d.season ? "Saison " + d.season + " · " : "") +
       esc(String(d.map || "").replace(/^GB_/, "").replace(/_/g, " ")) + " · v" + esc(d.ver) + '</small></div></div>' +
       (WAR ? '<div class="rp-dmg"><b class="' + (d.result === "PlayerWon" ? "rp-win" : "rp-loss") + '">' + (d.result === "PlayerWon" ? "Victoire" : "Défaite") + "</b><small>" + esc(d.rec ? d.rec.split("-").reverse().join("/") : "") + "</small></div></div>"
@@ -321,6 +321,9 @@
           (f.k === "mark" ? "" : '<image href="' + assets + "tile-fx/" + f.k + '.webp" x="' + (x - z / 2).toFixed(1) + '" y="' + (y - z / 2).toFixed(1) + '" width="' + z.toFixed(1) + '" height="' + z.toFixed(1) + '" preserveAspectRatio="xMidYMid meet"/>') + "</g>";
       });
       $("rp-tfx").innerHTML = tl;
+      const fxCells = {};  // the hexes that carry an effect can be clicked (their tooltip): a pointer over them
+      Object.keys(s.tfx).forEach(function (id) { if (TFX[s.tfx[id].k]) fxCells[s.tfx[id].c[0] + "," + s.tfx[id].c[1]] = 1; });
+      $("rp-board").querySelectorAll(".rp-cell").forEach(function (p) { p.classList.toggle("rp-cell-fx", !!fxCells[p.dataset.c + "," + p.dataset.r]); });
       const au0 = step.a !== null && step.a !== undefined ? s.units[step.a] : null;
       const at0 = au0 && au0.alive !== false && au0.t.length ? centre(au0.t) : au0 && d.units[step.a].mow ? dock(d.units[step.a].o) : null;
       const targets = [];
