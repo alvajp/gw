@@ -1583,7 +1583,7 @@ body[data-guild="cabale"][data-page="home"] { --bg-img: url("bg/thousand-sons.we
   .rp-main { grid-template-columns: minmax(0, 1.5fr) minmax(17rem, 1fr); grid-template-areas: "board info" "board log"; }
 }
 @media (min-width: 1250px) {
-  .rp-main { grid-template-columns: clamp(22rem, 23vw, 40rem) minmax(0, 1fr) clamp(21rem, 22vw, 38rem); grid-template-areas: "top board log" "info board log"; align-items: stretch; }  /* the side panels grow with a big screen */
+  .rp-main { grid-template-columns: max(22rem, 30%) minmax(0, 1fr) max(21rem, 30%); grid-template-areas: "top board log" "info board log"; align-items: stretch; }  /* the side panels take 30 % of the width each (at least their old width), the board the rest */
   .rp-top { display: block; margin: 0; }
   .rp-dmg { text-align: left; margin-top: 0.55rem; }
   .rp-dmg b { font-size: 1.6rem; }
