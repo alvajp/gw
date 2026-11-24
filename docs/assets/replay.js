@@ -6,8 +6,9 @@
   const root = document.getElementById("rp");
   if (!root) return;
   const NS = "http://www.w3.org/2000/svg";
-  const assets = "assets/", data = "data/";
-  const id = location.hash.replace(/^#/, "");
+  const base = root.dataset.base || "";  // docs/r/<id>.html sits one folder down (data-base="../"), replay.html#<id> at the root
+  const assets = base + "assets/", data = base + "data/";
+  const id = location.hash.replace(/^#/, "") || ((location.pathname.match(/\/r\/([0-9a-f]{12})\.html$/) || [])[1] || "");
   const esc = function (s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); };
   const fmt = function (n) { return Number(n).toLocaleString("fr-FR"); };
   const ICO = function (d0) { return '<svg class="rp-ico" viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true">' + d0 + "</svg>"; };

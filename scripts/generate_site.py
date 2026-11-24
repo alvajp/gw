@@ -5,6 +5,7 @@ compute the ranking for each, and render the static site into docs/.
 Usage: python3 scripts/generate_site.py
 """
 import datetime
+import glob
 import json
 import math
 import os
@@ -388,7 +389,7 @@ PAGE_TEMPLATE = """<!doctype html>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230d1014'/%3E%3Cpath d='M16 6l8 10-8 10-8-10z' fill='%23{icon_color}'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="{asset_prefix}assets/style.css?v={v}">
-</head>
+{head_extra}</head>
 <body data-page="{page}" data-bg="{bg}" data-subrow="{subrow}" data-guild="{guild}">
 {topbar}
 <header><div class="breadcrumb" id="breadcrumb">{back_link}</div><div id="title-row">{title_icon}<h1 id="page-title" class="{title_class}">{title}</h1><div id="header-action">{header_action}</div></div><div id="header-extra">{header_extra}</div></header>
@@ -512,6 +513,7 @@ def render_page(nav_active="ranking", **kw):
     kw["subrow"] = "1" if NAV_SECTION.get(nav_active, "war") in ("raid", "war") else "0"  # does the topbar have its second row?
     kw["page"] = kw.pop("page_kind", nav_active)  # data-page of <body> (CSS hooks); defaults to the menu entry
     kw.setdefault("title_icon", "")  # optional icon left of the title (boss pages)
+    kw.setdefault("head_extra", "")  # extra <head> lines (the link preview of a replay page)
     kw.setdefault("icon_color", "f2b134" if GUILD == "ljp" else "d77bff")  # the favicon's diamond: the guild's accent colour
     kw.setdefault("guild", GUILD)  # data-guild of <body>: the colour theme (style.css) and the profile's storage (profile.js)
     kw.setdefault("bg", "")  # Joueurs pages: which event banner (0-3) sits behind the page, see style.css
@@ -2946,7 +2948,7 @@ def best_attacks_html(key, attacks, names, members, unit_names, prefix, metas=()
     body = ""
     for rel, season, a in rows:
         rid = a["_rid"]  # the play mark links to replay.html (the cell still opens the season's attacks elsewhere)
-        play = f'<a class="atk-playlink" href="{prefix}replay.html#{rid}" title="Voir le replay"><span class="atk-playmark" aria-label="Replay disponible">▶</span></a>' if rid else ""
+        play = f'<a class="atk-playlink" href="{prefix}r/{rid}.html" title="Voir le replay"><span class="atk-playmark" aria-label="Replay disponible">▶</span></a>' if rid else ""
         team = "".join(unit(h) for h in a["heroes"]) + (unit(a["mow"], " atk-mow") if a["mow"] else "")
         kind_cls = " atk-os" if a["kind"] == "OS" else ""
         dmg = f"{a['dmg']:,}".replace(",", "\u202f")  # thin spaces between the thousands
@@ -3210,6 +3212,44 @@ def render_replay_page():
     print("Generated replay.html")
 
 
+SITE_URL = "https://alvajp.github.io/gw/"  # the published site: a link preview (Open Graph) needs absolute addresses
+
+
+def render_replay_pages():
+    """docs/r/<id>.html, one page per replay (scripts/replays.py): the same player as replay.html, but at an address of its own, with <meta> tags (Open Graph / Twitter) that make
+    Discord & co preview the link: the picture of the run (docs/assets/replay-cards/<id>.jpg, scripts/replay_cards.py) and a line saying who, the damage, the season and the level.
+    The pages of the shared links (a chat does not run the page, so a #fragment could not name the replay)."""
+    if GUILD != "ljp":
+        return
+    import replay_cards
+    names = {r["uid"]: r["name"] for r in rosters_mod.load_rosters()}
+    bosses = {sl["key"]: sl["name"] for sl in medals_mod.slots()}
+    os.makedirs(os.path.join(DOCS_DIR, "r"), exist_ok=True)
+    names_json = json.dumps(names, ensure_ascii=False).replace("<", chr(92) + "u003c")
+    n = 0
+    for path in sorted(glob.glob(os.path.join(DOCS_DIR, "data", "replays", "*.json"))):
+        rid = os.path.basename(path)[:-5]
+        with open(path, encoding="utf-8") as f:
+            d = json.load(f)
+        title, desc, _lines = replay_cards.summary(d, names.get(d.get("user"), "Joueur"), bosses.get(d.get("key"), "Raid"), medals_mod.map_label(d.get("map")))
+        url, img = f"{SITE_URL}r/{rid}.html", f"{SITE_URL}assets/replay-cards/{rid}.jpg"
+        has_img = os.path.exists(os.path.join(DOCS_DIR, "assets", "replay-cards", rid + ".jpg"))
+        meta = [("og:type", "website"), ("og:site_name", "Les Joyeux Psychos"), ("og:title", title), ("og:description", desc), ("og:url", url)]
+        if has_img:
+            meta += [("og:image", img), ("og:image:width", "1200"), ("og:image:height", "630")]
+        tags = "".join(f'<meta property="{k}" content="{html_escape(v)}">\n' for k, v in meta)
+        tags += f'<meta name="twitter:card" content="{"summary_large_image" if has_img else "summary"}">\n<meta name="description" content="{html_escape(desc)}">\n<meta name="theme-color" content="#f2b134">\n'
+        body = ('<div class="rp" id="rp" data-base="../"><p class="mnone">Chargement du replay…</p></div>'
+                f'<script type="application/json" id="rp-names">{names_json}</script>'
+                f'<script src="../assets/replay.js?v={ASSETS_VERSION}"></script>')
+        html = render_page(nav_active="raid", page_kind="replay", title=html_escape(title), asset_prefix="../", body=body, back_link=back_link_html("../raid.html", "Raid"),
+                           title_class="hero-title", header_extra="", header_action="", v=ASSETS_VERSION, head_extra=tags)
+        with open(os.path.join(DOCS_DIR, "r", rid + ".html"), "w", encoding="utf-8") as f:
+            f.write(html)
+        n += 1
+    print(f"Generated {n} replay page(s) (r/<id>.html)")
+
+
 def render_players_pages(war_rank=None, raid_rank=None, medals=None, badges=None):
     """docs/joueurs.html (member list) + docs/joueurs/<id>.html (one roster each),
     from the API payloads in data/rosters/ (see fetch_rosters.py). Skipped when there are none."""
@@ -3343,6 +3383,7 @@ def main():
     render_profile_page()
     render_next_season_page()
     render_replay_page()
+    render_replay_pages()
     render_raid_pages(all_wars)
     render_boss_pages(all_wars)
     render_metas_page(all_wars)

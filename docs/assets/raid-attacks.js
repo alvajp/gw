@@ -50,11 +50,11 @@
       dlg.addEventListener("click", function (e) {
         if (e.target === dlg || e.target.closest(".dm-close")) return dlg.close();  // the backdrop is the dialog itself
         const tr = e.target.closest("tr[data-replay]");
-        if (tr) location.href = assets.slice(0, -7) + "replay.html#" + tr.dataset.replay;
+        if (tr) location.href = assets.slice(0, -7) + "r/" + tr.dataset.replay + ".html";
       });
       dlg.addEventListener("keydown", function (e) {
         const tr = e.key === "Enter" && e.target.closest && e.target.closest("tr[data-replay]");
-        if (tr) location.href = assets.slice(0, -7) + "replay.html#" + tr.dataset.replay;
+        if (tr) location.href = assets.slice(0, -7) + "r/" + tr.dataset.replay + ".html";
       });
       dlg.addEventListener("close", function () { dlg.remove(); });
       document.body.appendChild(dlg);
