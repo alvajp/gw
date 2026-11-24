@@ -1542,7 +1542,7 @@
       if (!o || !o.ok || (u.acted && !toggle) || (o.ab && (fxOn(u, "stun") || !abReady(u, o.ab)))) return out;  // a stunned unit cannot use its active abilities
       const wp = u.rules.wp && u.rules.wp.length ? u.rules.wp : [[1, "Physical", 1]], adj = nextTo(u), sp = o.ab && CULT[o.ab[0]];
       if (sp && sp.noAdj && adj) return out;  // Sentinel Directives cannot be used with an enemy next to Sy-Gex
-      if (sp && sp.needDist && !foes(u).some(function (e) { return RULES.dist(u.t, e.t) === sp.needDist; })) return out;
+      if (sp && sp.needDist && !foes(u).some(function (e) { return RULES.dist(u.t, e.t) <= sp.needDist; })) return out;
       if (sp && sp.unmoved && u.moves > 0) return out;  // the Winged Prime summons only if he has not moved
       if (sp && sp.psyAlly) {  // Sorcerous Facade: an allied psyker anywhere; usable only if Yazaghor can hit an enemy with a normal attack
         if (!targetsOf(u, { id: "atk", ok: true }).some(function (x) { return x.dmg > 0; })) return out;
@@ -2103,7 +2103,7 @@
     const hasBeats = function (m) {
       if (!m) return false;
       const recs = (m.auto || []).concat(m.autoNow || []).concat(m.react || []).concat(m.trig || []);
-      const extra = (m.more || []).length + (m.adds || []).filter(function (a) { return !a.decoy; }).length + recs.length + (m.booms || []).length + (m.regen || []).filter(function (r) { return r.amt > 0; }).length + (m.heals || []).length;
+      const extra = (m.more || []).length + (m.adds || []).filter(function (a) { return !a.decoy; }).length + recs.length + (m.guards || []).length + (m.booms || []).length + (m.regen || []).filter(function (r) { return r.amt > 0; }).length + (m.heals || []).length;
       return m.k === "atk" ? extra > 0 && (m.dmg > 0 || extra > 1) : extra > 1;
     };
     function overkillFx(list) {  // "Overkill" in red rises from the centre of the avatar of a unit that is exterminated, and fades, like the states that fly off
@@ -2153,17 +2153,32 @@
       frame(function () { frame(function () { svgBox.classList.remove("sb-notrans"); }); });  // two frames later the beats move and fade normally
       const beats = [];
       const add = function (fn) { beats.push(fn); };
+      // a guard (Celestine's Geminae, Kell ...) comes in, then takes the hit in the place of its owner: one beat each, the owner only keeps what the guards did not take
+      const strikeBeat = function (by, tgt, dmg, gl) {
+        const ents = (gl || []).filter(function (e) { return e.from === tgt && e.g && e.g !== tgt; });
+        let rest = dmg;
+        ents.forEach(function (e) {
+          if (e.fresh) add(function () {
+            const g = e.g; if (g.t) place(g, g.t); show(g, true); hp[g.i] = g.max; bar(g);
+            if (e.from.guardSwap && e.from.t) place(e.from, e.from.t);  // Kell and Creed swap hexes
+            if (g.g) { g.g.classList.add("tk-new"); setTimeout(function () { g.g.classList.remove("tk-new"); }, 500); }
+          });
+          const d = e.dmg !== undefined ? e.dmg : dmg;
+          if (e.hit && d > 0) { rest -= d; add(function () { hit(by, e.g, d); }); }
+        });
+        if (rest > 0) add(function () { hit(by, tgt, rest); });
+      };
       (m.moves || []).forEach(function (mv) { add(function () { place(mv.u, mv.to); }); });  // the moves of the action (a charge, a pull, a swap)
-      if (m.k === "atk" && m.tgt && m.tgt !== m.u && m.dmg > 0) add(function () { hit(m.u, m.tgt, m.dmg); });
-      (m.more || []).forEach(function (x) { add(function () { hit(x.by || m.u, x.tgt, x.dmg); }); });
+      if (m.k === "atk" && m.tgt && m.tgt !== m.u) strikeBeat(m.u, m.tgt, m.dmg > 0 ? m.dmg : 0, m.guards);
+      (m.more || []).forEach(function (x) { strikeBeat(x.by || m.u, x.tgt, x.dmg, m.guards); });
       (m.adds || []).filter(function (a) { return !a.decoy; }).forEach(function (a) { add(function () { if (a.t) place(a, a.t); show(a, a.alive); if (a.g) { a.g.classList.add("tk-new"); setTimeout(function () { a.g.classList.remove("tk-new"); }, 500); } hp[a.i] = a.max; bar(a); }); });
       (m.heals || []).forEach(function (h) { add(function () { healed(h.u, h.amt); }); });
       const recs = (m.react || []).concat(m.trig || []).concat(m.auto || []).concat(m.autoNow || []);
       recs.forEach(function (r) {
         if (r.u && r.u.alive !== undefined && pre[r.u.i] && !pre[r.u.i].alive && r.u.alive) add(function () { if (r.u.t) place(r.u, r.u.t); show(r.u, true); hp[r.u.i] = r.u.max; bar(r.u); });  // a unit that comes in to play
         if (r.to) add(function () { place(r.u, r.to); });
-        if (r.tgt && r.dmg > 0) add(function () { hit(r.u, r.tgt, r.dmg); });
-        (r.more || []).forEach(function (x) { add(function () { hit(x.by || r.u, x.tgt, x.dmg); }); });
+        if (r.tgt && r.dmg > 0) strikeBeat(r.u, r.tgt, r.dmg, r.guards);
+        (r.more || []).forEach(function (x) { strikeBeat(x.by || r.u, x.tgt, x.dmg, r.guards); });
       });
       (m.booms || []).forEach(function (x) { add(function () { hit(x.from, x.tgt, x.dmg); }); });
       (m.regen || []).filter(function (r) { return r.amt > 0 && !r.shield && !r.shielded && !r.spawn && !r.revive && !r.flee; }).forEach(function (r) { add(function () { healed(r.u, r.amt); }); });
@@ -2420,7 +2435,7 @@
         return out;
       },
       ProclivityForMurder: function (u, o, t, v) { return foes(u).filter(function (e) { return e !== t && RULES.dist(u.t, e.t) === 1; }).map(function (e) { return mh(u, e, avgOf(v, ""), o.ab[5], nI(v.nrOfHits, 3), o.name); }); },
-      GauntletsOfUltramar: function (u, o, t, v) { return foes(u).filter(function (e) { return RULES.dist(u.t, e.t) === 2; }).map(function (e) { return mh(u, e, avgOf(v, ""), o.ab[5], nI(v.nrOfHits_2, 1), o.name); }); },  // everyone at distance 2
+      GauntletsOfUltramar: function (u, o, t, v) { return foes(u).filter(function (e) { return RULES.dist(u.t, e.t) <= 2; }).map(function (e) { return mh(u, e, avgOf(v, ""), o.ab[5], nI(v.nrOfHits_2, 1) + (RULES.dist(u.t, e.t) === 1 ? 1 : 0), o.name); }); },  // every enemy within 2 hexes, one more hit on the surrounding (adjacent) ones
     };
     // abilities that hit along a straight line in one of the 6 directions: its length, and whether it hits allies too
     const LINE = {
@@ -3134,10 +3149,10 @@
     // target) and attacks; one that cannot hit anything walks toward the nearest enemy; then the turn ends. The summons already play by themselves at the start of the turn. ----
     let autoRun = false;
     const autoLabel = function () { const b = $("sb-auto"); b.textContent = autoRun ? "Stop" : "Auto"; b.disabled = !autoRun && active !== 1; };
-    // The choice of a character (the summons' way, with the actives first): what it can do, from every hex it can reach: an overkill (the target is exterminated) first, then a kill, then an active ability
-    // before a normal attack, then the most damage; among the hexes that give the same hit: its guard in place, no razor wire, the help of an ally's ability, the highest ground, tall grass, the shortest walk.
+    // The choice of a character (the summons' way, with the actives first): what it can do, from every hex it can reach: an active ability first (the character walks, then uses it as soon as it can; Mephiston and Judh
+    // may not in round 1), then an overkill (the target is exterminated), then a kill, then the most damage; among the hexes that give the same hit: its guard in place, no razor wire, the help of an ally's ability, the highest ground, tall grass, the shortest walk.
     const planFor = function (u) {
-      const opts = options(u).filter(function (o) { return o.ok && !(o.ab && o.ab[2] !== "a"); });
+      const opts = options(u).filter(function (o) { return o.ok && !(o.ab && o.ab[2] !== "a") && !(round <= 1 && o.ab && (o.ab[0] === "TheQuickening" || o.ab[0] === "HeroicFusillade")); });  // Mephiston and Judh may not use their active in round 1 (a deliberate nerf of the game's AI)
       const reach = u.mow ? { cur: 0 } : stepsOf(u, budget(u)), saved = { spent: u.spent, moves: u.moves };
       let best = null;
       Object.keys(reach).forEach(function (key) {
@@ -3152,7 +3167,7 @@
               if (!(r.dmg > 0) || r.heal || r.u.side === u.side) return;
               const over = r.dmg - r.u.hp >= r.u.max ? 1 : 0, kill = healthAfter(r.u, r.dmg) <= 0 ? 1 : 0;
               const wire = c && c.tile === "Swamp" && !u.rules.us && !u.rules.fl ? 0 : 1, grass = c && c.tile === "DryBush" && !u.tset.BigTarget ? 1 : 0;
-              const rank = [over, kill, o.ab ? 1 : 0, Math.round(r.dmg), here.guard, wire, here.buff, c ? c.el || 0 : 0, grass, -k0];
+              const rank = [o.ab ? 1 : 0, over, kill, Math.round(r.dmg), here.guard, wire, here.buff, c ? c.el || 0 : 0, grass, -k0];
               let better = !best;
               if (best) for (let i2 = 0; i2 < rank.length; i2++) if (rank[i2] !== best.rank[i2]) { better = rank[i2] > best.rank[i2]; break; }
               if (better) best = { h: h, k0: k0, o: o, t: r.u, rank: rank };
@@ -3256,7 +3271,11 @@
         preActives(u); useUtility(u);
         const plan = u.acted ? null : planFor(u);
         if (plan) {
-          if (plan.h && plan.k0 > 0) push({ k: "mv", u: u, from: u.t.slice(), to: plan.h, cost: plan.k0, tp: false, tpm: false });
+          if (plan.h && plan.k0 > 0) {  // the walk first, and the attack once the character has arrived (the attack's beats redraw the board without transitions: played at once they would cut the walk short)
+            push({ k: "mv", u: u, from: u.t.slice(), to: plan.h, cost: plan.k0, tp: false, tpm: false });
+            setTimeout(function () { if (!autoRun) return; strike(u, plan.o, plan.t); setTimeout(next, 450 / speed); }, 480 / speed);
+            return;
+          }
           strike(u, plan.o, plan.t);
         } else if (!u.acted) walkToward(u);
         setTimeout(next, 450 / speed);
