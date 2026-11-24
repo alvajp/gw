@@ -917,8 +917,8 @@
           const now = (m.also || []).filter(function (a) { return a.alive && a !== m.u; }).map(function (a) { a.acted = false; a.spent = 0; return a; }).concat((m.adds || []).filter(function (a) { return a.immediate && !a.decoy; }));
           m.autoNow = now.map(function (a) { if (a.seq) { if (!m.force || !m.force.alive) return null; place(a); } return playSummon(a, m.force); }).filter(Boolean);
           m.autoNow.forEach(function (r) { if (r.u.grotTaunt && r.tgt && r.tgt.alive) r.tgt.fx.taunt = { id: "taunt", taunt: r.u, until: stunUntil(r.tgt), v: {} }; });  // the enemies a Grot hit are taunted for a round
-          if ((m.moves || []).some(function (x) { return x.u === m.u; }) && m.u.alive && !m.noAfter) afterMove(m.u);  // it moved by its ability (Quickening, a charge ...): the "after the move" passives fire
           m.react = (m.moves || []).some(function (x) { return x.u === m.u; }) && m.u.alive && m.abId !== "TheQuickening" ? owReact(m.u) : [];  // (L'Accélération sets off no Sentinelle)  // a charge or a dash ends next to someone who watches  // they take their turn at once (the summoned ones, and the others the ability orders to play)
+          if ((m.moves || []).some(function (x) { return x.u === m.u; }) && m.u.alive && !m.noAfter) afterMove(m.u);  // it moved by its ability (a charge, a dash ...): the "after the move" passives fire, once the Sentinels have shot (a unit they kill does not trigger its secondary)
         } else {  // end of turn: the other side plays
           field.forEach(function (x) { if (x.side === active) { x.ds = false; x.lastSpent = x.spent; } });
           field.forEach(function (x) {  // Sentinelle: a unit that did not attack this turn (Re'vas: when she says so; Sekhetar: next to a psyker) watches the enemy turn
