@@ -1273,6 +1273,9 @@ tr[data-href]:focus-visible > td:first-child,
 .defense-table tbody tr[data-attacks]:hover > td:first-child,
 .attacks-table tbody tr[data-pl-img]:hover > td:first-child { box-shadow: inset 3px 0 0 var(--accent), inset 0 0 0 100vmax color-mix(in srgb, var(--accent) 12%, transparent); }
 tr[data-href]:focus-visible { outline: none; }
+[data-pl-img],
+.sim-table tbody tr,
+.sim-preview .pl-board[data-sb] { cursor: pointer; }  /* every attack that opens the simulation board */
 .dm-row[data-pl-img]:hover { filter: none; background: color-mix(in srgb, var(--accent) 9%, var(--table-header-bg)); box-shadow: inset 3px 0 0 var(--accent); }
 .defense-table tbody tr[data-attacks]:hover td,
 .attacks-table tbody tr[data-pl-img]:hover td { filter: none; }
@@ -3119,7 +3122,7 @@ button.sim-row[aria-pressed="true"] { border-color: var(--accent); background: c
 .sim-lv-text { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.2; }
 .sim-lv-text b { font-size: 0.95rem; font-weight: 700; }
 .sim-lv-text small { font-size: 0.7rem; }
-.sim-preview .pl-board { cursor: zoom-in; }
+.sim-preview .pl-board { cursor: pointer; }
 .sim-others { margin-top: 0.8rem; }
 .sim-others > summary { cursor: pointer; padding: 0.55rem 0.8rem; border: 1px dashed var(--border); border-radius: var(--radius-sm); color: var(--text-muted); font-weight: 600; font-size: 0.9rem; list-style: none; }
 .sim-others > summary::-webkit-details-marker { display: none; }
