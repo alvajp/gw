@@ -3033,5 +3033,6 @@ body[data-page="replay"]::before {
   .opp-chip:not([data-boss=""]) { flex: none; }
 }
 @media (min-width: 1300px) {
-  .opp-section { max-width: 66rem; margin-left: auto; margin-right: auto; }  /* like the Saisons page: a centred column, the anchors sit in the margin at its left */
+  /* like the Saisons page: a centred column, the anchors sit in the margin at its left; on a narrower window the column keeps at least the anchors' width + a gap (9rem) at its left */
+  .opp-section { width: min(66rem, calc(100% - 9rem)); margin-left: max(9rem, calc((100% - 66rem) / 2)); margin-right: 0; }
 }
