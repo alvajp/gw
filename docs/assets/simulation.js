@@ -38,7 +38,7 @@
   const count = {};
   rows.forEach(function (r) { count[r[0]] = (count[r[0]] || 0) + 1; });
   $("sim-map").querySelector(".sim-maps").innerHTML = D.m.map(function (m, i) { return [i, m]; }).filter(function (x) { return count[x[0]]; }).sort(function (a, b) { return count[b[0]] - count[a[0]]; }).map(function (x) {
-    return '<button type="button" class="map-chip sim-map-chip" data-map="' + x[0] + '" aria-pressed="false"><img class="map-chip-img" src="' + esc(x[1][2]) + '" alt="" loading="lazy"><span>' + esc(x[1][1]) + "</span><small>" + pl(count[x[0]], "combat", "combats") + "</small></button>";
+    return '<button type="button" class="map-chip sim-map-chip" data-map="' + x[0] + '" aria-pressed="false"><span class="sim-map-art"><img class="map-chip-img" src="' + esc(x[1][2]) + '" alt="" loading="lazy"></span><span>' + esc(x[1][1]) + "</span><small>" + pl(count[x[0]], "combat", "combats") + "</small></button>";
   }).join("");
 
   // ---- 2. levels of the chosen map ----
