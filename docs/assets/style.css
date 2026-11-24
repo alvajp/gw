@@ -3007,12 +3007,8 @@ body[data-page="replay"]::before {
 .zt-rare { --zc: #c4c6ca; }
 .zone-text b { display: inline-flex; align-items: center; }
 
-/* an attack / defense line: each of its five units carries the hexagonal rarity badge (M / L / E / R) of its slot, like in the game */
-.uw { position: relative; display: inline-block; vertical-align: middle; margin-right: 3px; line-height: 0; }
-.uw .unit { margin-right: 0 !important; display: block; }
-.rh { position: absolute; right: -4px; bottom: -3px; width: 0.95rem; height: 0.95rem; display: flex; align-items: center; justify-content: center; font: 700 0.5rem/1 var(--font, system-ui), sans-serif; font-style: normal; color: #fff; text-shadow: 0 0 2px #000; background: center / contain no-repeat; pointer-events: none; }
+/* an attack / defense line: one hexagonal badge at its start, the zone's level (M = Hero, L = Elite, R = Veteran): the game's bright hexagon in the colour of the rarity, white letter */
+.rh { display: inline-flex; align-items: center; justify-content: center; width: 1.45rem; height: 1.45rem; margin-right: 0.45rem; vertical-align: middle; font: 800 0.82rem/1 system-ui, sans-serif; font-style: normal; color: #fff; -webkit-text-stroke: 0.14rem #000; paint-order: stroke fill; background: center / contain no-repeat; flex: none; }
 .rh-mythic { background-image: url("ui/rh_mythic.webp"); }
 .rh-legendary { background-image: url("ui/rh_legendary.webp"); }
-.rh-epic { background-image: url("ui/rh_epic.webp"); }
 .rh-rare { background-image: url("ui/rh_rare.webp"); }
-.dm-comp .rh, .dm-def-comp .rh { width: 1.1rem; height: 1.1rem; font-size: 0.58rem; }
