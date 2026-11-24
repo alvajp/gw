@@ -2604,7 +2604,7 @@ def render_strategy_index(all_wars):
     body = opp_html + _defense_modal_html(opp_events, opp_players, "")
     html = render_page(
         nav_active="strategy", page_kind="strategy", title="Attaques", asset_prefix="", body=body, back_link=back_link_html("war.html", "War"),
-        title_class="hero-title", header_extra="", header_action=f'<a class="strategy-btn" href="simulation.html">Simulation{ARROW_RIGHT}</a>', v=ASSETS_VERSION, bg="deathguard-plague",
+        title_class="hero-title", header_extra="", header_action=f'<a class="ns-switch" href="simulation.html">Simulation{ARROW_RIGHT}</a>', v=ASSETS_VERSION, bg="deathguard-plague",
     )
     with open(os.path.join(DOCS_DIR, "strategie.html"), "w", encoding="utf-8") as f:
         f.write(html)
@@ -2615,9 +2615,10 @@ SIM_TIERS = [("hero", "Héros", "m"), ("elite", "Élite", "l"), ("veteran", "Vé
 
 
 def build_simulation_data(all_wars):
-    """Every attack of ours (against an opponent's defense line), compactly, for the Simulation page: [map, level, defense units (sorted), defense MoW, our units, our MoW,
-    outcome (w / f / x), score, war, line rarity]. The lookup tables (units, maps, wars) are indexed by the rows."""
-    units, maps, wars, rows = {}, {}, {}, []
+    """Every attack of ours and of the opponents of the Attaques page (the combined guilds), compactly, for the Simulation page: [map, level, defense units (sorted), defense MoW,
+    attacking units, attacking MoW, outcome (w / f / x), score, war, line rarity, defense units in lineup order, attacker, attacker's guild]. The lookup tables (units, maps, wars,
+    players, guilds) are indexed by the rows."""
+    units, maps, wars, players, guilds, rows = {}, {}, {}, {}, {}, []
 
     def idx(table, key):
         if key not in table:
@@ -2632,8 +2633,11 @@ def build_simulation_data(all_wars):
             continue
         war_tag = f'S{w["season"]} G{w["war_number"]}' if w.get("war_number") else f'S{w["season"]}'
         for e in result["battle_events"]:
-            if not e.get("defender") or e["team"] != our_idx:
+            if not e.get("defender"):
                 continue
+            guild = OUR_GUILD_LABEL if e["team"] == our_idx else result["guilds"][e["team"]]["name"]
+            if e["team"] != our_idx and not _is_combined_opponent(guild):
+                continue  # the guilds of the Attaques page: ours and the combined opponents
             board = boards.get(e["zone"])
             level = ZONE_TIER_KEY.get(ZONE_LABELS.get(e["zone"], e["zone"]))
             if not board or board not in MAPS_DB or not level or not e["units"] or not e["att_units"]:
@@ -2643,17 +2647,20 @@ def build_simulation_data(all_wars):
                 sorted(idx(units, u) for u in e["units"]), idx(units, e["mow"]) if e["mow"] else -1,
                 [idx(units, u) for u in e["att_units"]], idx(units, e["att_mow"]) if e["att_mow"] else -1,
                 {"win": "w", "finish": "f", "fail": "x"}.get(e["tier"], "u"), round(e["adj"]), idx(wars, war_tag), e.get("rar", ""),
+                [idx(units, u) for u in e["units"]],
+                idx(players, result["players"].get(e["uid"], {}).get("displayName", e["uid"])), idx(guilds, guild),
             ])
     return {
         "u": [[UNITS_DB[u]["name"], UNITS_DB[u]["image"]] if u in UNITS_DB else [u, ""] for u in units],
         "m": [[b, MAPS_DB[b]["name"], MAPS_DB[b]["image"]] for b in maps],
-        "w": list(wars), "t": [[k, name, badge] for k, name, badge in SIM_TIERS], "r": rows,
+        "w": list(wars), "p": list(players), "g": list(guilds), "t": [[k, name, badge] for k, name, badge in SIM_TIERS], "r": rows,
     }
 
 
 def render_simulation_page(all_wars):
     """docs/simulation.html (button next to the title of the Attaques page): pick a map and a level, pick the defense to face among the ones met most often over every
-    captured war, and get the teams that beat it (or the closest defenses) -- all computed in the page (simulation.js) from the compact blob of build_simulation_data."""
+    captured war, and get the attacks that beat it (ours and the Attaques page's guilds'), best score first, with a preview of the map -- all computed in the page (simulation.js)
+    from the compact blob of build_simulation_data."""
     data = build_simulation_data(all_wars)
     if not data["r"]:
         return
@@ -2662,7 +2669,8 @@ def render_simulation_page(all_wars):
         '<div id="sim" class="sim"><section class="sim-step" id="sim-map"><h2><span class="sim-n">1</span>Map</h2><div class="sim-maps"></div></section>'
         '<section class="sim-step" id="sim-level" hidden><h2><span class="sim-n">2</span>Niveau</h2><div class="sim-levels"></div></section>'
         '<section class="sim-step" id="sim-def" hidden><h2><span class="sim-n">3</span>Défense à affronter</h2><p class="sim-hint"></p><div class="sim-list"></div></section>'
-        '<section class="sim-step" id="sim-atk" hidden><h2><span class="sim-n">4</span>Équipe conseillée</h2><p class="sim-hint"></p><div class="sim-list"></div></section></div>'
+        '<section class="sim-step" id="sim-atk" hidden><h2><span class="sim-n">4</span>Équipe conseillée</h2><p class="sim-hint"></p>'
+        '<div class="sim-atk-grid"><div class="sim-list"></div><aside class="sim-preview" aria-label="Aperçu de la map"></aside></div></section></div>'
         + blob + f'<script src="assets/simulation.js?v={ASSETS_VERSION}"></script>'
     )
     html = render_page(
@@ -3176,7 +3184,7 @@ NEXT_STAGES = ("M3", "M2", "M1", "L5", "L4")  # the order of the page: the harde
 
 
 def render_next_season_page():
-    """docs/saison-prochaine.html: the season in progress (the title, "Saison en cours") and, behind the button at the right of the title, the next one ("Saison prochaine").
+    """docs/saison-prochaine.html: the season in progress (the title, "Saison 114") and, behind the button at the right of the title, the next one ("Saison 115").
     Each view shows the five bosses of that raid season (data/raid_maps.json), each with its two primes' maps around the boss's bigger map, the metas of each (and their units)
     at the bottom of its card, then the members' completion of the boss's best meta (and of its primes') under the maps, best first.
     Chips (the boss's map with its logo in the middle): anchors stacked at the left and sticky on big screens (they scroll to each boss), a radio-like filter on small and medium ones (saison-prochaine.js)."""
@@ -3254,13 +3262,13 @@ def render_next_season_page():
         return (f'<div class="ns-view" id="ns-{vid}" data-view="{vid}" data-title="{html_escape(title)}" data-season="{season}"{" hidden" if hidden else ""}>'
                 f'<nav class="map-filter ns-filter" aria-label="Aller à un boss">{chips}</nav>{sections}</div>')
 
-    body = view(current, "cur", "Saison en cours", False)
+    body = view(current, "cur", f"Saison {current}", False)
     action = ""
     if upcoming is not None:
-        body += view(upcoming, "next", "Saison prochaine", True)
+        body += view(upcoming, "next", f"Saison {upcoming}", True)
         action = '<button type="button" class="ns-switch" id="ns-switch" data-cur="Prochaine" data-next="En cours" aria-controls="ns-cur ns-next">Prochaine<svg class="arrow" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg></button>'
     body += f'<script src="assets/saison-prochaine.js?v={ASSETS_VERSION}"></script>'
-    html = render_page(nav_active="next", page_kind="boss", title="Saison en cours", asset_prefix="", body=body,
+    html = render_page(nav_active="next", page_kind="boss", title=f"Saison {current}", asset_prefix="", body=body,
                        back_link=raid_back(), title_class="hero-title", header_extra="", header_action=action, v=ASSETS_VERSION)
     with open(os.path.join(DOCS_DIR, "saison-prochaine.html"), "w", encoding="utf-8") as f:
         f.write(html)

@@ -1,7 +1,7 @@
 // Simulation (opened from the Attaques page): 1. a map, 2. its level (Héros / Élite / Vétéran), 3. the defense to face -- the defenses met most often on that map at that level, over
 // every captured war --, 4. the team to use: the teams of ours that already beat that defense (or, failing that, the closest defenses and the best teams on the map).
 // All of it is computed here from the compact rows of #sim-data (scripts/generate_site.build_simulation_data): [map, level, defense units, defense MoW, our units, our MoW, outcome,
-// score, war, line rarity].
+// score, war, line rarity, defense units in lineup order, attacker, attacker's guild].
 (function () {
   const el = document.getElementById("sim-data");
   if (!el) return;
@@ -64,32 +64,53 @@
     shown("sim-atk", false);
   }
 
-  // ---- 4. what to play against it ----
-  function attacks() {
-    const here = rows.filter(function (r) { return r[0] === map && r[1] === level; });
-    const exact = here.filter(function (r) { return dkey(r) === defKey; });
-    const mine = exact[0][2];
-    const near = here.filter(function (r) {
-      if (dkey(r) === defKey) return false;
-      const common = r[2].filter(function (u) { return mine.indexOf(u) >= 0; }).length;
-      return common >= 4;
+  // ---- 4. what to play against it: the attacks that worked (ours and the Attaques page's guilds'), best score first, and a preview of the map for the one picked ----
+  let shownRows = [], slotsPromise = null;
+  const slotsOf = function () {
+    return slotsPromise || (slotsPromise = fetch("assets/slots.json").then(function (r) { return r.json(); }).catch(function () { return {}; }));
+  };
+  function preview(i) {
+    const r = shownRows[i], box = document.querySelector("#sim-atk .sim-preview");
+    if (!r || !box) return;
+    document.querySelectorAll("#sim-atk .sim-table tbody tr").forEach(function (tr) { tr.classList.toggle("is-picked", +tr.dataset.i === i); });
+    const img = D.m[map][2], id = (img.match(/([^\/]+)\.webp/) || [])[1];
+    slotsOf().then(function (all) {
+      const slot = all[id], size = all.size || 480;
+      const at = function (xy) { return "left:" + (xy[0] / size * 100).toFixed(2) + "%;top:" + (xy[1] / size * 100).toFixed(2) + "%"; };
+      const place = function (ids, side, cls) {
+        return ids.map(function (u, k) {
+          const xy = slot && slot[side][k], d = D.u[u];
+          return xy && d && d[1] ? '<img class="pl-unit ' + cls + '" style="' + at(xy) + '" src="' + esc(d[1]) + '" alt="' + esc(d[0]) + '" title="' + esc(d[0]) + '" draggable="false">' : "";
+        }).join("");
+      };
+      box.innerHTML = '<div class="sim-pv-head"><b>' + esc(D.p[r[11]]) + "</b><small>" + esc(D.g[r[12]]) + " \u00b7 " + esc(D.w[r[8]]) + '</small><span class="sim-score ' + (r[6] === "w" ? "is-win" : "is-finish") + '">' + r[7] + "</span></div>" +
+        '<div class="pl-board"><img class="pl-map" src="' + esc(img) + '" alt="" draggable="false">' + (slot ? place(r[10], "e", "pl-def") + place(r[4], "o", "pl-att") : "") + "</div>" +
+        '<div class="sim-pv-legend"><span><i class="pl-key pl-key-att"></i>Attaque</span><span><i class="pl-key pl-key-def"></i>D\u00e9fense</span></div>';
     });
-    const rank = function (a, b) { return rate(b) - rate(a) || b.score / b.n - a.score / a.n || b.n - a.n; };
-    const best = groups(exact, akey).sort(rank), alike = groups(near, akey).sort(rank);
-    const card = function (x, i) {
-      return '<div class="sim-row sim-result"><span class="sim-rank">' + (i + 1) + '</span><span class="sim-comp">' + comp(x.r[4], x.r[5]) + "</span>" +
-        '<span class="sim-stats"><b>' + Math.round(100 * (x.w + x.f) / x.n) + " % de réussite</b><small>" + pl(x.n, "combat", "combats") + " · " + pl(x.w + x.f, "victoire", "victoires") + " · score moyen " + Math.round(x.score / x.n) + " · vu en " + esc(D.w[x.last]) + "</small></span></div>";
-    };
-    let html = "";
-    if (best.length) html += '<h3 class="sim-sub">Ont déjà affronté cette défense</h3>' + best.slice(0, 5).map(card).join("");
-    if (alike.length) html += '<h3 class="sim-sub">Contre des défenses proches (au moins 4 unités en commun)</h3>' + alike.slice(0, best.length ? 3 : 5).map(card).join("");
-    $("sim-atk").querySelector(".sim-hint").textContent = best.length ? "Classées par taux de réussite, puis score moyen." : "Cette défense n'a pas encore été affrontée par une équipe : voici les plus proches.";
-    $("sim-atk").querySelector(".sim-list").innerHTML = html || '<p class="mnone">Pas assez de données pour conseiller une équipe.</p>';
+  }
+  function attacks() {
+    const here = rows.filter(function (r) { return r[0] === map && r[1] === level && (r[6] === "w" || r[6] === "f"); });
+    const mine = rows.filter(function (r) { return dkey(r) === defKey; })[0][2];
+    const exact = here.filter(function (r) { return dkey(r) === defKey; });
+    const near = exact.length ? [] : here.filter(function (r) { return r[2].filter(function (u) { return mine.indexOf(u) >= 0; }).length >= 4; });
+    const best = function (a, b) { return b[7] - a[7] || b[8] - a[8]; };
+    shownRows = (exact.length ? exact : near).slice().sort(best).slice(0, 20);
+    $("sim-atk").querySelector(".sim-hint").textContent = exact.length
+      ? pl(exact.length, "attaque r\u00e9ussie", "attaques r\u00e9ussies") + " contre cette d\u00e9fense, la meilleure d'abord. Clique une ligne pour la voir sur la map."
+      : near.length ? "Cette d\u00e9fense n'a jamais \u00e9t\u00e9 battue telle quelle : voici les attaques r\u00e9ussies contre des d\u00e9fenses proches (au moins 4 unit\u00e9s en commun)." : "";
+    $("sim-atk").querySelector(".sim-list").innerHTML = shownRows.length
+      ? '<table class="attacks-table sim-table"><thead><tr><th class="a-who">Joueur</th><th class="a-comp">Attaque</th><th class="a-score">Score</th></tr></thead><tbody>' + shownRows.map(function (r, i) {
+        return '<tr data-i="' + i + '" tabindex="0"><td class="a-who"><b>' + esc(D.p[r[11]]) + "</b><small>" + esc(D.g[r[12]]) + " \u00b7 " + esc(D.w[r[8]]) + '</small></td><td class="a-comp">' + comp(r[4], r[5]) +
+          '</td><td class="a-score ' + (r[6] === "w" ? "is-win" : "is-finish") + '">' + r[7] + "</td></tr>";
+      }).join("") + "</tbody></table>"
+      : '<p class="mnone">Aucune attaque r\u00e9ussie contre cette d\u00e9fense.</p>';
+    $("sim-atk").querySelector(".sim-preview").innerHTML = "";
     shown("sim-atk", true);
+    if (shownRows.length) preview(0);
   }
 
   document.addEventListener("click", function (e) {
-    const m = e.target.closest(".sim-map-chip"), l = e.target.closest(".sim-level-chip"), d = e.target.closest(".sim-row[data-def]");
+    const m = e.target.closest(".sim-map-chip"), l = e.target.closest(".sim-level-chip"), d = e.target.closest(".sim-row[data-def]"), t = e.target.closest(".sim-table tbody tr");
     if (m) {
       map = +m.dataset.map; level = -1; defKey = null;
       document.querySelectorAll(".sim-map-chip").forEach(function (c) { c.setAttribute("aria-pressed", String(c === m)); });
@@ -105,6 +126,8 @@
       document.querySelectorAll(".sim-row[data-def]").forEach(function (c) { c.setAttribute("aria-pressed", String(c === d)); });
       attacks();
       $("sim-atk").scrollIntoView({ behavior: "smooth", block: "start" });
+    } else if (t) {
+      preview(+t.dataset.i);
     }
   });
 })();

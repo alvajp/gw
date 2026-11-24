@@ -2945,7 +2945,7 @@ body[data-page="replay"]::before {
 
 /* Saison en cours / prochaine: the button at the right of the title swaps the view */
 .ns-view[hidden] { display: none; }
-.ns-switch { display: inline-flex; align-items: center; justify-content: space-between; gap: 0.5rem; min-width: 7.6rem; font: inherit; font-size: 0.88rem; font-weight: 600; padding: 0.45rem 0.9rem; border-radius: var(--radius-sm); border: 1px solid var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--table-header-bg)); color: var(--text); cursor: pointer; }
+.ns-switch { text-decoration: none; display: inline-flex; align-items: center; justify-content: space-between; gap: 0.5rem; min-width: 7.6rem; font: inherit; font-size: 0.88rem; font-weight: 600; padding: 0.45rem 0.9rem; border-radius: var(--radius-sm); border: 1px solid var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--table-header-bg)); color: var(--text); cursor: pointer; }
 .ns-switch:hover, .ns-switch:focus-visible { background: color-mix(in srgb, var(--accent) 26%, var(--table-header-bg)); }
 
 /* Metas pages: the level chips under the map chips (best attacks table) */
@@ -3075,4 +3075,33 @@ button.sim-row[aria-pressed="true"] { border-color: var(--accent); background: c
   .sim-row { flex-wrap: wrap; }
   .sim-stats { flex-direction: row; gap: 0.5rem; align-items: baseline; flex-basis: 100%; text-align: left; margin-left: 2.2rem; }
   .sim-comp .unit { width: 1.9rem; height: 1.9rem; }
+}
+
+/* Simulation, step 4: the attacks that worked (the attack tables' look, scores in colour) next to a preview of the map */
+.sim { max-width: 78rem; }
+.sim-atk-grid { display: grid; grid-template-columns: minmax(0, 1fr) 26rem; gap: 1.2rem; align-items: start; }
+.sim-table td.a-who { white-space: nowrap; }
+.sim-table td.a-who b { display: block; font-size: 0.88rem; }
+.sim-table td.a-who small { display: block; color: var(--text-muted); font-size: 0.7rem; }
+.sim-table .unit { width: 28px; height: 28px; border-radius: 50%; margin-right: 2px; vertical-align: middle; background: var(--surface); }
+.sim-table .unit.mow { border-radius: 6px; margin-left: 4px; }
+.sim-table tbody tr { cursor: pointer; }
+.sim-table tbody tr:hover td { background: var(--surface-hover); }
+.sim-table tbody tr.is-picked td { background: color-mix(in srgb, var(--accent) 12%, var(--surface)); }
+.sim-table tbody tr.is-picked td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+.sim-preview { position: sticky; top: 7rem; padding: 0.7rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.sim-preview:empty { display: none; }
+.sim-pv-head { display: flex; align-items: baseline; gap: 0.6rem; margin-bottom: 0.5rem; }
+.sim-pv-head small { color: var(--text-muted); flex: 1; }
+.sim-score { font-weight: 700; font-variant-numeric: tabular-nums; }
+.sim-score.is-win { color: var(--win); }
+.sim-score.is-finish { color: var(--text-muted); }
+.sim-preview .pl-unit { cursor: default; pointer-events: none; }
+.sim-pv-legend { display: flex; gap: 1rem; margin-top: 0.5rem; font-size: 0.72rem; color: var(--text-muted); }
+.pl-key { display: inline-block; width: 0.7rem; height: 0.7rem; margin-right: 0.3rem; border-radius: 50%; vertical-align: middle; }
+.pl-key-att { background: #fff; box-shadow: 0 0 0 2px var(--team-us, #4ad1c0); }
+.pl-key-def { background: #fff; box-shadow: 0 0 0 2px #f06b6b; }
+@media (max-width: 900px) {
+  .sim-atk-grid { grid-template-columns: minmax(0, 1fr); }
+  .sim-preview { position: static; order: -1; }
 }
