@@ -3133,14 +3133,18 @@ button.sim-row[aria-pressed="true"] { border-color: var(--accent); background: c
 .sim-others > .sim-row { margin-top: 0.4rem; }
 
 /* ---- Simulation board (simulation-board.html, sim-board.js): the replay player's layout with draggable characters ---- */
-.sb-board .tk.sb-drag { cursor: grab; touch-action: none; }
-.sb-board .tk.dragging { cursor: grabbing; transition: none; }
-.sb-board .tk.dragging .tk-body { filter: drop-shadow(0 6px 6px rgba(0, 0, 0, 0.6)); }
-.sb-board .rp-cell.sb-drop { fill: rgba(255, 212, 94, 0.35); stroke: #ffd45e; stroke-width: 2; }
+.sb-board .tk { cursor: pointer; }
 .sb-board.has-map .rp-cell[data-k="1"] { fill: rgba(0, 0, 0, 0.28); }
 .sb-board.no-grid .rp-cell { stroke: transparent; }
 .sb-board.no-starts .sb-starts { display: none; }
 .sb-board .sb-starts { pointer-events: none; }
+.sb-board #sb-tiles { pointer-events: none; }
+/* whose turn it is: a soft green band along the bottom of the map on our turn, a red one along the top on the opponent's */
+.sb-board { position: relative; }
+.sb-board::before, .sb-board::after { content: ""; position: absolute; left: 0; right: 0; height: 11%; pointer-events: none; border-radius: var(--radius); opacity: 0; transition: opacity 0.35s; z-index: 2; }
+.sb-board::before { top: 0; background: linear-gradient(to bottom, rgba(240, 107, 107, 0.85) 0 3px, rgba(240, 107, 107, 0.26) 3px, transparent); }
+.sb-board::after { bottom: 0; background: linear-gradient(to top, rgba(52, 211, 153, 0.85) 0 3px, rgba(52, 211, 153, 0.26) 3px, transparent); }
+.sb-board.turn-them::before, .sb-board.turn-us::after { opacity: 1; }
 .sb-num { pointer-events: none; }
 .sb-num text { fill: #fff; font-size: 11px; font-weight: 700; text-anchor: middle; }
 .rp-log li.sb-later button { opacity: 0.55; }
@@ -3151,6 +3155,7 @@ button.sim-row[aria-pressed="true"] { border-color: var(--accent); background: c
 .rp-board .rp-z-mv { fill: rgba(74, 209, 192, 0.30); stroke: #4ad1c0; stroke-width: 1.6; }
 .rp-board .rp-z-mv.rp-z-hot { stroke: #ffb347; stroke-dasharray: 5 3; }
 .rp-board .rp-z-mv.rp-z-own { fill: none; stroke-width: 2.2; }
+.rp-board .rp-z-mv.rp-z-tp { fill: rgba(167, 139, 250, 0.22); stroke: #a78bfa; stroke-dasharray: 2 3; }  /* Deep Strike: where the unit can teleport */
 .rp-zleg { display: flex; flex-direction: column; gap: 0.25rem; margin-top: 0.65rem; padding-top: 0.6rem; border-top: 1px solid var(--border); font-size: 0.8rem; }
 .rp-zleg small { color: var(--text-muted); font-size: 0.74rem; }
 .rp-zk { display: inline-block; width: 0.8rem; height: 0.8rem; margin-right: 0.45rem; border-radius: 3px; vertical-align: -1px; }
@@ -3236,3 +3241,22 @@ button.sim-row[aria-pressed="true"] { border-color: var(--accent); background: c
 .sb-tip-fig { margin: 0.35rem 0 0; color: var(--text-muted); font-size: 0.74rem; }
 .sb-tip-go { margin-top: 0.4rem; color: var(--accent); font-weight: 600; font-size: 0.76rem; }
 .sb-act.is-info { opacity: 0.75; }
+
+/* a decoy of the Genestealer Cult: a small marker nobody can click */
+.sb-board .tk-decoy { pointer-events: none; opacity: 0.8; }
+.sb-board .tk-decoy .tk-ring { display: none; }
+
+/* the states under a token's health bar (the replay's ability icons: they pop in, and fly up and fade when spent) */
+.sb-board .tk-st { pointer-events: none; }
+.sb-board .tk-st.tk-pop { animation: rp-use 0.45s ease-out; }
+.sb-states { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem; margin-top: 0.5rem; }
+.sb-states > b { font-size: 0.7rem; color: var(--text); margin-right: 0.2rem; }
+
+/* the hexes an ability that targets a hex can go to */
+.sb-board .rp-z-act { fill: rgba(255, 212, 94, 0.28); stroke: #ffd45e; stroke-width: 1.8; pointer-events: all; cursor: pointer; }
+
+/* the end-of-turn button and whose turn it is: on the map, top left, like the replay's round box */
+.sb-turn.sb-turn-map { position: absolute; left: 0.75rem; top: 0.75rem; z-index: 5; display: flex; flex-direction: column; align-items: flex-start; gap: 0.35rem; margin: 0; padding: 0.5rem 0.7rem; height: auto; background: color-mix(in srgb, var(--bg) 82%, transparent); border: 1px solid var(--border); border-radius: var(--radius-sm); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.sb-turn-map .sb-turnlab { font-size: 0.8rem; color: var(--text-muted); }
+.rp-right .sb-unit { margin-top: 0; }
+.sb-board .sb-tip { top: 4.6rem; }

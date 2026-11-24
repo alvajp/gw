@@ -54,7 +54,7 @@
             '<span class="zone-text"><b>' + esc(d.z[r[7]]) + (window.zoneTier ? window.zoneTier(d.z[r[7]]) : "") + '</b>' + (map ? "<small>" + esc(map[0]) + "</small>" : "") + "</span>";
           // Clickable when the map is known: placement.js shows both lineups on the map's hexes.
           const pl = map ? ' tabindex="0" data-pl-img="' + esc(map[1]) + '" data-pl-att="' + r[3].map(function (i) { return d.u[i]; }).join(" ") +
-            '" data-pl-def="' + r[5].map(function (i) { return d.u[i]; }).join(" ") + '"' : "";
+            '" data-pl-def="' + r[5].map(function (i) { return d.u[i]; }).join(" ") + '" data-pl-am="' + (r[4] >= 0 ? d.u[r[4]] : "") + '" data-pl-dm="' + (r[6] >= 0 ? d.u[r[6]] : "") + '"' : "";
           return "<tr" + pl + ' data-rar="' + (r[10] || "") + '">' +
             '<td class="a-comp">' + comp(r[3], r[4]) + "</td>" +
             '<td class="a-def">' + comp(r[5], r[6]) + "</td>" +

@@ -30,7 +30,6 @@
     });
     return Object.keys(g).map(function (k) { return g[k]; });
   }
-  const topRar = function (x) { return Object.keys(x.rar).sort(function (a, b) { return x.rar[b] - x.rar[a]; })[0] || ""; };
   const rate = function (x) { return (x.w + x.f + 1) / (x.n + 2); };  // a win rate that does not trust a single fight
 
   // ---- 1. maps ----
@@ -49,11 +48,11 @@
     return '<span class="sim-stats"><b>' + pl(x.n, "fois", "fois") + "</b><small>" + pl(x.w + x.f, "victoire", "victoires") + " \u00b7 " + pl(x.x, "\u00e9chec", "\u00e9checs") + "</small></span>";
   };
   function defRow(x, i) {
-    return '<button type="button" class="sim-row" data-def="' + esc(x.k) + '" aria-pressed="false"><span class="sim-rank">' + (i + 1) + '</span><span class="sim-comp">' + badge(topRar(x)) + comp(x.r[2], x.r[3]) + "</span>" + stats(x) + "</button>";
+    return '<button type="button" class="sim-row" data-def="' + esc(x.k) + '" aria-pressed="false"><span class="sim-rank">' + (i + 1) + '</span><span class="sim-comp">' + comp(x.r[2], x.r[3]) + "</span>" + stats(x) + "</button>";
   }
   function archRow(x, i) {  // the archetype's three units, a separator, then every other character met in its lines (the most frequent first)
     const core = x.a[1], others = Object.keys(x.others).map(Number).sort(function (a, b) { return x.others[b] - x.others[a]; });
-    return '<button type="button" class="sim-row" data-def="arch:' + esc(x.a[0]) + '" aria-pressed="false"><span class="sim-rank">' + (i + 1) + '</span><span class="sim-comp">' + badge(topRar(x)) +
+    return '<button type="button" class="sim-row" data-def="arch:' + esc(x.a[0]) + '" aria-pressed="false"><span class="sim-rank">' + (i + 1) + '</span><span class="sim-comp">' +
       '<span class="sim-arch-name">' + esc(x.a[0]) + "</span>" + core.map(function (u) { return unit(u, false); }).join("") + '<span class="sim-sep" aria-hidden="true"></span>' +
       others.map(function (u) { return unit(u, false); }).join("") + "</span>" + stats(x) + "</button>";
   }

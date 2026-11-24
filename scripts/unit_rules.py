@@ -57,7 +57,7 @@ def main():
         return next(x["abilityStatMultiplierPct"] for x in steps if x["stars"] == TOP[rar][1])
 
     def ability(a, kind, u):
-        """[id, French name, a / p, average damage at the top of each rarity (None: no damage), melee / ranged, damage profile, hits, description, values by rarity, range (0: the weapon's)]"""
+        """[id, French name, a / p, average damage at the top of each rarity (None: no damage), melee / ranged, damage profile, hits, description, values by rarity, range (0: the weapon's), the damage profiles of each leg (damageProfile, damageProfile_2 ...), [rounds to wait at the start of the battle, rounds to wait after a use (None: once per battle)]]"""
         cfg = abilities.get(a) or {}
         var, const = cfg.get("variables") or {}, cfg.get("constants") or {}
         dmg = None
@@ -80,8 +80,19 @@ def main():
                         v = round(v * ability_mult(rar) / 100)
                 vals[rar][n] = v
         text = re.sub(r"\{\[([^\]]+)\]\}", lambda m: "{" + m.group(1) + "}", text)
-        return [a, fr.get("Abilities/" + a + "_Name", a), kind, dmg, cfg.get("attackRangeType") or "", const.get("damageProfile") or "", int(const.get("nrOfHits") or 1), text, vals, int(const.get("range") or 0)]
+        return [a, fr.get("Abilities/" + a + "_Name", a), kind, dmg, cfg.get("attackRangeType") or "", const.get("damageProfile") or "", int(const.get("nrOfHits") or 1), text, vals, int(const.get("range") or 0), {k: v for k, v in const.items() if k.startswith("damageProfile")}, [int(const.get("initialCooldownTurns") or 0), int(const["cooldownTurns"]) if const.get("cooldownTurns") else None]]
 
+    def record(u):
+        tr = set(u.get("traits") or [])
+        ranges = sorted({w.get("Range") or 1 for w in u.get("weapons") or []}) or [1]
+        rec = {"mv": u.get("Movement"), "rg": ranges, **({"fl": 1} if "Flying" in tr else {}), **({"us": 1} if tr & {"Unstoppable", "Vehicle", "Immune"} else {}),
+               **({"id": 1} if "IndirectFire" in tr else {}), **({"ra": 1} if "RapidAssault" in tr else {})}
+        rec["wp"] = [[w.get("Range") or 1, w.get("DamageProfile") or "Physical", w.get("hits") or 1] for w in u.get("weapons") or []]
+        rec["tr"] = [[t, fr["Traits/" + t + "_Name"]] for t in sorted(tr) if fr.get("Traits/" + t + "_Name")]
+        rec["al"] = u.get("GrandAllianceId") or ""  # Imperial / Chaos / Xenos
+        rec["fa"] = u.get("FactionId") or ""  # DarkAngels, Orks, Tau ...
+        return rec
+    out["_summons"] = {sid: {**record(su), "name": fr.get("Units/" + sid + "_Name") or su.get("name") or sid} for sid, su in units["summons"].items()}  # the units abilities summon
     for uid, u in lineup.items():
         tr = set(u.get("traits") or [])
         ranges = sorted({w.get("Range") or 1 for w in u.get("weapons") or []}) or [1]
@@ -96,6 +107,8 @@ def main():
         rec["wp"] = [[w.get("Range") or 1, w.get("DamageProfile") or "Physical", w.get("hits") or 1] for w in u.get("weapons") or []]  # reach (1 = melee), damage profile, hits
         rec["ab"] = [ability(a, k, u) for k, key in (("a", "activeAbilities"), ("p", "passiveAbilities")) for a in u.get(key) or []]
         rec["tr"] = [[t, fr["Traits/" + t + "_Name"]] for t in sorted(tr) if fr.get("Traits/" + t + "_Name")]
+        rec["al"] = u.get("GrandAllianceId") or ""
+        rec["fa"] = u.get("FactionId") or ""
         out[uid] = rec
     with open(os.path.join(ROOT, "data", "unit_rules.json"), "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, separators=(",", ":"), sort_keys=True)

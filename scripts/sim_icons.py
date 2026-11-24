@@ -48,6 +48,22 @@ def main():
         im.save(os.path.join(ROOT, "docs", "assets", "traits", t + ".webp"), "WEBP", quality=88)
         got += 1
     print("traits:", got, "icons; none for", ", ".join(miss))
+    # the icons of the effects (buffs, debuffs, marks) shown on the characters: docs/assets/effects/<name>.webp
+    os.makedirs(os.path.join(ROOT, "docs", "assets", "effects"), exist_ok=True)
+    wanted_fx = ["markerlight", "buffed", "debuffed", "damage_powerup", "armor_powerup", "health_powerup", "hit_powerup", "shield", "stunned", "supressed", "taunted", "infiltrate", "overwatch",
+                 "light_cover", "fortified", "master_annihilator", "stand_vigil", "martial_superiority", "black_rage", "fire", "ice", "poisoned", "melee_powerup", "reveal", "conceal", "synapse",
+                 "shadow_in_the_warp", "terminator_armour", "early_warning", "blood_surge", "fueled_by_fury", "damaged", "possessed", "healing_powerup", "reinforcement_powerup"]
+    fx = 0
+    for n in wanted_fx:
+        sp = sprites.get("ui_icon_uniteffect_" + n + "_01") or sprites.get("ui_icon_uniteffect_" + n)
+        if not sp:
+            print("no effect icon:", n)
+            continue
+        im = sp.image.convert("RGBA")
+        im.thumbnail((64, 64))
+        im.save(os.path.join(ROOT, "docs", "assets", "effects", n + ".webp"), "WEBP", quality=88)
+        fx += 1
+    print("effects:", fx, "icons")
     # abilities
     out = os.path.join(ROOT, "docs", "assets", "abilities")
     got, miss = 0, []

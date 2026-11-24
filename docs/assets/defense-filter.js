@@ -66,8 +66,8 @@
   }
 
   // Attributes that make an attack row open the placement modal (placement.js).
-  function plAttrs(img, att, def) {
-    return img ? ' tabindex="0" data-pl-img="' + esc(img) + '" data-pl-att="' + att.join(" ") + '" data-pl-def="' + def.join(" ") + '"' : "";
+  function plAttrs(img, att, def, am, dm) {  // am / dm: the machine of war of the attack / of the defense (unit ids)
+    return img ? ' tabindex="0" data-pl-img="' + esc(img) + '" data-pl-att="' + att.join(" ") + '" data-pl-def="' + def.join(" ") + '" data-pl-am="' + (am || "") + '" data-pl-dm="' + (dm || "") + '"' : "";
   }
 
   // The dialog keeps the height it opened with: filtering its attacks by line must not shrink it (the centred dialog would jump and drag the page behind with it).
@@ -87,6 +87,7 @@
     const defIds = Array.prototype.map.call(cells[2].querySelectorAll(".unit:not(.mow)"), function (img) {
       return (img.getAttribute("src").match(/([^\/]+)\.webp/) || [])[1];
     });
+    const defMowImg = cells[2].querySelector(".unit.mow"), defMow = defMowImg ? (defMowImg.getAttribute("src").match(/([^\/]+)\.webp/) || [])[1] : "";
     // Same header as the defender dialog: player, the map tile (thumbnail, zone, map name), the team. The "by map" lists have no map in their rows: it comes from the row's data-*.
     const zoneHtml = tr.dataset.map
       ? '<img class="map-thumb" src="' + esc(tr.dataset.map) + '" alt="" loading="lazy"><span class="zone-text"><b>' + esc(tr.dataset.zone) + (window.zoneTier ? window.zoneTier(tr.dataset.zone) : "") + "</b><small>" +
@@ -100,7 +101,7 @@
     modal.querySelector(".dm-body").innerHTML = attacks.map(function (a) {
       const o = OUTCOME[a[1]] || OUTCOME.u;
       const comp = a[3].map(function (u) { return portrait(u, false); }).join("") + (a[4] ? portrait(a[4], true) : "");
-      return '<div class="dm-row"' + plAttrs(mapImg && mapImg.getAttribute("src"), a[3], defIds) + '>' +
+      return '<div class="dm-row"' + plAttrs(mapImg && mapImg.getAttribute("src"), a[3], defIds, a[4], defMow) + '>' +
         '<span class="dm-player">' + esc(names[a[0]] || a[0]) + '</span>' +
         '<span class="dm-comp" data-rar="' + esc(tr.dataset.rar || "") + '">' + comp + '</span>' +
         '<span class="dm-result ' + o[1] + '">' + o[0] + '</span>' +
@@ -132,7 +133,7 @@
       const o = OUTCOME[a[1]] || OUTCOME.u;
       const comp = a[3].map(function (u) { return portrait(u, false); }).join("") + (a[4] ? portrait(a[4], true) : "");
       const line = d.l[a[5] - 1];
-      return '<div class="dm-row' + (d.h && a[0] === d.h ? " dm-hl" : "") + '" data-line="' + a[5] + '"' + plAttrs(d.i, a[3], line ? line[0] : []) + '>' +
+      return '<div class="dm-row' + (d.h && a[0] === d.h ? " dm-hl" : "") + '" data-line="' + a[5] + '"' + plAttrs(d.i, a[3], line ? line[0] : [], a[4], line ? line[1] : "") + '>' +
         '<span class="dm-player">' + esc(names[a[0]] || a[0]) + '</span>' +
         '<span class="dm-comp" data-rar="' + esc(line && line[5] || "") + '">' + comp + '</span>' +
         '<span class="dm-result ' + o[1] + '">' + o[0] + '</span>' +

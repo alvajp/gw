@@ -92,6 +92,8 @@
     p.set("m", id);
     p.set("a", (row.dataset.plAtt || "").split(" ").filter(Boolean).join(","));
     p.set("d", (row.dataset.plDef || "").split(" ").filter(Boolean).join(","));
+    if (row.dataset.plAm) p.set("am", row.dataset.plAm);  // the machines of war
+    if (row.dataset.plDm) p.set("dm", row.dataset.plDm);
     const rar = row.dataset.rar || (row.querySelector("[data-rar]") || { dataset: {} }).dataset.rar;  // the rarity of the defense line, when the row says it
     if (rar) p.set("r", rar);
     location.href = base + "simulation-board.html#" + p.toString();
