@@ -275,10 +275,13 @@
         if (ev[0] === "mv") moved[ev[1]] = true;
       });
       Object.keys(moved).forEach(function (e) { lines.push('<li>' + esc(unitName(e)) + " se déplace</li>"); });
+      const nth = {};  // the hits of one attacker on one target, numbered
       step.ev.forEach(function (ev) {
         if (ev[0] === "dmg") {
-          const flags = (ev[4] ? ' <span class="rp-tag rp-tcrit">★ critique</span>' : "") + (ev[5] ? ' <span class="rp-tag">bloqué</span>' : "") + (ev[6] ? ' <span class="rp-tag">esquivé</span>' : "");
-          lines.push('<li class="' + (ev[4] ? "rp-lcrit" : "") + '">' + esc(unitName(ev[2])) + " → " + esc(unitName(ev[1])) + " <b>" + (ev[6] ? "0" : "−" + fmt(ev[3])) + "</b>" + flags + "</li>");
+          const key = ev[2] + ">" + ev[1], atk = d.units[ev[2]], cd = atk && atk.stats ? atk.stats.cd : 0;
+          nth[key] = (nth[key] || 0) + 1;
+          const flags = (ev[4] ? ' <span class="rp-tag rp-tcrit">★ critique' + (cd ? " +" + fmt(cd) : "") + "</span>" : "") + (ev[5] ? ' <span class="rp-tag">bloqué</span>' : "") + (ev[6] ? ' <span class="rp-tag">esquivé</span>' : "");
+          lines.push('<li class="' + (ev[4] ? "rp-lcrit" : "") + '">' + esc(unitName(ev[2])) + " → " + esc(unitName(ev[1])) + " · coup " + nth[key] + " <b>" + (ev[6] ? "0" : "−" + fmt(ev[3])) + "</b>" + flags + "</li>");
         } else if (ev[0] === "rm") lines.push('<li>' + esc(unitName(ev[1])) + " est retiré</li>");
         else if (ev[0] === "res") lines.push("<li>" + esc(unitName(ev[1])) + " renaît</li>");
         else if (ev[0] === "add" && step.n !== "StartTurn" && cur >= first) lines.push('<li>' + esc(unitName(ev[1])) + " arrive</li>");

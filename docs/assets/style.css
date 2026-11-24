@@ -3436,3 +3436,5 @@ details.adv-expand > :not(summary):first-of-type { margin-top: 0.4rem; }
 .sb-reticle { position: relative; width: 1.5rem; height: 1.5rem; margin-right: 0; }
 .sb-reticle img { width: 100%; height: 100%; object-fit: contain; }
 .sb-reticle i { position: absolute; inset: 0; display: grid; place-items: center; font-style: normal; font-size: 0.72rem; font-weight: 700; color: var(--text); text-shadow: 0 0 3px #000; }
+
+.rp-log .sb-lc { color: var(--accent); }  /* a critical hit in the fight log */

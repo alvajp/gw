@@ -361,7 +361,7 @@
       }
       if (pick.best) {
         u.acted = true; u.nAtk++;
-        rec.tgt = pick.best.u; rec.dmg = pick.best.dmg; rec.hits = pick.best.hits; rec.per = pick.best.per;
+        rec.tgt = pick.best.u; rec.dmg = pick.best.dmg; rec.hits = pick.best.hits; rec.per = pick.best.per; rec.det = pick.best.det;
         curAtk++; guardLog = []; hurt(pick.best.u, pick.best.dmg, u, pick.best.per); rec.guards = guardLog;
         battleFocus(u);
       }
@@ -824,7 +824,7 @@
         const id = abOf(x, "InescapableDeath"), sn = fxOn(x, "sentinel"), hail = fxOn(x, "hail"), cutBy = (id ? parseInt(id.hitsReduction, 10) || 1 : 0) || (sn ? parseInt(sn.cut, 10) || 1 : 0) || ((abOf(x, "FiringPosition") || null) ? parseInt(abOf(x, "FiringPosition").hitsReduction, 10) || 2 : 0);  // Havoc: it stays on Overwatch after a kill, with fewer hits
         const w2 = [w[0], w[1], Math.max(1, w[2] - x.owCut)], r = damageOf(x, mv, { w: w2, sentinel: true, extra: (id ? id.extraDmg || 0 : 0) + (sn ? sn.extra || 0 : 0), pierce: hail ? (hail.v && hail.v.extraPierceRatio) || 0 : 0 }, dd);
         curAtk++; guardLog = []; hurtHits(mv, Math.round(r.tot), x, r.per, undefined, r.hits);  // hit by hit: a guard of the one who moved (Celestine's Geminae) takes them
-        out.push({ u: x, to: null, tgt: mv, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), label: "Sentinelle", guards: guardLog });
+        out.push({ u: x, to: null, tgt: mv, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), label: "Sentinelle", guards: guardLog, det: r.det });
         if (hail && hail.by) {  // the Storm Speeder fires at the same target
           const hv = hail.v || {}, r2 = abilityHit(hail.by, mv, avgOf(hv, ""), hail.by.rules.ab.filter(function (a) { return a[0] === "Hailstrike"; })[0][5], parseInt(hv.nrOfHits, 10) || 3);
           curAtk++; guardLog = []; hurtHits(mv, Math.round(r2.tot), hail.by, r2.per, undefined, r2.hits);
@@ -878,7 +878,7 @@
           if (m.u.alive) {
             const onDecoy = decoys().some(function (x) { return x.side === m.u.side && x.t[0] === m.to[0] && x.t[1] === m.to[1]; }), pr2 = live().filter(function (p) { return p.side === m.u.side && abOf(p, "DecoysAndMisdirection"); })[0];
             if (onDecoy && abOf(m.u, "CosmicHorror")) heal(m.u, abOf(m.u, "CosmicHorror").hp || 0, "Horreur cosmique");  // the Patriarch heals on a decoy
-            if (onDecoy && pr2) { m.u.fx.decoyb = { id: "decoyb", until: m.u.side === 0 ? round : round + 1, extra: abOf(pr2, "DecoysAndMisdirection").extraDmg || 0 }; if (m.u.rules.fa === "Genestealers") { const hs = prio(m.u, freeAround(m.u), m.u.t).filter(function (h) { return !decoys().some(function (x) { return sameHex(x.t, h); }); }); if (hs.length) putDecoy(pr2, hs[0]); } }
+            if (onDecoy && pr2) { m.u.fx.decoyb = { id: "decoyb", until: m.u.side === 0 ? round : round + 1, extra: abOf(pr2, "DecoysAndMisdirection").extraDmg || 0 }; if (m.u.rules.fa === "Genestealers") { const hs = prio(m.u, freeReach(m.u), m.u.t).filter(function (h) { return !decoys().some(function (x) { return sameHex(x.t, h); }); }); if (hs.length) putDecoy(pr2, hs[0]); } }
           }
           if (m.u.summon && m.u.alive) field.forEach(function (x) { if (x.alive && x.side !== m.u.side && m.u.alive && abOf(x, "SavageKiller") && RULES.dist(x.t, m.to) === 1 && RULES.dist(x.t, m.from) > 1) fireBack(x, m.u, abOf(x, "SavageKiller"), "Power", "Tueur sauvage"); });  // a summon moves toward Ulf
           if (m.tp && m.u.alive && abOf(m.u, "WrathfulDevotion")) wrathShield(m.u, abOf(m.u, "WrathfulDevotion"));  // Wrask comes back from Deep Strike
@@ -1290,13 +1290,13 @@
       per = post(per);
       // the hits one by one: a critical hit adds its damage (after the buffs), a block takes some off; each hit has the same chance again, whatever the hit before (a chance for the first item, the
       // second item only on what the first left: 1 - (1 - c1)(1 - c2)); the boosters add up
-      let total = per * hits, crits = 0, blocks = 0;
+      let total = per * hits, crits = 0, blocks = 0, det = null;  // det: the hits one by one, for the log
       const itU = (!ab || modsOK) && !spec.fixed && (u.itc || (u.rules.it && u.rules.it[rar])), itT = !spec.fixed && profile !== "DirectDamage" && (t.itc || (t.rules.it && t.rules.it[rar]));
       const dwT = abOf(t, "Deathwing") || abOf(t, "DeathwingKnight"), anvT = abOf(t, "AnvilShield");
-      if ((itU && itU.c.length) || (itT && itT.b.length)) {
-        const nHit = Math.max(1, Math.round(hits)), cache = {}, perFor = function (extra, blk) {  // a critical hit raises the damage (Damage + Crit damage), a block lowers it: both before the variation and the armour
-          const k = extra + "|" + blk;
-          if (cache[k] === undefined) { const base = (rawPre !== null ? rawPre : raw) + extra - blk; cache[k] = base <= 0 ? 0 : post(perOf(rawPre !== null ? base * (1 + dvPct / 100) : base, extra > 0)); }
+      if ((itU && itU.c.length) || (itT && itT.b.length) || rawPre !== null) {  // a normal attack always goes hit by hit: each hit has its own variation (DAMVAR), and its own critical and block rolls
+        const nHit = Math.max(1, Math.round(hits)), cache = {}, perFor = function (extra, blk, dvi) {  // a critical hit raises the damage (Damage + Crit damage), a block lowers it: both before the variation and the armour
+          const k = extra + "|" + blk + "|" + dvi;
+          if (cache[k] === undefined) { const base = (rawPre !== null ? rawPre : raw) + extra - blk; cache[k] = base <= 0 ? 0 : post(perOf(rawPre !== null ? base * (1 + dvi / 100) : base, extra > 0)); }
           return cache[k];
         };
         let bBonus = itT ? itT.bb[0] : 0, bDmg = itT ? itT.bb[1] : 0;  // what raises the block chance of the target: the boosters, a Watcher next to it (+15 %), Anvil Shield (wounded, or the attacker stands on ice)
@@ -1311,15 +1311,17 @@
         const hitsOut = [];
         for (let i = 0; i < nHit; i++) {
           let add = 0, block = 0, blocked = false;
+          const dvi = rawPre === null ? 0 : i === 0 ? dvPct : F ? F.dv : Math.round(dice() * 40 - 20);  // the variation of this hit
           if (F) { if (F.crit && itU && itU.c.length) { add = critU.d; crits++; } }
           else if (itU && itU.c.length && dice() * 100 < critU.p) { add = critU.d; crits++; }  // each hit rolls the same chance again
           if (F) { if (F.block && itT && itT.b.length) { block = blockT.d; blocked = true; blocks++; } }
           else if (itT && itT.b.length && dice() * 100 < blockT.p) { block = blockT.d; blocked = true; blocks++; }  // the block is rolled with the critical hit
-          hitsOut.push([perFor(add, block), blocked]);
+          hitsOut.push([perFor(add, block, dvi), blocked, add, block, dvi]);
         }
         // Deathwing: once a hit of the attack is blocked, the other hits of it are weaker (twice as much against Chaos, or next to another Dark Angel)
         const dwCut = dwT && blocks > 0 ? (dwT.dmgReduction || 0) * (u.rules.al === "Chaos" || live().some(function (x) { return x !== t && x.side === t.side && x.rules.fa === "DarkAngels" && RULES.dist(x.t, t.t) === 1; }) ? 2 : 1) : 0;
         total = 0;
+        det = hitsOut.map(function (h) { return { d: Math.round(h[1] ? h[0] : Math.max(1, h[0] - dwCut)), c: h[2] > 0 ? Math.round(h[2]) : 0, b: h[3] > 0 ? Math.round(h[3]) : 0, v: rawPre === null ? null : h[4] }; });
         hitsOut.forEach(function (h) { total += h[1] ? h[0] : Math.max(1, h[0] - dwCut); });
         per = total / nHit;
       }
@@ -1328,7 +1330,7 @@
         const near = live().filter(function (x) { return x.side === u.side && x !== u && RULES.dist(x.t, t.t) === 1; }), sure = near.filter(function (x) { return x.rules.fa === "Orks"; }).length >= 2 || near.length >= 4, pairs = Math.floor(hits / 2);
         total += per * pairs * (sure ? (TV.getStuckInChance_2 || 100) : (TV.getStuckInChance || 30)) / 100;
       }
-      return { tot: total, per: total / hits, hits: hits, dv: dvPct, cr: crits, bl: blocks };  // the damage of one hit, the number of hits, the total (and the dice: the damage variation in %, the critical hits, the blocks)
+      return { tot: total, per: total / hits, hits: hits, dv: dvPct, cr: crits, bl: blocks, det: det || Array.apply(null, Array(Math.max(1, Math.round(hits)))).map(function () { return { d: Math.round(per), c: 0, b: 0, v: null }; }) };  // the damage of one hit, the number of hits, the total (and the dice: the damage variation in %, the critical hits, the blocks)
     }
     // the health left after a hit: Resilient survives with 1 unless the hit overkills it
     const healthAfter = function (t, dmg) {
@@ -1689,7 +1691,7 @@
         if (sp && sp.line && lineDir(u.t, t.t, LINE[o.ab[0]].len((o.ab[8] && o.ab[8][rar]) || {})) < 0) return;  // the target must be on one of the 6 lines
         if (o.ab) { if (dd <= abilityReach(u, o.ab) && clear && !(u.noRanged && o.ab[4] === "Ranged" && dd > 1)) keep(damageOf(u, t, { ab: o.ab }, dd), o.ab[5] || (wp[wp.length - 1] || [])[1]); }
         else wp.forEach(function (w) { if (w[0] === 1 ? dd === 1 : !adj && !u.noRanged && dd <= w[0] && clear) keep(damageOf(u, t, { w: w }, dd), w[1]); });  // a ranged weapon cannot be used next to an enemy
-        if (best && best.tot > 0) out.push({ u: t, dmg: Math.round(best.tot), hits: best.hits, per: Math.round(best.per), prof: best.prof, dv: best.dv, cr: best.cr, bl: best.bl });
+        if (best && best.tot > 0) out.push({ u: t, dmg: Math.round(best.tot), hits: best.hits, per: Math.round(best.per), prof: best.prof, dv: best.dv, cr: best.cr, bl: best.bl, det: best.det });
       });
       if (!o.ab && (u.tset.Healer || u.tset.Mechanic)) {  // a Healer heals a living ally, a Mechanic repairs a mechanical one: the number of hits times its damage
         const hitsMax = Math.max.apply(null, wp.map(function (w) { return w[2]; })), reachW = Math.max.apply(null, wp.map(function (w) { return w[0]; }));
@@ -2023,8 +2025,15 @@
       if (/^(nano|duty|facade|fear|decoyb|term|resil|ambush|rapid|heavy|crush|empl|rspec|prio|betray|twist|shun|shroud|aura-|move|mvup|waaagh|montka|howl|crusade|dr|chalice|shield|stance|ow|ds|observed|wrath|reanim|hail|conflag|grass|infusion|sentinel|aug)/.test(id)) return "buff";
       return "";
     };
+    // the hits of an attack, one line each: the damage, its variation (DAMVAR), the critical hit with the critical damage it added, the block
+    const hitLines = function (det) {
+      if (!det || !det.length) return "";
+      return det.map(function (h, i) {
+        return '<span class="sb-sub">Coup ' + (i + 1) + " : <b>−" + num(h.d) + "</b>" + (h.v !== null && h.v !== undefined ? " · DAMVAR " + (h.v > 0 ? "+" : "") + h.v + " %" : "") + (h.c ? ' · <b class="sb-lc">critique +' + num(h.c) + "</b>" : "") + (h.b ? " · bloc −" + num(h.b) : "") + "</span>";
+      }).join("");
+    };
     const autoText = function (list) {  // what acted by itself: the summons, Khârn's Betrayer
-      return (list || []).map(function (x) { if (x.env) return " · " + esc(x.label) + (x.tgt ? " → " + esc(x.tgt.name) + " −" + num(x.dmg) : ""); return " · " + esc(x.u.name) + (x.label !== "Attaque" ? " (" + esc(x.label) + ")" : "") + (x.to ? " se déplace" : "") + (x.tgt ? " → " + esc(x.tgt.name) + ((x.guards || []).some(function (g) { return g.n; }) ? "" : " −" + num(x.dmg)) + (x.hits > 1 ? " (" + x.hits + " coups)" : "") : "") + (x.more || []).map(function (y) { return " · " + esc(y.tgt.name) + " −" + num(y.dmg); }).join("") + guardText(x.guards) + autoText(x.trig) + (x.leaves ? " · " + esc(x.u.name) + " quitte le champ de bataille (sa machine peut resservir)" : ""); }).join("");
+      return (list || []).map(function (x) { if (x.env) return " · " + esc(x.label) + (x.tgt ? " → " + esc(x.tgt.name) + " −" + num(x.dmg) : ""); return " · " + esc(x.u.name) + (x.label !== "Attaque" ? " (" + esc(x.label) + ")" : "") + (x.to ? " se déplace" : "") + (x.tgt ? " → " + esc(x.tgt.name) + ((x.guards || []).some(function (g) { return g.n; }) ? "" : " −" + num(x.dmg)) + (x.hits > 1 ? " (" + x.hits + " coups)" : "") + ((x.guards || []).some(function (g) { return g.n; }) ? "" : hitLines(x.det)) : "") + (x.more || []).map(function (y) { return " · " + esc(y.tgt.name) + " −" + num(y.dmg); }).join("") + guardText(x.guards) + autoText(x.trig) + (x.leaves ? " · " + esc(x.u.name) + " quitte le champ de bataille (sa machine peut resservir)" : ""); }).join("");
     };
     const allyHex = function (u) { return !!(u.t && u !== sel && sel && u.alive && !u.decoy && !tgtSet[u.i] && hexSet[u.t[0] + "," + u.t[1]]); };  // a unit standing on a hex the chosen ability can aim at (L'Accélération swaps places with an ally; a machine of war can bombard a hex with a unit on it): clickable
     const isDone = function (u) {  // greyed: everything of the side that does not play, and the units of the side that plays that have nothing left to do (no move, no attack, no ability)
@@ -2137,8 +2146,8 @@
         else if (m.k === "atk") {
           const made = (m.adds || []).filter(function (a) { return !a.decoy; }), deco = (m.adds || []).filter(function (a) { return a.decoy; }).length;
           const sums = made.length || deco ? "invoque " + made.map(function (a) { return esc(a.name); }).join(", ") + (deco ? (made.length ? " et " : "") + deco + " leurre" + (deco > 1 ? "s" : "") : "") : "";
-          text = esc(m.u.name) + " · " + esc(m.label) + (m.dmg > 0 ? " → " + esc(m.tgt.name) + ((m.guards || []).some(function (x) { return x.n; }) ? "" : " <b>−" + num(m.dmg) + "</b>") + (m.hits > 1 ? " (" + m.hits + " coups de " + num(m.per) + ")" : "") + diceText(m) : m.tgt !== m.u ? " → " + esc(m.tgt.name) : "") + (sums ? " · " + sums : "") +
-            (m.more || []).map(function (x) { return " · " + (x.by ? esc(x.by.name) + " (" + esc(x.label) + ")" : esc(x.label)) + " → " + esc(x.tgt.name) + " <b>−" + num(x.dmg) + "</b>" + (x.hits > 1 ? " (" + x.hits + " coups)" : ""); }).join("") +
+          text = esc(m.u.name) + " · " + esc(m.label) + (m.dmg > 0 ? " → " + esc(m.tgt.name) + ((m.guards || []).some(function (x) { return x.n; }) ? "" : " <b>−" + num(m.dmg) + "</b>") + (m.hits > 1 && !m.det ? " (" + m.hits + " coups de " + num(m.per) + ")" : "") + (m.det ? ((m.guards || []).some(function (g) { return g.n; }) ? "" : hitLines(m.det)) : diceText(m)) : m.tgt !== m.u ? " → " + esc(m.tgt.name) : "") + (sums ? " · " + sums : "") +
+            (m.more || []).map(function (x) { return " · " + (x.by ? esc(x.by.name) + " (" + esc(x.label) + ")" : esc(x.label)) + " → " + esc(x.tgt.name) + " <b>−" + num(x.dmg) + "</b>" + (x.hits > 1 ? " (" + x.hits + " coups)" : "") + hitLines(x.det); }).join("") +
             (m.moves || []).map(function (x) { return " · " + esc(x.u.name) + " se déplace"; }).join("") + (m.mk && m.mk.length ? " · marque " + m.mk.reduce(function (a, x) { return a + x.hexes.length; }, 0) + " hexagone" + (m.mk.reduce(function (a, x) { return a + x.hexes.length; }, 0) > 1 ? "s" : "") : "") + (m.pend && m.tgt ? " (tir au début de son prochain tour)" : "") + hxText(m.hx) + autoText(m.react) + guardText(m.guards) + (m.heals && m.heals.length ? " · soigne " + m.heals.map(function (h) { return esc(h.u.name) + " +" + num(h.amt); }).join(", ") : "") + autoText(m.autoNow);
         }
         else text = esc(m.u.name) + (m.tp ? (m.tpm ? " se téléporte près de la marque" : " se téléporte (assaut en profondeur)") : " se déplace") + autoText(m.trig);
@@ -2465,7 +2474,7 @@
     const vals_ = function (o) { return (o.ab[8] && o.ab[8][rar]) || {}; };
     const nI = function (x, dflt) { return parseInt(x, 10) || dflt; };
     const vOf = function (o) { return (o.ab[8] && o.ab[8][rar]) || {}; };
-    const mh = function (u, e, raw, prof, n, label, pierce) { const r = abilityHit(u, e, raw, prof, n, pierce, extrasAb); return { tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), label: label, prof: prof }; };
+    const mh = function (u, e, raw, prof, n, label, pierce) { const r = abilityHit(u, e, raw, prof, n, pierce, extrasAb); return { tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), label: label, prof: prof, det: r.det }; };
     // ---- the area of the abilities of characters: what a hit adds around its target (the hits come as `more` entries of the step). Friendly fire only where the text says "toutes les unités". ----
     const adjUnits = function (c, but, enemyOf) { return live().filter(function (x) { return x !== but && !x.ds && RULES.dist(x.t, c) === 1 && (enemyOf === undefined || x.side !== enemyOf); }); };
     const AOE = {
@@ -3095,7 +3104,7 @@
         if (c) more.push({ tgt: c.e, dmg: Math.round(c.tot), hits: c.hits, per: Math.round(c.per), label: abName(u, "DiabolicRegeneration"), by: t });
         drT = t;
       }
-      push({ k: "atk", u: u, tgt: t, pend: pend, dmg: ts.dmg, hits: ts.hits, per: ts.per, dv: ts.dv, cr: ts.cr, bl: ts.bl, abId: o.ab ? o.ab[0] : null, label: ts.heal !== undefined ? (u.tset.Healer ? "Soin" : "Réparation") : o.ab ? o.name : "Attaque",
+      push({ k: "atk", u: u, tgt: t, pend: pend, dmg: ts.dmg, hits: ts.hits, per: ts.per, dv: ts.dv, cr: ts.cr, bl: ts.bl, det: ts.det, abId: o.ab ? o.ab[0] : null, label: ts.heal !== undefined ? (u.tset.Healer ? "Soin" : "Réparation") : o.ab ? o.name : "Attaque",
         drT: drT, dead: ts.dmg > 0 && healthAfter(t, ts.dmg) <= 0 && !guardOf(t), adds: adds, heals: heals, moves: moves, fx: fx, more: more, buff: buff, also: also, force: (sp && (sp.wave || sp.forceT)) || linch ? t : null, keep: !!(sp && sp.keep), revive: reviveL, reuse: reuseL, setHp: setHpL, gone: gone, mark: mark, hx: hx, mk: mkS, lcUsed: lcUsed, prof: ts.prof || (o.ab ? o.ab[5] : null) });
     };
     // the game's shortcut: with a character chosen, a click on an enemy makes it walk to the best hex from which it can hit it and attack (its normal attack). The best hex is the one that does the most damage
