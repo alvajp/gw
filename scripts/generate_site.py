@@ -396,6 +396,7 @@ PAGE_TEMPLATE = """<!doctype html>
 <main>
 {body}
 </main>
+<script src="{asset_prefix}assets/zone-tier.js?v={v}"></script>
 <script src="{asset_prefix}assets/sort-table.js?v={v}"></script>
 <script src="{asset_prefix}assets/chart-toggle.js?v={v}"></script>
 <script src="{asset_prefix}assets/topnav.js?v={v}"></script>
@@ -1289,6 +1290,25 @@ ZONE_LABELS = {
 }
 
 
+ZONE_TIERS = {  # the guild battlefield level 5 (globalconfigs: guildWar levels, zoneTiers): the rarity caps of a zone's five slots
+    "hero": ("Héros", ("mythic", "mythic", "legendary", "legendary", "legendary"), ("HQ", "FP1", "FP2")),
+    "elite": ("Élite", ("legendary", "legendary", "epic", "epic", "epic"), ("LP1", "LP2", "AR", "SD", "MS1", "MS2")),
+    "veteran": ("Vétéran", ("epic", "epic", "rare", "rare", "rare"), ("FL gauche", "FL milieu", "FL droite", "AP1", "AP2", "AA")),
+}
+RARITY_FR = {"mythic": ("Mythique", "Mythiques"), "legendary": ("Légendaire", "Légendaires"), "epic": ("Épique", "Épiques"), "rare": ("Rare", "Rares")}
+
+
+def zone_tier_html(label):
+    """The rarity badges of a zone's level (same markup as assets/zone-tier.js), "" for a label that is no zone."""
+    for name, caps, labels in ZONE_TIERS.values():
+        if label in labels:
+            first, last = caps[0], caps[-1]
+            n1 = sum(1 for c in caps if c == first)
+            title = f"{name} : {n1} {RARITY_FR[first][n1 > 1]}, puis {len(caps) - n1} {RARITY_FR[last][len(caps) - n1 > 1]}"
+            return f'<span class="zone-tier" title="{title}" aria-label="{title}">' + "".join(f'<i class="zt zt-{c}"></i>' for c in caps) + "</span>"
+    return ""
+
+
 def war_boards(maps):
     """zone type -> boardId for a war: the full table when its maps.yaml has a
     boards: block (see read_maps.py), otherwise just the 6 tracked zones,
@@ -1416,10 +1436,10 @@ def render_defense_table(rows, players, boards, prefix, top=None):
         if m:
             zone_html = (
                 f'<img class="map-thumb" src="{prefix}{m["image"]}" alt="{html_escape(m["name"])}" loading="lazy">'
-                f'<span class="zone-text"><b>{zlabel}</b><small>{html_escape(m["name"])}</small></span>'
+                f'<span class="zone-text"><b>{zlabel}{zone_tier_html(zlabel)}</b><small>{html_escape(m["name"])}</small></span>'
             )
         else:
-            zone_html = f'<span class="zone-text"><b>{zlabel}</b></span>'
+            zone_html = f'<span class="zone-text"><b>{zlabel}{zone_tier_html(zlabel)}</b></span>'
         comp = "".join(_unit_img(u, prefix) for u in r["units"])
         if r["mow"]:
             comp += _unit_img(r["mow"], prefix, mow=True)
@@ -1555,7 +1575,7 @@ def render_defense_by_map(all_wars, prefix=""):
             trs.append(
                 f'<tr tabindex="0" data-attacks="{_attacks_attr(r["attacks"])}" data-map="{prefix}{m["image"]}" data-map-name="{html_escape(m["name"])}" '
                 f'data-zone="{html_escape(ZONE_LABELS.get(r["zone"], r["zone"]))}" data-war="{html_escape(r["guild"])} · {label}"><td>{html_escape(r["player"])}</td>'
-                f'<td class="guild">{html_escape(r["guild"])}<small>{label} · {ZONE_LABELS.get(r["zone"], r["zone"])}</small></td>'
+                f'<td class="guild">{html_escape(r["guild"])}<small>{label} · {ZONE_LABELS.get(r["zone"], r["zone"])}{zone_tier_html(ZONE_LABELS.get(r["zone"], r["zone"]))}</small></td>'
                 f'<td class="comp">{comp}</td><td>{r["n"]}</td><td>{r["avg"]:.0f}</td>'
                 f'<td>{r["fail_rate"] * 100:.0f}&nbsp;%</td><td class="buffs">{_buff_list(r["buffs"])}</td></tr>'
             )

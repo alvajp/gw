@@ -50,7 +50,7 @@
           const o = OUTCOME[r[1]] || OUTCOME.u;
           const map = r[8] >= 0 ? d.m[r[8]] : null;
           const mapHtml = (map ? '<img class="map-thumb" src="' + map[1] + '" alt="" loading="lazy">' : "") +
-            '<span class="zone-text"><b>' + esc(d.z[r[7]]) + '</b>' + (map ? "<small>" + esc(map[0]) + "</small>" : "") + "</span>";
+            '<span class="zone-text"><b>' + esc(d.z[r[7]]) + (window.zoneTier ? window.zoneTier(d.z[r[7]]) : "") + '</b>' + (map ? "<small>" + esc(map[0]) + "</small>" : "") + "</span>";
           // Clickable when the map is known: placement.js shows both lineups on the map's hexes.
           const pl = map ? ' tabindex="0" data-pl-img="' + esc(map[1]) + '" data-pl-att="' + r[3].map(function (i) { return d.u[i]; }).join(" ") +
             '" data-pl-def="' + r[5].map(function (i) { return d.u[i]; }).join(" ") + '"' : "";

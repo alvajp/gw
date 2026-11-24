@@ -89,7 +89,7 @@
     });
     // Same header as the defender dialog: player, the map tile (thumbnail, zone, map name), the team. The "by map" lists have no map in their rows: it comes from the row's data-*.
     const zoneHtml = tr.dataset.map
-      ? '<img class="map-thumb" src="' + esc(tr.dataset.map) + '" alt="" loading="lazy"><span class="zone-text"><b>' + esc(tr.dataset.zone) + "</b><small>" +
+      ? '<img class="map-thumb" src="' + esc(tr.dataset.map) + '" alt="" loading="lazy"><span class="zone-text"><b>' + esc(tr.dataset.zone) + (window.zoneTier ? window.zoneTier(tr.dataset.zone) : "") + "</b><small>" +
         esc(tr.dataset.mapName) + " · " + esc(tr.dataset.war) + "</small></span>"
       : cells[1].innerHTML;
     modal.querySelector(".dm-title").innerHTML =
@@ -119,7 +119,7 @@
     modal.querySelector(".dm-title").innerHTML =
       '<div class="dm-def"><span class="dm-def-player">' + esc(names[d.p] || d.p) + '</span>' +
       '<span class="dm-def-zone">' + (d.i ? '<img class="map-thumb" src="' + d.i + '" alt="">' : "") +
-      '<span class="zone-text"><b>' + esc(d.z) + '</b><small>' + esc(d.m) + '</small></span></span></div>';
+      '<span class="zone-text"><b>' + esc(d.z) + (window.zoneTier ? window.zoneTier(d.z) : "") + '</b><small>' + esc(d.m) + '</small></span></span></div>';
 
     const lines = d.l.map(function (l, i) {
       const comp = l[0].map(function (u) { return portrait(u, false); }).join("") + (l[1] ? portrait(l[1], true) : "");

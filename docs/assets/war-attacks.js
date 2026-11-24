@@ -19,7 +19,7 @@
     const comp = function (units, mow) { return units.map(function (i) { return portrait(i, false); }).join("") + portrait(mow, true); };
     const body = rows.map(function (r) {
       const o = OUTCOME[r[1]] || OUTCOME.u, map = r[8] >= 0 ? d.m[r[8]] : null;
-      const mapHtml = (map ? '<img class="map-thumb" src="' + map[1] + '" alt="" loading="lazy">' : "") + '<span class="zone-text"><b>' + esc(d.z[r[7]]) + "</b>" + (map ? "<small>" + esc(map[0]) + "</small>" : "") + "</span>";
+      const mapHtml = (map ? '<img class="map-thumb" src="' + map[1] + '" alt="" loading="lazy">' : "") + '<span class="zone-text"><b>' + esc(d.z[r[7]]) + (window.zoneTier ? window.zoneTier(d.z[r[7]]) : "") + "</b>" + (map ? "<small>" + esc(map[0]) + "</small>" : "") + "</span>";
       const pl = map ? ' tabindex="0" data-pl-img="' + esc(map[1]) + '" data-pl-att="' + r[3].map(function (i) { return d.u[i]; }).join(" ") + '" data-pl-def="' + r[5].map(function (i) { return d.u[i]; }).join(" ") + '"' : "";
       return "<tr" + pl + '><td class="a-comp">' + comp(r[3], r[4]) + '</td><td class="a-def">' + comp(r[5], r[6]) + '</td><td class="a-score ' + o[1] + '" title="' + o[0] + '">' + r[2] + '</td><td class="a-map">' + mapHtml + "</td></tr>";
     }).join("");

@@ -2997,3 +2997,12 @@ body[data-page="replay"]::before {
 .rp-stats .rp-relicrow img { width: 1.7rem; height: 1.7rem; object-fit: contain; flex: none; }
 .rp-stats .rp-relicrow b { display: block; font-size: 0.82rem; }
 .rp-stats .rp-relicrow small { display: block; color: var(--text-muted); font-size: 0.74rem; }
+
+/* the level of a war zone: the rarity badges of its five slots (zone-tier.js / zone_tier_html) */
+.zone-tier { display: inline-flex; align-items: center; gap: 0.15rem; margin-left: 0.45rem; vertical-align: middle; }
+.zone-tier .zt { width: 0.5rem; height: 0.5rem; border-radius: 2px; transform: rotate(45deg); background: var(--zc, #9aa3b2); box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45); }
+.zt-mythic { --zc: var(--r-mythic); }
+.zt-legendary { --zc: var(--r-legendary); }
+.zt-epic { --zc: var(--r-epic); }
+.zt-rare { --zc: var(--r-rare); }
+.zone-text b { display: inline-flex; align-items: center; }
