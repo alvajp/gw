@@ -448,7 +448,7 @@ def render_topbar(prefix, active, sub=None, wars=None):
                  ("metas", "metas.html", "Métas"), ("boss", "records.html", "Records")]
         seasons = [(f"raid-{n}", f"raid/{n}.html", f"S{n}") for n in NAV_SEASONS["raid"]]
     elif section == "war":
-        first = [("strategy", "strategie.html", "Stratégie"), ("defenses", "defenses.html", "Défenses")]
+        first = [("strategy", "strategie.html", "Attaques"), ("defenses", "defenses.html", "Défenses")]
         seasons = [(f"war-{n}", f"seasons/{n}.html", f"S{n}") for n in NAV_SEASONS["war"]]
     else:
         first = seasons = []
@@ -533,7 +533,7 @@ ARROW_RIGHT = (
 
 def strategy_button(href):
     """The prominent "Stratégie" button next to the H1 (see #header-action in style.css)."""
-    return f'<a class="strategy-btn" href="{href}">Stratégie{ARROW_RIGHT}</a>'
+    return f'<a class="strategy-btn" href="{href}">Attaques{ARROW_RIGHT}</a>'
 
 
 def guild_crumb():
@@ -1724,7 +1724,7 @@ def _is_combined_opponent(name):
 
 
 def render_opponent_map(all_wars, prefix=""):
-    """The Stratégie page, "Contre les meilleurs": our defenses and what the opponents' attackers did against them, combined over every war against the COMBINED_OPPONENTS.
+    """The Attaques page (was "Stratégie"), "Contre les meilleurs": our defenses and what the opponents' attackers did against them, combined over every war against the COMBINED_OPPONENTS.
     One section per opponent guild (anchors at the side jump to them, like the boss anchors of the Saisons page), each with the grid of our maps: under a map, one button per
     attacked defender of ours, and under the grid the attacks of that guild's players. Tiles are grouped by board, since a map moves between
     zones from war to war. Clicking a button opens the defender's dialog (its lineups + every attack against it). Returns (html, events for the modal, players for the modal)."""
@@ -2085,7 +2085,7 @@ def render_war_page(slug, result, season, outcome=None, active_uids=frozenset(),
 
 
 def render_war_strategy_page(slug, result, season):
-    """"Stratégie" page of a war (button next to the war's H1): both guilds' full
+    """""Attaques" page of a war (was "Stratégie") (button next to the war's H1): both guilds' full
     map with defenders, and under each map the attack table of the guild that hit
     it (see build_attacks / render_battlefield_section)."""
     our_idx = find_team_idx(result["guilds"], OUR_GUILD)
@@ -2098,7 +2098,7 @@ def render_war_strategy_page(slug, result, season):
     opp = ", ".join(opponent_names(result, our_idx)) or slug
     back_link = back_link_html(f"{slug}.html", opp)
     html = render_page(
-        nav_sub=f"war-{season}", nav_wars=(season, slug), title=f"Stratégie · {opp}", asset_prefix="../", body=body, back_link=back_link,
+        nav_sub=f"war-{season}", nav_wars=(season, slug), title=f"Attaques · {opp}", asset_prefix="../", body=body, back_link=back_link,
         title_class="", header_extra="", header_action="", v=ASSETS_VERSION,
     )
     with open(os.path.join(DOCS_DIR, "wars", slug + "-strategie.html"), "w", encoding="utf-8") as f:
@@ -2597,7 +2597,7 @@ def render_strategy_index(all_wars):
     opp_html, opp_events, opp_players = render_opponent_map(all_wars)
     body = opp_html + _defense_modal_html(opp_events, opp_players, "")
     html = render_page(
-        nav_active="strategy", page_kind="strategy", title="Stratégie", asset_prefix="", body=body, back_link=back_link_html("war.html", "War"),
+        nav_active="strategy", page_kind="strategy", title="Attaques", asset_prefix="", body=body, back_link=back_link_html("war.html", "War"),
         title_class="hero-title", header_extra="", header_action="", v=ASSETS_VERSION, bg="deathguard-plague",
     )
     with open(os.path.join(DOCS_DIR, "strategie.html"), "w", encoding="utf-8") as f:
