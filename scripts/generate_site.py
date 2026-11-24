@@ -1636,7 +1636,7 @@ def compute_battlefield(result):
     return out
 
 
-def _battlefield_chip(entry, zone, board_name, board_img, players):
+def _battlefield_chip(entry, zone, board_name, board_img, players, atk_name=""):
     """One defender button under a map tile; its data-def feeds the modal
     (lineups on top, every attack below)."""
     name = players.get(entry["uid"], {}).get("displayName", entry["uid"])
@@ -1650,7 +1650,8 @@ def _battlefield_chip(entry, zone, board_name, board_img, players):
     fails = sum(1 for e in entry["events"] if e["fail"])
     return (
         f'<button type="button" class="map-def" data-def="{attr}">'
-        f'<span class="map-def-name">{html_escape(name)}</span>'
+        f'<span class="map-def-name">VS {html_escape(name)}</span>'
+        f'<small>{html_escape(atk_name)} · {ZONE_LABELS.get(zone, zone)}</small>'
         f'<small>{len(entry["events"])} att. · {fails} échec{"s" if fails > 1 else ""}</small></button>'
     )
 
@@ -1662,12 +1663,13 @@ def render_battlefield_section(result, our_idx, boards, prefix="../", attack_tab
     field = compute_battlefield(result)
     if not field:
         return ""
-    teams = [t for t in sorted(result["guilds"]) if t != our_idx] + [our_idx]  # the opponent first, then us
+    teams = [t for t in sorted(result["guilds"]) if t != our_idx] + [our_idx]  # the attackers: the opponent first (what it did to us), then us (what we did to it)
     sections, navs = [], []
-    for team in teams:
-        name = OUR_GUILD_LABEL if team == our_idx else result["guilds"][team]["name"]
+    for atk_team in teams:
+        team = next((t for t in result["guilds"] if t != atk_team), None)  # the defending guild: the one whose maps are shown
+        atk_name = OUR_GUILD_LABEL if atk_team == our_idx else result["guilds"][atk_team]["name"]
         tiles = []
-        # this war's real layout for this guild if known (row 1 at the bottom), else the default order
+        # this war's real layout for the defending guild if known (row 1 at the bottom), else the default order
         order = (result.get("layouts") or {}).get("ours" if team == our_idx else "theirs")
         if order:
             # the save lists the rows from the player's own line (row 1) outwards: row 1 is at the BOTTOM of the map
@@ -1678,7 +1680,7 @@ def render_battlefield_section(result, our_idx, boards, prefix="../", attack_tab
             m = MAPS_DB.get(boards.get(zone)) if boards.get(zone) else None
             img = f'<img src="{prefix}{m["image"]}" alt="{html_escape(m["name"])}" loading="lazy">' if m else '<div class="map-tile-noimg"></div>'
             chips = "".join(
-                _battlefield_chip(d, zone, m["name"] if m else "", (prefix + m["image"]) if m else "", result["players"])
+                _battlefield_chip(d, zone, m["name"] if m else "", (prefix + m["image"]) if m else "", result["players"], atk_name)
                 for d in field.get(team, {}).get(zone, [])
             )
             tiles.append(
@@ -1686,13 +1688,13 @@ def render_battlefield_section(result, our_idx, boards, prefix="../", attack_tab
                 f'<span>{html_escape(m["name"]) if m else ""}</span></div>{img}'
                 f'<div class="map-tile-defs">{chips}</div></div>'
             )
-        attackers = next((t for t in result["guilds"] if t != team), None)
-        under = (attack_tables or {}).get(attackers, "")
-        slug = "side-us" if team == our_idx else "side-them"
-        mark = '<span class="oc-mark"></span>' if team == our_idx else (guild_badge(name, prefix) or '<span class="oc-mark oc-them"></span>')
-        navs.append(f'<a class="map-chip ns-chip opp-chip" data-boss="{slug}" href="#{slug}" title="{html_escape(name)}">{mark}<span class="oc-name">{html_escape(name)}</span></a>')
+        under = (attack_tables or {}).get(atk_team, "")
+        slug = "side-us" if atk_team == our_idx else "side-them"
+        mark = '<span class="oc-mark"></span>' if atk_team == our_idx else (guild_badge(atk_name, prefix) or '<span class="oc-mark oc-them"></span>')
+        title = "Nos attaques" if atk_team == our_idx else f"Attaques de {atk_name}"
+        navs.append(f'<a class="map-chip ns-chip opp-chip" data-boss="{slug}" href="#{slug}" title="{html_escape(title)}">{mark}<span class="oc-name">{html_escape(atk_name)}</span></a>')
         sections.append(
-            f'<section class="ns-boss opp-section" id="{slug}" data-boss="{slug}"><h2 class="opp-title">{mark}{html_escape(name)}</h2>'
+            f'<section class="ns-boss opp-section" id="{slug}" data-boss="{slug}"><h2 class="opp-title">{mark}{html_escape(title)}</h2>'
             f'<div class="battlefield opp-one opp-war"><div class="battlefield-side side-0"><div class="battlefield-grid">{"".join(tiles)}</div>{under}</div></div></section>'
         )
     nav = '<nav class="map-filter ns-filter opp-nav" aria-label="Aller à une guilde">' + "".join(navs) + "</nav>"
