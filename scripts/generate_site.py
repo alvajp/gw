@@ -1781,7 +1781,7 @@ def render_opponent_map(all_wars, prefix=""):
     default_guild = "Bloody Rose" if "Bloody Rose" in uniq else uniq[0]
 
     def chip_of(opp_name, war_tag, zone, d, players, m):
-        """One button per attacked defender of ours (the detail of who attacked is in its dialog): the defender, "vs <guild> · <zone>" under it and the attack count; it opens the
+        """One button per attacked defender of ours (the detail of who attacked is in its dialog): "VS <defender>", "<guild> · <zone> · <war>" under it and the attack count; it opens the
         defender's dialog (its lines and every attack against it)."""
         defender = players.get(d["uid"], {}).get("displayName", d["uid"])
         zlabel = ZONE_LABELS.get(zone, zone)
@@ -1795,8 +1795,8 @@ def render_opponent_map(all_wars, prefix=""):
         fails = sum(1 for e in d["events"] if e["fail"])
         return (
             f'<button type="button" class="map-def" data-def="{attr}">'
-            f'<span class="map-def-name">{html_escape(defender)}</span>'
-            f'<small>vs {html_escape(opp_name)} · {zlabel} · {war_tag}</small>'
+            f'<span class="map-def-name">VS {html_escape(defender)}</span>'
+            f'<small>{html_escape(opp_name)} · {zlabel} · {war_tag}</small>'
             f'<small>{len(d["events"])} att. · {fails} échec{"s" if fails > 1 else ""}</small></button>'
         )
 
