@@ -333,9 +333,13 @@ def convert(rp, file_id):
             if mu and u["o"] == 1 and not u.get("id") and not u["t"] and not u.get("parent") and u.get("hp") == 0:
                 u["id"], u["mow"] = mu, True
                 break
+    cfg_unit = {x["Id"]: x for x in bc.get("Units", [])}
     for u in units.values():
         u.pop("st", None)
         u["t"] = [pos(t) for t in u["t"]]
+        c = cfg_unit.get(u.get("id")) if not u.get("parent") and not u["b"] and (u["o"] == 0 or bc.get("GameMode") == "GuildWars") else None  # not the boss's own NPCs
+        if c and c.get("Level") is not None:  # the progression of the character in this battle (the tooltip, like the player's page): level, rank, stars, active / passive ability levels
+            u["lv"] = [c.get("Level"), c.get("Rank"), c.get("StarLevel"), c.get("ActiveAbilityLevel"), c.get("PassiveAbilityLevel")]
 
     # the board: [column, row, tile id, elevation, kind] per cell (kind: 0 walkable, 1 blocking (wall, water ...), 2 not playable / no deployment)
     walk_type = {t["Id"]: t.get("WalkableType", 0) for t in bc.get("Tiles", [])}

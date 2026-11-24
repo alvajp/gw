@@ -387,8 +387,17 @@
     function unitBody(e) {
       const u = st && st.units[e], info = d.units[e], s = info.stats || {}, max = info.b ? d.max : info.hp, a = st && st.all[e];
       const row = function (k, v) { return "<dt>" + k + "</dt><dd>" + v + "</dd>"; };
+      const lv = info.lv, RT = ["Stone", "Iron", "Bronze", "Silver", "Gold", "Diamond", "Adamantine"], RM = ["I", "II", "III"], mowU = !!info.mow && !info.parent;
+      const starsHtml = function (n) {  // the game's star icons: 1-5 gold, 6-10 red (1-5), 11-13 blue, 14 the winged skull
+        const ui = assets + "ui/";
+        if (n >= 14) return '<img class="st-img st-wings" src="' + ui + 'star_mythic.png" alt="">';
+        const ic = n <= 5 ? "star_gold" : n <= 10 ? "star_red" : "star_blue", k = n <= 5 ? n : n <= 10 ? n - 5 : n - 10;
+        return new Array(k + 1).join('<img class="st-img' + (n > 10 ? " st-blue" : "") + '" src="' + ui + ic + '.png" alt="">');
+      };
+      const prog = lv ? (mowU ? "" : row("Niveau", lv[0])) + (mowU || lv[1] === undefined ? "" : row("Rang", '<img class="mm-rank" src="' + assets + "ui/rank_" + (Math.min(Math.max(lv[1], 0), 20) + 1) + '.png" alt=""> ' + RT[Math.min(Math.floor(lv[1] / 3), 6)] + " " + RM[lv[1] % 3])) +
+        (lv[2] > 0 ? row("Étoiles", '<span class="rp-stars">' + starsHtml(lv[2]) + "</span>") : "") + (lv[3] ? row("Capacités", lv[3] + " / " + (lv[4] || 0)) : "") : "";
       const par = info.parent && d.units[info.parent] ? row("Invoqué par", esc(unitName(info.parent)) + (made[e] ? " · " + esc(SUMMON_FR[made[e]] || pretty(made[e])) : "")) : "";
-      return '<dl class="rp-stats">' + par + (info.mow && !info.parent ? "" : row("PV", fmt(Math.max(0, u ? u.hp : 0)) + " / " + fmt(max))) + row("Attaque", fmt(s.atk || 0)) + row("Armure", fmt(s.arm || 0)) + row("Mouvement", s.mov || 0) +
+      return '<dl class="rp-stats">' + par + prog + (info.mow && !info.parent ? "" : row("PV", fmt(Math.max(0, u ? u.hp : 0)) + " / " + fmt(max))) + row("Attaque", fmt(s.atk || 0)) + row("Armure", fmt(s.arm || 0)) + row("Mouvement", s.mov || 0) +
         row("Chance de crit", (s.crit || 0) + " %") + (s.rng ? row("Portée", s.rng) : "") + (a ? row("Crits dans ce combat", a.c + " sur " + a.n + " coup" + (a.n > 1 ? "s" : "")) : "") + "</dl>";
     }
     function unitHead(e) {

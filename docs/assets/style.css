@@ -1695,7 +1695,7 @@ body[data-page="replay"] #title-row { position: absolute; width: 1px; height: 1p
 .rp-luck b { color: var(--text); font-weight: 600; }
 .rp-luck .pos { color: var(--win); }
 .rp-luck .neg { color: var(--loss); }
-.rp-tip { position: absolute; z-index: 6; width: 15.5rem; box-sizing: border-box; padding: 0.7rem 0.85rem 0.8rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55); font-size: 0.84rem; }
+.rp-tip { position: absolute; z-index: 6; width: 17rem; box-sizing: border-box; padding: 0.7rem 0.85rem 0.8rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55); font-size: 0.84rem; }
 .rp-tip[hidden] { display: none; }
 .rp-tip .rp-x { position: absolute; top: 0.25rem; right: 0.35rem; width: 1.6rem; height: 1.6rem; border: 0; border-radius: 50%; background: transparent; color: var(--text-muted); font-size: 1.1rem; line-height: 1; cursor: pointer; }
 .rp-tip .rp-x:hover { color: var(--text); background: var(--surface-hover); }
@@ -2985,3 +2985,8 @@ body[data-page="replay"]::before {
 .rp-fxinfo-target b, .rp-fxinfo-mark b { color: #ff7a7a; }
 .rp-board .rp-cell { cursor: default; }
 .rp-board .rp-cell.rp-cell-fx { cursor: pointer; }
+.rp-stats dd .mm-rank { width: 1.2rem; height: 1.2rem; margin-right: 0.15rem; }
+.rp-stats .rp-stars { display: inline-flex; align-items: center; vertical-align: middle; }
+.rp-stats .rp-stars .st-img { width: 0.85rem; height: 0.85rem; margin: 0 -1px; }
+.rp-stats .rp-stars .st-img.st-blue { width: 1.1rem; height: auto; margin: 0 -2px; }
+.rp-stats .rp-stars .st-img.st-wings { width: 1.8rem; height: auto; margin: 0; }
