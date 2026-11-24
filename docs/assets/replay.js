@@ -127,7 +127,30 @@
     // the first playable step: everything before is the set-up (units dropped on the board)
     const first = Math.max(0, d.steps.findIndex(function (s) { return !s.setup; }));
     const last = d.steps.length - 1;
-    let cur = first - 1, prev = cur, timer = null, speed = 1, sel = null;
+    let cur = first - 1, prev = cur, timer = null, speed = 1, sel = null, selTile = null;
+    // the effects that sit on tiles: name, tint, border, and what it means (the tooltip of a hex)
+    const TFX = {
+      fire: ["Feu", "rgba(255,110,30,.38)", "#ff8a3d", "La case brûle : les unités qui s'y trouvent subissent des dégâts de feu."],
+      cont: ["Contamination", "rgba(76,200,92,.42)", "#4cd964", "Les unités qui s'y trouvent sont contaminées (armure −30 %)."],
+      target: ["Frappe en approche", "rgba(255,70,70,.16)", "#ff5a5a", "Une attaque ciblée est en préparation sur cette case."],
+      mark: ["Case marquée", "rgba(255,70,70,.14)", "#ff7a7a", "La case est marquée : elle est dans la ligne de mire d'un tir."],
+    };
+    // the effects of a state on some cells -> [kind, ...] without doubles
+    const fxOn = function (s, tiles) {
+      const seen = {}, out = [];
+      Object.keys(s.tfx).forEach(function (id) {
+        const f = s.tfx[id];
+        if (!TFX[f.k] || seen[f.k] || !tiles.some(function (t) { return t[0] === f.c[0] && t[1] === f.c[1]; })) return;
+        seen[f.k] = 1; out.push(f.k);
+      });
+      return out;
+    };
+    const fxHtml = function (kinds) {
+      return kinds.map(function (k) {
+        return '<div class="rp-fxinfo rp-fxinfo-' + k + '">' + (k === "mark" ? "" : '<img src="' + assets + "tile-fx/" + k + '.webp" alt="">') + "<div><b>" + TFX[k][0] + "</b><small>" + TFX[k][3] + "</small></div></div>";
+      }).join("");
+    };
+
 
     // ---- layout ----
     const player = names[d.user] || "";
@@ -163,7 +186,7 @@
     // ---- the board: cells once, then the layers the tokens and the effects live in ----
     let cells = "";
     d.cells.forEach(function (c) {
-      cells += '<polygon class="rp-cell" data-k="' + c[4] + '" points="' + hexAt(cx(c[0]), cy(c[0], c[1]), 0.97) + '" fill="' + tint(c) + '" stroke="rgba(0,0,0,.35)" stroke-width="1"/>' +
+      cells += '<polygon class="rp-cell" data-c="' + c[0] + '" data-r="' + c[1] + '" data-k="' + c[4] + '" points="' + hexAt(cx(c[0]), cy(c[0], c[1]), 0.97) + '" fill="' + tint(c) + '" stroke="rgba(0,0,0,.35)" stroke-width="1"/>' +
         '<text class="rp-el" x="' + (cx(c[0]) - R * 0.55).toFixed(1) + '" y="' + (cy(c[0], c[1]) - R * 0.45).toFixed(1) + '">' + c[3] + "</text>";
     });
     $("rp-board").innerHTML = '<svg viewBox="' + vb.map(function (v) { return v.toFixed(1); }).join(" ") + '" role="img" aria-label="Plateau du combat">' + cells + '<g id="rp-tfx"></g><g id="rp-tok"></g><g id="rp-fx"></g></svg>';
@@ -206,8 +229,9 @@
       }
       g.addEventListener("click", function (ev) {
         ev.stopPropagation();
-        if (phone.matches) { sel = e; refreshSel(); return openUnit(e); }  // phones: a modal, like the other dialogs of the site
+        if (phone.matches) { sel = e; selTile = null; refreshSel(); return openUnit(e); }  // phones: a modal, like the other dialogs of the site
         sel = sel === e ? null : e;
+        selTile = null;
         refreshSel();
       });
       tokLayer.appendChild(g);
@@ -285,7 +309,7 @@
       // effects of the step: a beam from the acting unit to what it hits, and the figures
       fx.innerHTML = "";
       // the effects on the tiles (under the tokens): a tinted cell and the game's own icon; one icon per kind and cell
-      const TFX = { fire: ["Feu", "rgba(255,110,30,.38)", "#ff8a3d"], cont: ["Contamination", "rgba(76,200,92,.42)", "#4cd964"], target: ["Frappe en approche", "rgba(255,70,70,.16)", "#ff5a5a"], mark: ["Case marquée", "rgba(255,70,70,.14)", "#ff7a7a"] };
+      // (TFX: the kinds of tile effects, defined above)
       let tl = "";
       const seenFx = {};
       Object.keys(s.tfx).forEach(function (id) {
@@ -294,7 +318,7 @@
         seenFx[key] = 1;
         const x = cx(f.c[0]), y = cy(f.c[0], f.c[1]), z = R * 0.85;
         tl += '<g class="rp-tfx rp-tfx-' + f.k + '"><title>' + TFX[f.k][0] + '</title><polygon points="' + hexAt(x, y, 0.97) + '" fill="' + TFX[f.k][1] + '" stroke="' + TFX[f.k][2] + '" stroke-width="' + (f.k === "target" || f.k === "mark" ? 2 : 1.4) + '"' + (f.k === "target" || f.k === "mark" ? ' stroke-dasharray="5 4"' : "") + '/>' +
-          (f.k === "mark" || f.k === "cont" ? "" : '<image href="' + assets + "tile-fx/" + f.k + '.webp" x="' + (x - z / 2).toFixed(1) + '" y="' + (y - z / 2).toFixed(1) + '" width="' + z.toFixed(1) + '" height="' + z.toFixed(1) + '" preserveAspectRatio="xMidYMid meet"/>') + "</g>";
+          (f.k === "mark" ? "" : '<image href="' + assets + "tile-fx/" + f.k + '.webp" x="' + (x - z / 2).toFixed(1) + '" y="' + (y - z / 2).toFixed(1) + '" width="' + z.toFixed(1) + '" height="' + z.toFixed(1) + '" preserveAspectRatio="xMidYMid meet"/>') + "</g>";
       });
       $("rp-tfx").innerHTML = tl;
       const au0 = step.a !== null && step.a !== undefined ? s.units[step.a] : null;
@@ -371,9 +395,27 @@
     function openUnit(e) {
       const dlg = document.createElement("dialog");
       dlg.className = "defense-modal atk-modal rp-unit-modal";
-      dlg.innerHTML = '<div class="dm-head"><div class="dm-title"><div class="dm-def rp-tip-head">' + unitHead(e) + '</div></div><button type="button" class="dm-close" aria-label="Fermer">×</button></div><div class="dm-body">' + unitBody(e) + "</div>";
+      dlg.innerHTML = '<div class="dm-head"><div class="dm-title"><div class="dm-def rp-tip-head">' + unitHead(e) + '</div></div><button type="button" class="dm-close" aria-label="Fermer">×</button></div><div class="dm-body">' + unitBody(e) + unitFx(e) + "</div>";
       dlg.addEventListener("click", function (ev) { if (ev.target === dlg || ev.target.closest(".dm-close")) dlg.close(); });
       dlg.addEventListener("close", function () { dlg.remove(); sel = null; refreshSel(); });
+      document.body.appendChild(dlg);
+      dlg.showModal();
+    }
+    // the effects on the tiles under the unit (stacked under its stats) / on a tile picked on its own
+    function unitFx(e) {
+      const u = st && st.units[e], k = u && u.t.length ? fxOn(st, u.t) : [];
+      return k.length ? '<div class="rp-fxstack">' + fxHtml(k) + "</div>" : "";
+    }
+    function tileHead(t) {
+      const cell = d.cells.filter(function (c) { return c[0] === t[0] && c[1] === t[1]; })[0];
+      return '<div><b>Case</b><small>' + (cell ? "altitude " + cell[3] : "colonne " + t[0] + ", rang " + t[1]) + "</small></div>";
+    }
+    function openTile(t) {
+      const dlg = document.createElement("dialog");
+      dlg.className = "defense-modal atk-modal rp-unit-modal";
+      dlg.innerHTML = '<div class="dm-head"><div class="dm-title"><div class="dm-def rp-tip-head">' + tileHead(t) + '</div></div><button type="button" class="dm-close" aria-label="Fermer">×</button></div><div class="dm-body"><div class="rp-fxstack">' + fxHtml(fxOn(st, [t])) + "</div></div>";
+      dlg.addEventListener("click", function (ev) { if (ev.target === dlg || ev.target.closest(".dm-close")) dlg.close(); });
+      dlg.addEventListener("close", function () { dlg.remove(); selTile = null; refreshSel(); });
       document.body.appendChild(dlg);
       dlg.showModal();
     }
@@ -381,20 +423,32 @@
       Object.keys(toks).forEach(function (e) { toks[e].g.classList.toggle("tk-sel", e === sel); });
       const tip = $("rp-tip"), u = sel && st && st.units[sel], info = sel && d.units[sel];
       const mow = !!info && !!info.mow && !info.parent;
-      if (!u || !info || !u.alive || !(u.t.length || mow) || phone.matches) { tip.hidden = true; return; }
-      tip.innerHTML = '<button type="button" class="rp-x" aria-label="Fermer">×</button><div class="rp-tip-head">' + unitHead(sel) + "</div>" + unitBody(sel);
+      const unitOk = !!u && !!info && u.alive && (u.t.length || mow);
+      const tileOk = !unitOk && !!selTile && !!st && fxOn(st, [selTile]).length > 0;  // a hex picked on its own: only worth a tooltip when it carries an effect
+      if ((!unitOk && !tileOk) || phone.matches) { tip.hidden = true; return; }
+      const head = unitOk ? unitHead(sel) : tileHead(selTile);
+      tip.innerHTML = '<button type="button" class="rp-x" aria-label="Fermer">×</button><div class="rp-tip-head">' + head + "</div>" + (unitOk ? unitBody(sel) + unitFx(sel) : '<div class="rp-fxstack">' + fxHtml(fxOn(st, [selTile])) + "</div>");
       tip.hidden = false;
-      // placed above the unit (below when there is no room), kept inside the board's frame; the position comes from the unit's cell, not from its gliding token
+      // placed above the unit / the hex (below when there is no room), kept inside the board's frame; the position comes from the cell, not from a gliding token
       const svg = $("rp-board").querySelector("svg"), sr = svg.getBoundingClientRect(), wr = $("rp-board").parentNode.getBoundingClientRect(), sc = sr.width / vb[2];
-      const c = mow ? dock(info.o) : centre(u.t), px = sr.left - wr.left + (c[0] - vb[0]) * sc, py = sr.top - wr.top + (c[1] - vb[1]) * sc, rr = (info.b ? 0.95 : mow ? 0.88 : 0.72) * R * sc;
+      const c = unitOk ? (mow ? dock(info.o) : centre(u.t)) : centre([selTile]), px = sr.left - wr.left + (c[0] - vb[0]) * sc, py = sr.top - wr.top + (c[1] - vb[1]) * sc;
+      const rr = (unitOk ? (info.b ? 0.95 : mow ? 0.88 : 0.72) : 0.8) * R * sc;
       const w = tip.offsetWidth, h = tip.offsetHeight;
       let top = py - rr - h - 10;
       if (top < 4) top = py + rr + 10;
       tip.style.left = Math.max(4, Math.min(wr.width - w - 4, px - w / 2)).toFixed(0) + "px";
       tip.style.top = top.toFixed(0) + "px";
     }
-    $("rp-tip").addEventListener("click", function (ev) { ev.stopPropagation(); if (ev.target.closest(".rp-x")) { sel = null; refreshSel(); } });
-    $("rp-board").addEventListener("click", function () { if (sel) { sel = null; refreshSel(); } });  // a click elsewhere on the board closes it
+    $("rp-tip").addEventListener("click", function (ev) { ev.stopPropagation(); if (ev.target.closest(".rp-x")) { sel = null; selTile = null; refreshSel(); } });
+    // a click on a hex that carries an effect opens its tooltip (below a unit's stats when one stands on it, see the token's click); anywhere else on the board closes it
+    $("rp-board").addEventListener("click", function (ev) {
+      const cell = ev.target.closest && ev.target.closest(".rp-cell");
+      const t = cell ? [+cell.dataset.c, +cell.dataset.r] : null;
+      sel = null;
+      selTile = t && !(selTile && selTile[0] === t[0] && selTile[1] === t[1]) && st && fxOn(st, [t]).length ? t : null;
+      refreshSel();
+      if (selTile && phone.matches) openTile(selTile);
+    });
     // ---- the log: one line per step ----
     const lineText = function (s) {
       const turn = s.ev.find(function (ev) { return ev[0] === "turn"; });
@@ -454,7 +508,7 @@
     $("rp-el").onclick = function () { const on = $("rp-board").classList.toggle("show-el"); $("rp-el").setAttribute("aria-pressed", String(on)); };
     document.addEventListener("keydown", function (e) {
       if (/INPUT|SELECT|TEXTAREA/.test((e.target.tagName || "")) && e.target.type !== "range") return;
-      if (e.key === "Escape" && sel) { sel = null; refreshSel(); }
+      if (e.key === "Escape" && (sel || selTile)) { sel = null; selTile = null; refreshSel(); }
       if (e.key === "ArrowRight") { stop(); go(cur + 1); e.preventDefault(); }
       else if (e.key === "ArrowLeft") { stop(); go(cur - 1); e.preventDefault(); }
       else if (e.key === " " && e.target.tagName !== "BUTTON") { $("rp-play").click(); e.preventDefault(); }
