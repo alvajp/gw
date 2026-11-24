@@ -70,7 +70,6 @@
       const have = x.r[2].concat(x.r[3] >= 0 ? [x.r[3]] : []);
       x.arch = D.a.filter(function (a) { return a[1].every(function (u) { return have.indexOf(u) >= 0; }); })[0] || null;
     });
-    $("sim-def").querySelector(".sim-hint").textContent = "Les d\u00e9fenses rencontr\u00e9es sur " + D.m[map][1] + " (" + D.t[level][1] + "), toutes guerres confondues, regroup\u00e9es par arch\u00e9type : les trois persos de l'arch\u00e9type, puis les autres. Choisis celle \u00e0 affronter.";
     let html = "";
     D.a.forEach(function (a) {
       const mine = g.filter(function (x) { return x.arch === a; });
@@ -104,27 +103,25 @@
           return xy && d && d[1] ? '<img class="pl-unit ' + cls + '" style="' + at(xy) + '" src="' + esc(d[1]) + '" alt="' + esc(d[0]) + '" title="' + esc(d[0]) + '" draggable="false">' : "";
         }).join("");
       };
-      box.innerHTML = '<div class="sim-pv-head"><b>' + esc(D.p[r[11]]) + "</b><small>" + esc(D.g[r[12]]) + " \u00b7 " + esc(D.w[r[8]]) + '</small><span class="sim-score ' + (r[6] === "w" ? "is-win" : "is-finish") + '">' + r[7] + "</span></div>" +
+      box.innerHTML = '<div class="sim-pv-head"><b>' + esc(D.p[r[11]]) + "</b><small>" + esc(D.g[r[12]]) + " \u00b7 " + esc(D.w[r[8]]) + '</small><span class="sim-score ' + "is-win" + '">' + r[7] + "</span></div>" +
         '<div class="pl-board"><img class="pl-map" src="' + esc(img) + '" alt="" draggable="false">' + (slot ? place(r[10], "e", "pl-def") + place(r[4], "o", "pl-att") : "") + "</div>" +
         '<div class="sim-pv-legend"><span><i class="pl-key pl-key-att"></i>Attaque</span><span><i class="pl-key pl-key-def"></i>D\u00e9fense</span></div>';
     });
   }
   function attacks() {
-    const here = rows.filter(function (r) { return r[0] === map && r[1] === level && (r[6] === "w" || r[6] === "f"); });
+    const here = rows.filter(function (r) { return r[0] === map && r[1] === level && r[6] === "w"; });  // real victories only (no finishing blows)
     const mine = rows.filter(function (r) { return dkey(r) === defKey; })[0][2];
     const exact = here.filter(function (r) { return dkey(r) === defKey; });
     const near = exact.length ? [] : here.filter(function (r) { return r[2].filter(function (u) { return mine.indexOf(u) >= 0; }).length >= 4; });
     const best = function (a, b) { return b[7] - a[7] || b[8] - a[8]; };
     shownRows = (exact.length ? exact : near).slice().sort(best).slice(0, 20);
-    $("sim-atk").querySelector(".sim-hint").textContent = exact.length
-      ? pl(exact.length, "attaque r\u00e9ussie", "attaques r\u00e9ussies") + " contre cette d\u00e9fense, la meilleure d'abord. Clique une ligne pour la voir sur la map."
-      : near.length ? "Cette d\u00e9fense n'a jamais \u00e9t\u00e9 battue telle quelle : voici les attaques r\u00e9ussies contre des d\u00e9fenses proches (au moins 4 unit\u00e9s en commun)." : "";
+    const note = !exact.length && near.length ? '<p class="sim-note">Cette d\u00e9fense n\'a jamais \u00e9t\u00e9 battue telle quelle : voici des victoires contre des d\u00e9fenses proches (au moins 4 unit\u00e9s en commun).</p>' : "";
     $("sim-atk").querySelector(".sim-list").innerHTML = shownRows.length
-      ? '<table class="attacks-table sim-table"><thead><tr><th class="a-who">Joueur</th><th class="a-comp">Attaque</th><th class="a-score">Score</th></tr></thead><tbody>' + shownRows.map(function (r, i) {
+      ? note + '<table class="attacks-table sim-table"><thead><tr><th class="a-who">Joueur</th><th class="a-comp">Attaque</th><th class="a-score">Score</th></tr></thead><tbody>' + shownRows.map(function (r, i) {
         return '<tr data-i="' + i + '" tabindex="0"><td class="a-who"><b>' + esc(D.p[r[11]]) + "</b><small>" + esc(D.g[r[12]]) + " \u00b7 " + esc(D.w[r[8]]) + '</small></td><td class="a-comp">' + comp(r[4], r[5]) +
-          '</td><td class="a-score ' + (r[6] === "w" ? "is-win" : "is-finish") + '">' + r[7] + "</td></tr>";
+          '</td><td class="a-score ' + "is-win" + '">' + r[7] + "</td></tr>";
       }).join("") + "</tbody></table>"
-      : '<p class="mnone">Aucune attaque r\u00e9ussie contre cette d\u00e9fense.</p>';
+      : '<p class="mnone">Aucune victoire contre cette d\u00e9fense.</p>';
     $("sim-atk").querySelector(".sim-preview").innerHTML = "";
     shown("sim-atk", true);
     if (shownRows.length) preview(0);

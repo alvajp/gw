@@ -2677,8 +2677,8 @@ def render_simulation_page(all_wars):
     body = (
         '<div id="sim" class="sim"><section class="sim-step" id="sim-map"><h2><span class="sim-n">1</span>Map</h2><div class="sim-maps"></div></section>'
         '<section class="sim-step" id="sim-level" hidden><h2><span class="sim-n">2</span>Niveau</h2><div class="sim-levels"></div></section>'
-        '<section class="sim-step" id="sim-def" hidden><h2><span class="sim-n">3</span>Défense à affronter</h2><p class="sim-hint"></p><div class="sim-list"></div></section>'
-        '<section class="sim-step" id="sim-atk" hidden><h2><span class="sim-n">4</span>Équipe conseillée</h2><p class="sim-hint"></p>'
+        '<section class="sim-step" id="sim-def" hidden><h2><span class="sim-n">3</span>Défense à affronter</h2><div class="sim-list"></div></section>'
+        '<section class="sim-step" id="sim-atk" hidden><h2><span class="sim-n">4</span>Équipe conseillée</h2>'
         '<div class="sim-atk-grid"><div class="sim-list"></div><aside class="sim-preview" aria-label="Aperçu de la map"></aside></div></section></div>'
         + blob + f'<script src="assets/simulation.js?v={ASSETS_VERSION}"></script>'
     )
