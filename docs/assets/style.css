@@ -1695,7 +1695,7 @@ body[data-page="replay"] #title-row { position: absolute; width: 1px; height: 1p
 .rp-luck b { color: var(--text); font-weight: 600; }
 .rp-luck .pos { color: var(--win); }
 .rp-luck .neg { color: var(--loss); }
-.rp-tip { position: absolute; z-index: 6; width: 17rem; box-sizing: border-box; padding: 0.7rem 0.85rem 0.8rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55); font-size: 0.84rem; }
+.rp-tip { position: absolute; z-index: 6; width: 18rem; box-sizing: border-box; padding: 0.7rem 0.85rem 0.8rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55); font-size: 0.84rem; }
 .rp-tip[hidden] { display: none; }
 .rp-tip .rp-x { position: absolute; top: 0.25rem; right: 0.35rem; width: 1.6rem; height: 1.6rem; border: 0; border-radius: 50%; background: transparent; color: var(--text-muted); font-size: 1.1rem; line-height: 1; cursor: pointer; }
 .rp-tip .rp-x:hover { color: var(--text); background: var(--surface-hover); }
@@ -2990,3 +2990,10 @@ body[data-page="replay"]::before {
 .rp-stats .rp-stars .st-img { width: 0.85rem; height: 0.85rem; margin: 0 -1px; }
 .rp-stats .rp-stars .st-img.st-blue { width: 1.1rem; height: auto; margin: 0 -2px; }
 .rp-stats .rp-stars .st-img.st-wings { width: 1.8rem; height: auto; margin: 0; }
+.rp-stats .rp-sep { grid-column: 1 / -1; height: 1px; margin: 0.25rem 0; background: var(--border); }
+.rp-stats .rp-relic { display: inline-flex; align-items: center; gap: 0.35rem; justify-content: flex-end; text-align: right; }
+.rp-stats .rp-relic img { width: 1.4rem; height: 1.4rem; object-fit: contain; flex: none; }
+.rp-stats .rp-relicrow { grid-column: 1 / -1; display: flex; align-items: center; gap: 0.5rem; margin-top: 0.15rem; }
+.rp-stats .rp-relicrow img { width: 1.7rem; height: 1.7rem; object-fit: contain; flex: none; }
+.rp-stats .rp-relicrow b { display: block; font-size: 0.82rem; }
+.rp-stats .rp-relicrow small { display: block; color: var(--text-muted); font-size: 0.74rem; }

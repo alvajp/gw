@@ -395,10 +395,11 @@
         return new Array(k + 1).join('<img class="st-img' + (n > 10 ? " st-blue" : "") + '" src="' + ui + ic + '.png" alt="">');
       };
       const prog = lv ? (mowU ? "" : row("Niveau", lv[0])) + (mowU || lv[1] === undefined ? "" : row("Rang", '<img class="mm-rank" src="' + assets + "ui/rank_" + (Math.min(Math.max(lv[1], 0), 20) + 1) + '.png" alt=""> ' + RT[Math.min(Math.floor(lv[1] / 3), 6)] + " " + RM[lv[1] % 3])) +
-        (lv[2] > 0 ? row("Étoiles", '<span class="rp-stars">' + starsHtml(lv[2]) + "</span>") : "") + (lv[3] ? row("Capacités", lv[3] + " / " + (lv[4] || 0)) : "") : "";
+        (lv[2] > 0 ? row("Étoiles", '<span class="rp-stars">' + starsHtml(lv[2]) + "</span>") : "") + (lv[3] ? row("Capacités", lv[3] + " / " + (lv[4] || 0)) : "") +
+        (info.rel ? '<div class="rp-relicrow"><img src="' + assets + "items/" + info.rel[0] + '.webp" alt="" onerror="this.style.display=\'none\'"><span><b>' + esc((d.relics && d.relics[info.rel[0]]) || info.rel[0]) + "</b><small>Relique · niveau " + info.rel[1] + "</small></span></div>" : "") : "";
       const par = info.parent && d.units[info.parent] ? row("Invoqué par", esc(unitName(info.parent)) + (made[e] ? " · " + esc(SUMMON_FR[made[e]] || pretty(made[e])) : "")) : "";
-      return '<dl class="rp-stats">' + par + prog + (info.mow && !info.parent ? "" : row("PV", fmt(Math.max(0, u ? u.hp : 0)) + " / " + fmt(max))) + row("Attaque", fmt(s.atk || 0)) + row("Armure", fmt(s.arm || 0)) + row("Mouvement", s.mov || 0) +
-        row("Chance de crit", (s.crit || 0) + " %") + (s.rng ? row("Portée", s.rng) : "") + (a ? row("Crits dans ce combat", a.c + " sur " + a.n + " coup" + (a.n > 1 ? "s" : "")) : "") + "</dl>";
+      return '<dl class="rp-stats">' + par + prog + (prog ? '<div class="rp-sep"></div>' : "") + (info.mow && !info.parent ? "" : row("PV", fmt(Math.max(0, u ? u.hp : 0)) + " / " + fmt(max))) + row("Attaque", fmt(s.atk || 0)) + row("Armure", fmt(s.arm || 0)) + row("Mouvement", s.mov || 0) +
+        row("Chance de crit", (s.crit || 0) + " %") + (s.cd ? row("Dégâts critiques", fmt(s.cd)) : "") + (s.rng ? row("Portée", s.rng) : "") + (a ? row("Crits dans ce combat", a.c + " sur " + a.n + " coup" + (a.n > 1 ? "s" : "")) : "") + "</dl>";
     }
     function unitHead(e) {
       const info = d.units[e], img = portrait(e);

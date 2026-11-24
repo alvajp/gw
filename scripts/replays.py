@@ -334,12 +334,41 @@ def convert(rp, file_id):
                 u["id"], u["mow"] = mu, True
                 break
     cfg_unit = {x["Id"]: x for x in bc.get("Units", [])}
+    relic_names = {}
+    my_relics = {}  # the relic each of the player's characters carries (the roster of that member, as of the last fetch)
+    try:
+        import rosters as rosters_mod
+        for ro in rosters_mod.load_rosters():
+            if ro["uid"] == (rp.get("MetaData") or {}).get("UserId"):
+                for ru in ro["units"]:
+                    rel = [i for i in ru.get("items", []) if str(i.get("id", "")).startswith("R_")]
+                    if rel:
+                        my_relics[ru["id"]] = [rel[0]["id"], rel[0].get("level")]
+
+        def relic_of_unit(uid):  # the relic the metas / rosters pair with the character
+            if not rosters_mod.UNIT_RELIC:
+                rosters_mod.apply_default_relics()
+            return rosters_mod.UNIT_RELIC.get(uid)
+
+        def relic_name(rid):
+            return rosters_mod.RELIC_NAMES.get(rid, rid)
+    except Exception:  # no roster data on this machine: no relic shown
+        def relic_of_unit(uid):
+            return None
+
+        def relic_name(rid):
+            return rid
     for u in units.values():
         u.pop("st", None)
         u["t"] = [pos(t) for t in u["t"]]
         c = cfg_unit.get(u.get("id")) if not u.get("parent") and not u["b"] and (u["o"] == 0 or bc.get("GameMode") == "GuildWars") else None  # not the boss's own NPCs
         if c and c.get("Level") is not None:  # the progression of the character in this battle (the tooltip, like the player's page): level, rank, stars, active / passive ability levels
             u["lv"] = [c.get("Level"), c.get("Rank"), c.get("StarLevel"), c.get("ActiveAbilityLevel"), c.get("PassiveAbilityLevel")]
+            if c.get("TertiaryAbility") is not None and not u.get("mow") and u["o"] == 0:  # a relic: its level is the battle's TertiaryAbilityLevel, which relic it is comes from the player's roster
+                rid = (my_relics.get(u.get("id")) or [None])[0] or relic_of_unit(u.get("id"))
+                if rid:
+                    u["rel"] = [rid, c.get("TertiaryAbilityLevel")]
+                    relic_names[rid] = relic_name(rid)
 
     # the board: [column, row, tile id, elevation, kind] per cell (kind: 0 walkable, 1 blocking (wall, water ...), 2 not playable / no deployment)
     walk_type = {t["Id"]: t.get("WalkableType", 0) for t in bc.get("Tiles", [])}
@@ -354,6 +383,7 @@ def convert(rp, file_id):
         "cells": cells, "tile0": min(tile_pos) if tile_pos else 0, "boss": boss.get("UnitId"), "hp0": boss.get("RemainingHealth"), "max": boss.get("Health"),
         "rounds": (bc.get("Victory") or {}).get("VictoryConditions", {}).get("MainPlayerRoundLimitation"), "user": md.get("UserId"),
         "units": {str(k): v for k, v in units.items()}, "steps": [s for s in steps if s["ev"] or s["l"]],
+        **({"relics": relic_names} if relic_names else {}),
     }
 
 
