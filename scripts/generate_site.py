@@ -1789,7 +1789,7 @@ def render_opponent_map(all_wars, prefix=""):
         context = f"vs {opp_name}" if side == "us" else opp_name
         payload = {
             "p": d["uid"], "z": f"{zlabel} · {context} {war_tag}", "m": m["name"], "i": prefix + m["image"],
-            "l": [[ln["units"], ln["mow"], ln["n"], ln["fails"], round(ln["score"] / ln["n"])] for ln in d["lines"]],
+            "l": [[ln["units"], ln["mow"], ln["n"], ln["fails"], round(ln["score"] / ln["n"]), ln["rar"]] for ln in d["lines"]],
             "a": [[e["uid"], TIER_CODE.get(e["tier"], "u"), round(e["adj"]), e["att_units"], e["att_mow"],
                    e["_line"]] for e in d["events"]],
         }
