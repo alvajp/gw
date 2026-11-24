@@ -198,7 +198,8 @@
         const ir = mow ? 8.5 : 5.7;  // a machine of war: its two abilities, bigger, inside the token (lower half, like the heroes' under the bar); they can be played again and again, so they never leave (they flash when played)
         const ics = acts.map(function (n, i) {
           const x = mow ? (i - (acts.length - 1) / 2) * (2 * ir + 2) : (i - (acts.length - 1) / 2) * 13, cid = "ab" + e + "_" + i;
-          return '<g class="tk-ab' + (mow ? " tk-ab-mow" : "") + '" data-n="' + esc(n) + '" style="--x:' + x.toFixed(1) + 'px"><title>' + esc(pretty(n)) + '</title><circle r="' + ir + '" fill="#0b0e12" stroke="rgba(255,255,255,.55)" stroke-width="0.8"/><clipPath id="' + cid + '"><circle r="' + (ir - 0.8) +
+          const rech = mow || (d.rech || []).indexOf(n) >= 0;  // an ability that comes back (a machine's, or one with a cooldown) never leaves: it only flashes when played
+          return '<g class="tk-ab' + (mow ? " tk-ab-mow" : "") + '" data-n="' + esc(n) + '"' + (rech ? ' data-r="1"' : "") + ' style="--x:' + x.toFixed(1) + 'px"><title>' + esc(pretty(n)) + '</title><circle r="' + ir + '" fill="#0b0e12" stroke="rgba(255,255,255,.55)" stroke-width="0.8"/><clipPath id="' + cid + '"><circle r="' + (ir - 0.8) +
             '"/></clipPath><image href="' + assets + d.abil[n] + '" x="' + (-ir + 0.7) + '" y="' + (-ir + 0.7) + '" width="' + (2 * ir - 1.4) + '" height="' + (2 * ir - 1.4) + '" clip-path="url(#' + cid + ')" preserveAspectRatio="xMidYMid slice"/></g>';
         }).join("");
         g.insertAdjacentHTML("beforeend", '<g class="tk-acts" transform="translate(0,' + (mow ? (r * 0.4).toFixed(1) : (r * 0.34 + 11.6).toFixed(1)) + ')">' + ics + "</g>");
@@ -274,7 +275,10 @@
         const max = info.b ? d.max : info.hp, pct = Math.max(0, Math.min(1, u.hp / (max || 1)));
         tk.hp.style.transform = "scaleX(" + pct.toFixed(3) + ")";
         tk.hp.setAttribute("fill", pct > 0.5 ? "#34d399" : pct > 0.25 ? "#f2b134" : "#f87171");
-        tk.g.querySelectorAll(".tk-ab").forEach(function (ic) { ic.classList.toggle("is-used", !!(u.used && u.used[ic.dataset.n])); });
+        tk.g.querySelectorAll(".tk-ab").forEach(function (ic) {
+          if (ic.dataset.r) ic.classList.toggle("tk-pulse", step.n === "User_UseAbility" && +e === step.a && ic.dataset.n === step.l);  // comes back: stays, flashes when played
+          else ic.classList.toggle("is-used", !!(u.used && u.used[ic.dataset.n]));  // once only: spent, it flies up and fades
+        });
         tk.g.classList.toggle("tk-act", step.a !== null && step.a !== undefined && +e === step.a);
         tk.g.classList.toggle("tk-hit", !!hit[e]);
       });
