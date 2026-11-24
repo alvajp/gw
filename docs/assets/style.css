@@ -3057,8 +3057,8 @@ body[data-page="replay"]::before {
 .sim-map-chip .map-chip-img { display: block; width: 100%; height: 100%; object-fit: cover; border-radius: 0; transform: scale(1.14); }  /* the maps' ragged edges are cropped: the art fills its square */
 .sim-map-chip span { font-size: 0.78rem; font-weight: 600; text-align: center; }
 .sim-map-chip small, .sim-level-chip small { color: var(--text-muted); font-size: 0.68rem; font-weight: 500; }
-.sim-levels { display: flex; flex-wrap: wrap; gap: 0.6rem; }
-.sim-level-chip { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.9rem; font-size: 0.95rem; }
+.sim-levels { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0 0 0.8rem; }
+.sim-level-chip { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.3rem 0.8rem; font-size: 0.85rem; }
 .sim-level-chip:disabled { opacity: 0.45; cursor: not-allowed; }
 .sim-list { display: grid; gap: 0.4rem; }
 .sim-row { display: flex; align-items: center; gap: 0.8rem; width: 100%; box-sizing: border-box; padding: 0.5rem 0.8rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); font: inherit; text-align: left; }
@@ -3115,7 +3115,6 @@ button.sim-row[aria-pressed="true"] { border-color: var(--accent); background: c
 .sim-sep { align-self: stretch; width: 1px; min-height: 1.6rem; margin: 0 0.45rem; background: var(--border); }
 .sim-note { margin: 0 0 0.6rem; color: var(--text-muted); font-size: 0.82rem; }
 .sim-arch-name { min-width: 4.4rem; font-weight: 700; font-size: 0.9rem; margin-right: 0.3rem; }
-.sim-level-chip { gap: 0.6rem; padding: 0.4rem 1rem 0.4rem 0.7rem; }
 .sim-level-chip .rh { margin-right: 0; }
 .sim-lv-text { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.2; }
 .sim-lv-text b { font-size: 0.95rem; font-weight: 700; }
@@ -3128,3 +3127,28 @@ button.sim-row[aria-pressed="true"] { border-color: var(--accent); background: c
 .sim-others[open] > summary::before { transform: rotate(90deg); }
 .sim-others > summary small { font-weight: 500; font-size: 0.75rem; margin-left: 0.4rem; }
 .sim-others > .sim-row { margin-top: 0.4rem; }
+
+/* ---- Simulation board (simulation-board.html, sim-board.js): the replay player's layout with draggable characters ---- */
+.sb-board .tk.sb-drag { cursor: grab; touch-action: none; }
+.sb-board .tk.dragging { cursor: grabbing; transition: none; }
+.sb-board .tk.dragging .tk-body { filter: drop-shadow(0 6px 6px rgba(0, 0, 0, 0.6)); }
+.sb-board .rp-cell.sb-drop { fill: rgba(255, 212, 94, 0.35); stroke: #ffd45e; stroke-width: 2; }
+.sb-board.has-map .rp-cell[data-k="1"] { fill: rgba(0, 0, 0, 0.28); }
+.sb-board.no-grid .rp-cell { stroke: transparent; }
+.sb-board.no-starts .sb-starts { display: none; }
+.sb-board .sb-starts { pointer-events: none; }
+.sb-num { pointer-events: none; }
+.sb-num text { fill: #fff; font-size: 11px; font-weight: 700; text-anchor: middle; }
+.rp-log li.sb-later button { opacity: 0.55; }
+
+/* ---- the zones of the selected character in a replay (replay.js, hex-rules.js): where it can go, where the other side can hit it ---- */
+.rp-board .rp-z { pointer-events: none; }
+.rp-board .rp-z-dg { fill: rgba(240, 70, 70, 0.30); stroke: rgba(255, 90, 90, 0.55); stroke-width: 1; }
+.rp-board .rp-z-mv { fill: rgba(74, 209, 192, 0.30); stroke: #4ad1c0; stroke-width: 1.6; }
+.rp-board .rp-z-mv.rp-z-hot { stroke: #ffb347; stroke-dasharray: 5 3; }
+.rp-board .rp-z-mv.rp-z-own { fill: none; stroke-width: 2.2; }
+.rp-zleg { display: flex; flex-direction: column; gap: 0.25rem; margin-top: 0.65rem; padding-top: 0.6rem; border-top: 1px solid var(--border); font-size: 0.8rem; }
+.rp-zleg small { color: var(--text-muted); font-size: 0.74rem; }
+.rp-zk { display: inline-block; width: 0.8rem; height: 0.8rem; margin-right: 0.45rem; border-radius: 3px; vertical-align: -1px; }
+.rp-zk-mv { background: rgba(74, 209, 192, 0.45); border: 1px solid #4ad1c0; }
+.rp-zk-dg { background: rgba(240, 70, 70, 0.45); border: 1px solid rgba(255, 90, 90, 0.8); }

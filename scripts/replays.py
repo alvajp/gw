@@ -383,7 +383,7 @@ def convert(rp, file_id):
         "cells": cells, "tile0": min(tile_pos) if tile_pos else 0, "boss": boss.get("UnitId"), "hp0": boss.get("RemainingHealth"), "max": boss.get("Health"),
         "rounds": (bc.get("Victory") or {}).get("VictoryConditions", {}).get("MainPlayerRoundLimitation"), "user": md.get("UserId"),
         "units": {str(k): v for k, v in units.items()}, "steps": [s for s in steps if s["ev"] or s["l"]],
-        **({"relics": relic_names} if relic_names else {}),
+        **({"relics": relic_names} if relic_names else {})
     }
 
 
@@ -392,6 +392,11 @@ def convert(rp, file_id):
 # tiles of the platforms (edge maps of 4 boards, then checked on the walls / elevated cells of the replays). The board's own configuration in the bundle says where the
 # playable 7 x 10 cells sit in the 13 x 15 visual grid: logical column c is visual column PlayableMinCol + c, logical row r is picture row PlayableMaxRow - r (row 0 at the bottom).
 GEO = {"R": 91.5, "sy": 0.90, "ox": 104.0, "oy": 32.0}
+
+
+# the lattice of the guild war boards' pictures (they are zoomed in more than the raid boards'): fitted on the start hexes of data/war_board_slots.json against docs/assets/slots.json
+# (see war_boards.py), for the 13 x 14 visual grids (7 x 9 boards); the 13 x 15 ones shift by half a row
+WAR_GEO = {"R": 102.0, "sy": 0.90, "ox": 5.2, "oy": 8.4, "vw": 13, "vh": 14}
 
 
 def _bundle_config(name):
@@ -411,7 +416,7 @@ def _bundle_config(name):
     return None
 
 
-def extract_map(board, cols, rows):
+def extract_map(board, cols, rows, geo=None):
     """The game's own picture of a raid board -> docs/assets/replay-maps/<board>.webp (cropped around the playable cells); returns {src, x0, y0, w, h, c0, r0, + GEO}: the
     crop's box in texture pixels and where the playable cells sit in the lattice. None when the picture cannot be read (needs UnityPy + Pillow and the game's files on this Mac)."""
     name = board.lower()
@@ -424,11 +429,12 @@ def extract_map(board, cols, rows):
     if cfg is None:
         return None
     c0, r0, vw, vh = cfg
-    R, sy = GEO["R"], GEO["sy"]
+    g = geo or GEO  # the guild war boards have their own lattice (WAR_GEO in war_boards.py): their picture is zoomed in a little more than the raid boards'
+    R, sy = g["R"], g["sy"]
     hs = sy * 3 ** 0.5 * R
     # the picture is centred on the visual grid: GEO was fitted on 13 x 15 grids, other sizes shift by half the difference (a war board is 13 x 14: half a row lower)
-    ox = GEO["ox"] + (13 - vw) * 0.75 * R
-    oy = GEO["oy"] + (15 - vh) * hs / 2
+    ox = g["ox"] + (g.get("vw", 13) - vw) * 0.75 * R
+    oy = g["oy"] + (g.get("vh", 15) - vh) * hs / 2
     xs = [ox + R + (c + c0) * 1.5 * R for c in range(cols)]
     ys = [oy + (r0 - r + (0.5 if (c + c0) % 2 == 0 else 0)) * hs + hs / 2 for c in range(cols) for r in range(rows)]
     m, my = 0.6 * R, 1.9 * hs  # the machines of war have their platform above (the enemy's) and under (ours) the cells: room for them
@@ -477,7 +483,7 @@ def main():
         boss = rp["BattleConfiguration"].get("BossUnit") or {}
         rid = hashlib.sha256(open(f, "rb").read()).hexdigest()[:12]
         data = convert(rp, rid)
-        pic = extract_map(data["map"], data["w"], data["h"])
+        pic = extract_map(data["map"], data["w"], data["h"], WAR_GEO if war else None)
         if pic:
             data["pic"] = pic
         boss_entities = {k for k, u in data["units"].items() if u["b"]}

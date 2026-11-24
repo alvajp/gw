@@ -1,0 +1,886 @@
+{
+"adeptCanoness": {
+"mv": 3,
+"rg": [
+1,
+2
+]
+},
+"adeptCelestine": {
+"fl": 1,
+"mv": 4,
+"rg": [
+1
+]
+},
+"adeptExorcist": {
+"mv": null,
+"rg": [
+1
+]
+},
+"adeptHospitaller": {
+"mv": 3,
+"rg": [
+1
+]
+},
+"adeptMorvenn": {
+"mv": 3,
+"rg": [
+1,
+3
+]
+},
+"adeptRetributor": {
+"mv": 3,
+"rg": [
+1,
+2
+]
+},
+"admecDestroyer": {
+"mv": 2,
+"rg": [
+1,
+3
+],
+"us": 1
+},
+"admecDominus": {
+"mv": 3,
+"rg": [
+1,
+2
+]
+},
+"admecManipulus": {
+"fl": 1,
+"mv": 3,
+"rg": [
+1,
+2
+]
+},
+"admecMarshall": {
+"mv": 3,
+"rg": [
+1,
+2
+]
+},
+"admecRuststalker": {
+"mv": 4,
+"rg": [
+1
+],
+"us": 1
+},
+"astarCyrus": {
+"mv": 3,
+"rg": [
+1,
+3
+]
+},
+"astarEradicator": {
+"mv": 2,
+"rg": [
+1,
+2
+]
+},
+"astarLysander": {
+"mv": 2,
+"rg": [
+1
+]
+},
+"astraBullgryn": {
+"mv": 3,
+"rg": [
+1
+]
+},
+"astraCreed": {
+"mv": 3,
+"rg": [
+1
+]
+},
+"astraDreir": {
+"mv": 4,
+"rg": [
+1
+],
+"us": 1
+},
+"astraOrdnance": {
+"id": 1,
+"mv": 3,
+"rg": [
+1,
+3
+]
+},
+"astraOrdnanceBattery": {
+"mv": null,
+"rg": [
+1
+]
+},
+"astraPrimarisPsy": {
+"mv": 3,
+"rg": [
+1,
+2
+]
+},
+"astraYarrick": {
+"mv": 3,
+"rg": [
+1,
+2
+]
+},
+"blackAbaddon": {
+"mv": 3,
+"rg": [
+1,
+2
+]
+},
+"blackForgefiend": {
+"mv": null,
+"rg": [
+1
+]
+},
+"blackHaarken": {
+"fl": 1,
+"mv": 4,
+"rg": [
+1
+]
+},
+"blackObliterator": {
+"mv": 2,
+"rg": [
+1,
+3
+]
+},
+"blackPossession": {
+"mv": 3,
+"rg": [
+1,
+2
+]
+},
+"blackTerminator": {
+"mv": 2,
+"rg": [
+1
+]
+},
+"bloodDante": {
+"fl": 1,
+"mv": 4,
+"rg": [
+1
+]
+},
+"bloodDeathCompany": {
+"mv": 3,
+"rg": [
+1,
+2
+],
+"us": 1
+},
+"bloodIntercessor": {
+"fl": 1,
+"mv": 4,
+"rg": [
+1
+]
+},
+"bloodMephiston": {
+"mv": 3,
+"rg": [
+1,
+2
+]
+},
+"bloodSanguinary": {
+"mv": 3,
+"rg": [
+1
+]
+},
+"bloodTerminator": {
+"mv": 2,
+"rg": [
+1
+]
+},
+"custoAtlacoya": {
+"mv": 3,
+"rg": [
+1
+]
+},
+"custoBladeChampion": {
+"mv": 3,
+"rg": [
+1
+]
+},
+"custoDreadnought": {
+"mv": null,
+"rg": [
+1
+]
+},
+"custoKyrus": {
+"mv": 3,
+"rg": [
+1,
+2
+]
+},
+"custoTrajann": {
+"mv": 3,
+"rg": [
+1
+]
+},
+"custoVexilusPraetor": {
+"mv": 3,
+"rg": [
+1
+]
+},
+"darkaAsmodai": {
+"mv": 3,
+"rg": [
+1
+]
+},
+"darkaAzrael": {
+"mv": 3,
+"rg": [
+1,
+2
+]
+},
+"darkaCompanion": {
+"mv": 3,
+"rg": [
+1
+]
+},
+"darkaHellblaster": {
+"mv": 3,
+"rg": [
+1,
+3
+]
+},
+"darkaSternguard": {
+"mv": 3,
+"rg": [
+1,
+3
+]
+},
+"darkaStormSpeeder": {
+"mv": null,
+"rg": [
+1
+]
+},
+"darkaTerminator": {
+"mv": 2,
+"rg": [
+1
+]
+},
+"deathBlightbringer": {
+"mv": 2,
+"rg": [
+1
+]
+},
+"deathBlightlord": {
+"mv": 2,
+"rg": [
+1
+]
+},
+"deathCrawler": {
+"mv": null,
+"rg": [
+1
+]
+},
+"deathPutrifier": {
+"mv": 2,
+"rg": [
+1
+]
+},
+"deathRotbone": {
+"mv": 2,
+"rg": [
+1
+]
+},
+"deathTyphus": {
+"mv": 2,
+"rg": [
+1,
+2
+]
+},
+"eldarAutarch": {
+"fl": 1,
+"mv": 5,
+"rg": [
+1
+]
+},
+"eldarFarseer": {
+"mv": 3,
+"rg": [
+1,
+2
+]
+},
+"eldarJainZar": {
+"mv": 4,
+"rg": [
+1
+]
+},
+"eldarLhykhis": {
+"fl": 1,
+"mv": 4,
+"rg": [
+1,
+2
+]
+},
+"eldarMauganRa": {
+"mv": 3,
+"rg": [
+1,
+3
+]
+},
+"eldarRanger": {
+"mv": 3,
+"rg": [
+1,
+3
+]
+},
+"emperExultant": {
+"mv": 3,
+"rg": [
+1
+]
+},
+"emperFlawlessBlade": {
+"mv": 4,
+"rg": [
+1
+]
+},
+"emperKakophonist": {
+"mv": 3,
+"rg": [
+1
+]
+},
+"emperLucius": {
+"mv": 4,
+"rg": [
+1
+]
+},
+"emperNoiseMarine": {
+"mv": 3,
+"rg": [
+1,
+3
+]
+},
+"genesBiophagus": {
+"mv": 3,
+"rg": [
+1
+]
+},
+"genesKelermorph": {
+"mv": 3,
+"rg": [
+1,
+2
+]
+},
+"genesMagus": {
+"mv": 3,
+"rg": [
+1,
+2
+]
+},
+"genesPatriarch": {
+"mv": 4,
+"rg": [
+1
+],
+"us": 1
+},
+"genesPrimus": {
+"mv": 3,
+"rg": [
+1,
+2
+]
+},
+"lostaBile": {
+"mv": 3,
+"rg": [
+1,
+2
+]
+},
+"lostaFearmonger": {
+"mv": 3,
+"rg": [
+1,
+2
+]
+},
+"necroChronomancer": {
+"fl": 1,
+"mv": 3,
+"rg": [
+1,
+2
+]
+},
+"necroDestroyer": {
+"mv": 3,
+"rg": [
+1,
+2
+]
+},
+"necroOverlord": {
+"mv": 3,
+"rg": [
+1,
+2
+]
+},
+"necroPlasmancer": {
+"fl": 1,
+"mv": 3,
+"rg": [
+1,
+2
+]
+},
+"necroReanimator": {
+"mv": null,
+"rg": [
+1
+]
+},
+"necroSpyder": {
+"fl": 1,
+"mv": 3,
+"rg": [
+1
+]
+},
+"necroWarden": {
+"mv": 3,
+"rg": [
+1,
+3
+]
+},
+"orksBigMek": {
+"mv": 3,
+"rg": [
+1
+]
+},
+"orksKillaKan": {
+"mv": 3,
+"rg": [
+1,
+3
+]
+},
+"orksNob": {
+"mv": 4,
+"rg": [
+1
+],
+"us": 1
+},
+"orksRukkatrukk": {
+"mv": null,
+"rg": [
+1
+]
+},
+"orksRuntherd": {
+"mv": 3,
+"rg": [
+1
+]
+},
+"orksWarboss": {
+"mv": 3,
+"rg": [
+1,
+3
+]
+},
+"orksWeirdboy": {
+"mv": 3,
+"rg": [
+1,
+2
+]
+},
+"spaceBlackmane": {
+"mv": 3,
+"rg": [
+1
+]
+},
+"spaceHound": {
+"mv": 3,
+"rg": [
+1
+]
+},
+"spaceRockfist": {
+"mv": 2,
+"rg": [
+1
+],
+"us": 1
+},
+"spaceStormcaller": {
+"mv": 2,
+"rg": [
+1,
+2
+],
+"us": 1
+},
+"spaceWolfPriest": {
+"mv": 3,
+"rg": [
+1
+]
+},
+"spaceWulfen": {
+"mv": 3,
+"rg": [
+1
+],
+"us": 1
+},
+"tauAunShi": {
+"mv": 3,
+"rg": [
+1
+]
+},
+"tauBroadside": {
+"mv": null,
+"rg": [
+1
+]
+},
+"tauCrisis": {
+"fl": 1,
+"mv": 3,
+"rg": [
+1,
+2
+]
+},
+"tauDarkstrider": {
+"mv": 3,
+"rg": [
+1,
+2
+]
+},
+"tauFarsight": {
+"fl": 1,
+"mv": 4,
+"rg": [
+1,
+2
+]
+},
+"tauMarksman": {
+"mv": 2,
+"rg": [
+1,
+3
+]
+},
+"tauShadowsun": {
+"fl": 1,
+"mv": 4,
+"rg": [
+1,
+2
+]
+},
+"templAggressor": {
+"mv": 2,
+"rg": [
+1,
+2
+]
+},
+"templAncient": {
+"mv": 3,
+"rg": [
+1
+]
+},
+"templChampion": {
+"mv": 3,
+"rg": [
+1
+]
+},
+"templHelbrecht": {
+"mv": 3,
+"rg": [
+1,
+2
+]
+},
+"templSwordBrother": {
+"mv": 3,
+"rg": [
+1
+]
+},
+"thousAhriman": {
+"fl": 1,
+"mv": 3,
+"rg": [
+1,
+2
+]
+},
+"thousDaemonPrince": {
+"mv": null,
+"rg": [
+1
+]
+},
+"thousInfernalMaster": {
+"mv": 3,
+"rg": [
+1,
+2
+]
+},
+"thousSekhetar": {
+"mv": 3,
+"rg": [
+1,
+3
+]
+},
+"thousSorcerer": {
+"fl": 1,
+"mv": 3,
+"rg": [
+1,
+2
+]
+},
+"thousTerminator": {
+"mv": 2,
+"rg": [
+1,
+2
+]
+},
+"thousTzaangor": {
+"fl": 1,
+"mv": 4,
+"rg": [
+1,
+2
+]
+},
+"tyranBiovore": {
+"mv": null,
+"rg": [
+1
+]
+},
+"tyranDeathleaper": {
+"mv": 3,
+"rg": [
+1
+]
+},
+"tyranNeurothrope": {
+"fl": 1,
+"mv": 2,
+"rg": [
+1,
+3
+]
+},
+"tyranParasite": {
+"fl": 1,
+"mv": 4,
+"rg": [
+1
+]
+},
+"tyranTyrantGuard": {
+"mv": 3,
+"rg": [
+1
+]
+},
+"tyranWingedPrime": {
+"fl": 1,
+"mv": 4,
+"rg": [
+1
+]
+},
+"ultraApothecary": {
+"mv": 3,
+"rg": [
+1
+]
+},
+"ultraCalgar": {
+"mv": 3,
+"rg": [
+1
+]
+},
+"ultraDreadnought": {
+"mv": null,
+"rg": [
+1
+]
+},
+"ultraEliminatorSgt": {
+"mv": 2,
+"rg": [
+1,
+3
+]
+},
+"ultraInceptorSgt": {
+"fl": 1,
+"mv": 4,
+"rg": [
+1
+]
+},
+"ultraTigurius": {
+"mv": 3,
+"rg": [
+1,
+2
+]
+},
+"ultraTitus": {
+"mv": 3,
+"rg": [
+1
+]
+},
+"votanBeserk": {
+"mv": 3,
+"rg": [
+1
+]
+},
+"votanChampion": {
+"mv": 2,
+"rg": [
+1,
+2
+],
+"us": 1
+},
+"votanIronmaster": {
+"mv": 3,
+"rg": [
+1
+]
+},
+"votanMemnyr": {
+"mv": 3,
+"rg": [
+1
+]
+},
+"votanUthar": {
+"mv": 3,
+"rg": [
+1,
+2
+]
+},
+"worldEightbound": {
+"mv": 3,
+"rg": [
+1
+],
+"us": 1
+},
+"worldExecutions": {
+"mv": 3,
+"rg": [
+1
+]
+},
+"worldJakhal": {
+"mv": 3,
+"rg": [
+1
+]
+},
+"worldKharn": {
+"mv": 3,
+"rg": [
+1
+]
+},
+"worldTerminator": {
+"mv": 2,
+"rg": [
+1
+],
+"us": 1
+}
+}

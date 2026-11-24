@@ -1630,8 +1630,13 @@ def compute_battlefield(result):
                     ln["n"] += 1
                     ln["fails"] += 1 if e["fail"] else 0
                     ln["score"] += e["adj"]
-                    e["_line"] = order.index(k) + 1
-                entries.append({"uid": uid, "events": events, "lines": [lines[k] for k in order]})
+                    e["_line"] = order.index(k)
+                # the in-game order: the lines of the higher rarity first (the 2 first lines of a zone are one tier above the 3 others), then the order the attackers reached them
+                rank = {"m": 0, "l": 1, "e": 2, "r": 3}
+                final = sorted(range(len(order)), key=lambda i: (rank.get(lines[order[i]]["rar"], 4), i))
+                for e in events:
+                    e["_line"] = final.index(e["_line"]) + 1
+                entries.append({"uid": uid, "events": events, "lines": [lines[order[i]] for i in final]})
             out[team][zone] = sorted(entries, key=lambda d: -len(d["events"]))
     return out
 
@@ -2676,9 +2681,8 @@ def render_simulation_page(all_wars):
     blob = '<script type="application/json" id="sim-data">' + json.dumps(data, separators=(",", ":"), ensure_ascii=False).replace("</", "<\\/") + "</script>"
     body = (
         '<div id="sim" class="sim"><section class="sim-step" id="sim-map"><h2><span class="sim-n">1</span>Map</h2><div class="sim-maps"></div></section>'
-        '<section class="sim-step" id="sim-level" hidden><h2><span class="sim-n">2</span>Niveau</h2><div class="sim-levels"></div></section>'
-        '<section class="sim-step" id="sim-def" hidden><h2><span class="sim-n">3</span>Défense à affronter</h2><div class="sim-list"></div></section>'
-        '<section class="sim-step" id="sim-atk" hidden><h2><span class="sim-n">4</span>Équipe conseillée</h2>'
+        '<section class="sim-step" id="sim-def" hidden><h2><span class="sim-n">2</span>Défense à affronter</h2><div class="sim-list"></div></section>'
+        '<section class="sim-step" id="sim-atk" hidden><h2><span class="sim-n">3</span>Équipe conseillée</h2>'
         '<div class="sim-atk-grid"><div class="sim-list"></div><aside class="sim-preview" aria-label="Aperçu de la map"></aside></div></section></div>'
         + blob + f'<script src="assets/simulation.js?v={ASSETS_VERSION}"></script>'
     )
@@ -2687,6 +2691,23 @@ def render_simulation_page(all_wars):
         title_class="hero-title", header_extra="", header_action="", v=ASSETS_VERSION, bg="deathguard-plague",
     )
     with open(os.path.join(DOCS_DIR, "simulation.html"), "w", encoding="utf-8") as f:
+        f.write(html)
+
+
+def render_simulation_board_page():
+    """docs/simulation-board.html: the page the Simulation preview opens (sim-board.js): the war map with its real hex grid and the two teams on it, the characters can be moved.
+    The address (#m=<board>&a=<units>&d=<units>...) says what to show; the page only needs the units' names and portraits, embedded here (data/units.json)."""
+    try:
+        with open(os.path.join(ROOT, "data", "unit_rules.json"), encoding="utf-8") as f:
+            rules = json.load(f)  # movement, reach and traits of the characters (scripts/unit_rules.py)
+    except OSError:
+        rules = {}
+    units = {u: [v["name"], v["image"], rules.get(u, {})] for u, v in UNITS_DB.items()}
+    blob = '<script type="application/json" id="sb-units">' + json.dumps(units, separators=(",", ":"), ensure_ascii=False).replace("</", "<\\/") + "</script>"
+    body = '<div class="rp sb" id="sb"><p class="mnone">Chargement de la simulation…</p></div>' + blob + f'<script src="assets/hex-rules.js?v={ASSETS_VERSION}"></script><script src="assets/sim-board.js?v={ASSETS_VERSION}"></script>'
+    html = render_page(nav_active="strategy", page_kind="replay", title="Simulation", asset_prefix="", body=body, back_link=back_link_html("simulation.html", "Simulation"),
+                       title_class="hero-title", header_extra="", header_action="", v=ASSETS_VERSION)
+    with open(os.path.join(DOCS_DIR, "simulation-board.html"), "w", encoding="utf-8") as f:
         f.write(html)
 
 
@@ -3481,6 +3502,7 @@ def main():
     render_home(all_wars, seasons)
     render_strategy_index(all_wars)
     render_simulation_page(all_wars)
+    render_simulation_board_page()
     render_defenses_page(all_wars)
     members = {r["uid"] for r in rosters_mod.load_rosters()}
     medals = compute_medals(seasons)

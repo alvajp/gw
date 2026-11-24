@@ -1,5 +1,5 @@
-// Simulation (opened from the Attaques page): 1. a map, 2. its level (Héros / Élite / Vétéran), 3. the defense to face -- the defenses met most often on that map at that level, over
-// every captured war --, 4. the team to use: the teams of ours that already beat that defense (or, failing that, the closest defenses and the best teams on the map).
+// Simulation (opened from the Attaques page): 1. a map, 2. the defense to face -- the defenses met most often on that map, over every captured war --, 3. the team to use: the teams that already beat
+// that defense (or, failing that, the closest defenses).
 // All of it is computed here from the compact rows of #sim-data (scripts/generate_site.build_simulation_data): [map, level, defense units, defense MoW, our units, our MoW, outcome,
 // score, war, line rarity, defense units in lineup order, attacker, attacker's guild].
 (function () {
@@ -9,15 +9,7 @@
   const $ = function (id) { return document.getElementById(id); };
   const esc = function (s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); };
   const RAR = { m: ["M", "mythic"], l: ["L", "legendary"], e: ["E", "epic"], r: ["R", "rare"] };
-  let map = -1, level = -1, defKey = null;
-  // placement.js (loaded on every page) opens the map with draggable portraits for an element with data-pl-img / data-pl-att / data-pl-def; it reads the units from #defense-data
-  if (!document.getElementById("defense-data")) {
-    const dd = document.createElement("script");
-    dd.type = "application/json"; dd.id = "defense-data";
-    dd.textContent = JSON.stringify({ units: D.u.reduce(function (o, u, i) { o[i] = u; return o; }, {}), players: {} });
-    document.body.appendChild(dd);
-  }
-
+  let map = -1, defKey = null;
   const unit = function (i, mow) {
     const u = D.u[i];
     return u && u[1] ? '<img class="unit' + (mow ? " mow" : "") + '" src="' + esc(u[1]) + '" alt="' + esc(u[0]) + '" title="' + esc(u[0]) + '" loading="lazy">' : '<span class="unit unit-missing" title="' + esc(u ? u[0] : "?") + '">?</span>';
@@ -48,17 +40,7 @@
     return '<button type="button" class="map-chip sim-map-chip" data-map="' + x[0] + '" aria-pressed="false"><span class="sim-map-art"><img class="map-chip-img" src="' + esc(x[1][2]) + '" alt="" loading="lazy"></span><span>' + esc(x[1][1]) + "</span><small>" + pl(count[x[0]], "combat", "combats") + "</small></button>";
   }).join("");
 
-  // ---- 2. levels of the chosen map ----
-  function levels() {
-    const c = {};
-    rows.forEach(function (r) { if (r[0] === map) c[r[1]] = (c[r[1]] || 0) + 1; });
-    $("sim-level").querySelector(".sim-levels").innerHTML = D.t.map(function (t, i) {
-      return '<button type="button" class="lvl-chip sim-level-chip" data-level="' + i + '" aria-pressed="false"' + (c[i] ? "" : " disabled") + ">" + badge(t[2]) + '<span class="sim-lv-text"><b>' + esc(t[1]) + "</b><small>" + (c[i] ? pl(c[i], "combat", "combats") : "jamais vu") + "</small></span></button>";
-    }).join("");
-    shown("sim-level", true);
-  }
-
-  // ---- 3. the defenses met on that map at that level: ONE row per archetype (a line holds the 3 core units of an archetype), the other lines below ----
+  // ---- 2. the defenses met on that map (all the levels): ONE row per archetype (a line holds the 3 core units of an archetype), the other lines below ----
   const archOf = function (r) {
     const have = r[2].concat(r[3] >= 0 ? [r[3]] : []);
     return D.a.filter(function (a) { return a[1].every(function (u) { return have.indexOf(u) >= 0; }); })[0] || null;
@@ -76,7 +58,7 @@
       others.map(function (u) { return unit(u, false); }).join("") + "</span>" + stats(x) + "</button>";
   }
   function defenses() {
-    const list = rows.filter(function (r) { return r[0] === map && r[1] === level; });
+    const list = rows.filter(function (r) { return r[0] === map; });
     const byArch = {}, loose = [];
     list.forEach(function (r) {
       const a = archOf(r);
@@ -98,11 +80,21 @@
     shown("sim-atk", false);
   }
 
-  // ---- 4. what to play against it: the attacks that worked (ours and the Attaques page's guilds'), best score first, and a preview of the map for the one picked ----
+  // ---- 3. what to play against it: the attacks that worked (ours and the Attaques page's guilds'), best score first, and a preview of the map for the one picked ----
   let shownRows = [], slotsPromise = null;
   const slotsOf = function () {
     return slotsPromise || (slotsPromise = fetch("assets/slots.json").then(function (r) { return r.json(); }).catch(function () { return {}; }));
   };
+  // the address of the simulation board page for an attack: the map, our team, their defense (in lineup order) and where it comes from (sim-board.js)
+  const uid = function (i) { const u = D.u[i]; return u && u[1] ? (u[1].match(/([^\/]+)\.webp/) || [])[1] || "" : ""; };
+  function boardUrl(r) {
+    const m = D.m[map], p = new URLSearchParams();
+    p.set("m", m[0]); p.set("n", m[1]); p.set("l", D.t[r[1]] ? D.t[r[1]][1] : "");
+    p.set("a", r[4].map(uid).join(",")); if (r[5] >= 0) p.set("am", uid(r[5]));
+    p.set("d", r[10].map(uid).join(",")); if (r[3] >= 0) p.set("dm", uid(r[3]));
+    p.set("p", D.p[r[11]]); p.set("g", D.g[r[12]]); p.set("w", D.w[r[8]]); p.set("s", r[7]);
+    return "simulation-board.html#" + p.toString();
+  }
   function preview(i) {
     const r = shownRows[i], box = document.querySelector("#sim-atk .sim-preview");
     if (!r || !box) return;
@@ -118,46 +110,53 @@
         }).join("");
       };
       box.innerHTML = '<div class="sim-pv-head"><b>' + esc(D.p[r[11]]) + "</b><small>" + esc(D.g[r[12]]) + " \u00b7 " + esc(D.w[r[8]]) + '</small><span class="sim-score ' + "is-win" + '">' + r[7] + "</span></div>" +
-        '<div class="pl-board" tabindex="0" title="Ouvrir la map pour d\u00e9placer les persos" data-pl-img="' + esc(img) + '" data-pl-att="' + r[4].join(" ") + '" data-pl-def="' + r[10].join(" ") + '"><img class="pl-map" src="' + esc(img) + '" alt="" draggable="false">' + (slot ? place(r[10], "e", "pl-def") + place(r[4], "o", "pl-att") : "") + "</div>";
+        '<div class="pl-board" tabindex="0" role="link" title="Ouvrir la simulation (d\u00e9placer les persos)" data-sb="' + esc(boardUrl(r)) + '"><img class="pl-map" src="' + esc(img) + '" alt="" draggable="false">' + (slot ? place(r[10], "e", "pl-def") + place(r[4], "o", "pl-att") : "") + "</div>";
     });
   }
+  let cands = [], noteHtml = "";
   function attacks() {
-    const here = rows.filter(function (r) { return r[0] === map && r[1] === level && r[6] === "w"; });  // real victories only (no finishing blows)
+    const here = rows.filter(function (r) { return r[0] === map && r[6] === "w"; });  // real victories only (no finishing blows), every level
     const isArch = defKey.indexOf("arch:") === 0;
     const exact = isArch ? here.filter(function (r) { const a = archOf(r); return a && a[0] === defKey.slice(5); }) : here.filter(function (r) { return dkey(r) === defKey; });
     const mine = isArch ? [] : rows.filter(function (r) { return dkey(r) === defKey; })[0][2];
     const near = exact.length || isArch ? [] : here.filter(function (r) { return r[2].filter(function (u) { return mine.indexOf(u) >= 0; }).length >= 4; });
     const best = function (a, b) { return b[7] - a[7] || b[8] - a[8]; };
-    shownRows = (exact.length ? exact : near).slice().sort(best).slice(0, 20);
-    const note = !exact.length && near.length ? '<p class="sim-note">Cette d\u00e9fense n\'a jamais \u00e9t\u00e9 battue telle quelle : voici des victoires contre des d\u00e9fenses proches (au moins 4 unit\u00e9s en commun).</p>' : "";
-    $("sim-atk").querySelector(".sim-list").innerHTML = shownRows.length
-      ? note + '<table class="attacks-table sim-table"><thead><tr><th class="a-who">Joueur</th><th class="a-comp">Attaque</th><th class="a-def">D\u00e9fense</th></tr></thead><tbody>' + shownRows.map(function (r, i) {
+    cands = (exact.length ? exact : near).slice().sort(best);
+    noteHtml = !exact.length && near.length ? '<p class="sim-note">Cette d\u00e9fense n\'a jamais \u00e9t\u00e9 battue telle quelle : voici des victoires contre des d\u00e9fenses proches (au moins 4 unit\u00e9s en commun).</p>' : "";
+    shown("sim-atk", true);
+    renderAttacks();
+  }
+  // the table of the best 20 victories found and the preview of the first
+  function renderAttacks() {
+    shownRows = cands.slice(0, 20);
+    $("sim-atk").querySelector(".sim-list").innerHTML = (shownRows.length
+      ? noteHtml + '<table class="attacks-table sim-table"><thead><tr><th class="a-who">Joueur</th><th class="a-comp">Attaque</th><th class="a-def">D\u00e9fense</th></tr></thead><tbody>' + shownRows.map(function (r, i) {
         return '<tr data-i="' + i + '" tabindex="0"><td class="a-who"><b>' + esc(D.p[r[11]]) + "</b><small>" + esc(D.g[r[12]]) + " \u00b7 " + esc(D.w[r[8]]) + '</small></td><td class="a-comp">' + comp(r[4], r[5]) +
           '</td><td class="a-def">' + badge(r[9]) + comp(r[10], r[3]) + "</td></tr>";
       }).join("") + "</tbody></table>"
-      : '<p class="mnone">Aucune victoire contre cette d\u00e9fense.</p>';
+      : '<p class="mnone">Aucune victoire contre cette d\u00e9fense.</p>');
     $("sim-atk").querySelector(".sim-preview").innerHTML = "";
-    shown("sim-atk", true);
     if (shownRows.length) preview(0);
   }
 
+  document.addEventListener("keydown", function (e) {
+    const b = e.key === "Enter" && e.target.closest && e.target.closest(".sim-preview .pl-board[data-sb]");
+    if (b) location.href = b.dataset.sb;
+  });
   document.addEventListener("click", function (e) {
-    const m = e.target.closest(".sim-map-chip"), l = e.target.closest(".sim-level-chip"), d = e.target.closest(".sim-row[data-def]"), t = e.target.closest(".sim-table tbody tr");
+    const m = e.target.closest(".sim-map-chip"), d = e.target.closest(".sim-row[data-def]"), t = e.target.closest(".sim-table tbody tr");
     if (m) {
-      map = +m.dataset.map; level = -1; defKey = null;
+      map = +m.dataset.map; defKey = null;
       document.querySelectorAll(".sim-map-chip").forEach(function (c) { c.setAttribute("aria-pressed", String(c === m)); });
-      levels(); shown("sim-def", false); shown("sim-atk", false);
-      const first = D.t.map(function (t, i) { return i; }).filter(function (i) { return rows.some(function (r) { return r[0] === map && r[1] === i; }); });
-      if (first.length === 1) $("sim-level").querySelector('[data-level="' + first[0] + '"]').click();  // one level only: nothing to choose
-    } else if (l && !l.disabled) {
-      level = +l.dataset.level; defKey = null;
-      document.querySelectorAll(".sim-level-chip").forEach(function (c) { c.setAttribute("aria-pressed", String(c === l)); });
+      shown("sim-atk", false);
       defenses();
     } else if (d) {
       defKey = d.dataset.def;
       document.querySelectorAll(".sim-row[data-def]").forEach(function (c) { c.setAttribute("aria-pressed", String(c === d)); });
       attacks();
       $("sim-atk").scrollIntoView({ behavior: "smooth", block: "start" });
+    } else if (e.target.closest(".sim-preview .pl-board[data-sb]")) {
+      location.href = e.target.closest(".pl-board").dataset.sb;
     } else if (t) {
       preview(+t.dataset.i);
     }

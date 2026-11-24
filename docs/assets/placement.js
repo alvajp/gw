@@ -83,28 +83,16 @@
     return dialog;
   }
 
+  // a row (an attack of a war page, of a defender's dialog ...) opens the simulation board page (sim-board.js) with the map and the two lineups
   function open(row) {
     const img = row.dataset.plImg;
-    const id = (img.match(/([^\/]+)\.webp/) || [])[1];
-    loadSlots().then(function (all) {
-      const slot = all[id];
-      if (!slot) return;
-      const info = units();
-      size = all.size || 480;
-      slots = { d: slot.e, o: slot.o };
-      function place(ids, side, cls) {
-        return ids.split(" ").filter(Boolean).map(function (u, i) {
-          const at = slots[side][i], unit = info[u];
-          if (!at || !unit) return "";
-          return '<img class="pl-unit ' + cls + '" data-side="' + side + '" data-slot="' + i + '" draggable="false" style="' + pos(at) +
-            '" src="' + esc(unit[1]) + '" alt="' + esc(unit[0]) + '" title="' + esc(unit[0]) + '">';
-        }).join("");
-      }
-      const d = getDialog();
-      d.querySelector(".pl-board").innerHTML = '<img class="pl-map" src="' + esc(img) + '" alt="" draggable="false">' +
-        place(row.dataset.plDef || "", "d", "pl-def") + place(row.dataset.plAtt || "", "o", "pl-att");
-      if (d.showModal) d.showModal(); else d.setAttribute("open", "");
-    });
+    const id = (img.match(/([^\/]+)\.webp/) || [])[1], base = img.slice(0, Math.max(0, img.indexOf("assets/")));
+    if (!id) return;
+    const p = new URLSearchParams();
+    p.set("m", id);
+    p.set("a", (row.dataset.plAtt || "").split(" ").filter(Boolean).join(","));
+    p.set("d", (row.dataset.plDef || "").split(" ").filter(Boolean).join(","));
+    location.href = base + "simulation-board.html#" + p.toString();
   }
 
   document.addEventListener("click", function (e) {
