@@ -1640,7 +1640,7 @@ body[data-page="replay"] #title-row { position: absolute; width: 1px; height: 1p
 .rp-board .tk.gone { opacity: 0; pointer-events: none; }
 .rp-board .tk-body { transform-box: fill-box; transform-origin: center; }
 .rp-board .tk-new .tk-body { animation: rp-pop 0.35s ease-out; }
-.rp-board .tk .tk-hp { transform-box: fill-box; transform-origin: 0 50%; transition: transform 0.45s ease, fill 0.3s ease; }
+.rp-board .tk .tk-hp, .rp-board .tk-ov .tk-hp, .rp-board .tk-ov .tk-sh { transform-box: fill-box; transform-origin: 0 50%; transition: transform 0.45s ease, fill 0.3s ease; }
 .rp-board .tk-ab { transform: translate(var(--x, 0px), 0); transition: transform 0.8s ease-out, opacity 0.8s ease-out; }
 .rp-board .tk-ab-mow { cursor: default; }
 .rp-board .tk-ab.tk-pulse { animation: rp-use 0.7s ease-out; }
@@ -3268,17 +3268,6 @@ button.sim-row[aria-pressed="true"] { border-color: var(--accent); background: c
 .sb-board .sb-tip { top: 0.5rem; }
 
 /* Raid > Simulation (raid-simulation.js): boss, map and level pickers, then the recommended meta of the boss */
-.rs-row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-.rs-boss, .rs-map, .rs-lvl { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.35rem 0.7rem 0.35rem 0.4rem; font: inherit; font-size: 0.82rem; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 999px; cursor: pointer; }
-.rs-lvl { padding: 0.35rem 0.9rem; }
-.rs-boss img { width: 1.9rem; height: 1.9rem; border-radius: 50%; object-fit: cover; }
-.rs-maps { display: flex; flex-wrap: wrap; gap: 0.6rem; }
-.rs-map { flex-direction: column; border-radius: var(--radius-sm); padding: 0.4rem; gap: 0.3rem; }
-.rs-map img { width: 5.2rem; height: 7.4rem; object-fit: cover; border-radius: 6px; }
-.rs-map span { font-size: 0.7rem; color: var(--text-muted); max-width: 5.2rem; text-align: center; }
-.rs-boss[aria-pressed="true"], .rs-map[aria-pressed="true"], .rs-lvl[aria-pressed="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 16%, var(--surface)); }
-.rs-boss:hover, .rs-map:hover, .rs-lvl:hover { border-color: var(--accent); }
-.rs-meta[hidden], .rs-maps[hidden] { display: none; }
 .rs-go-wrap { margin: 1.2rem 0 0; }
 .rs-go { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.5rem 1rem; font-weight: 600; color: var(--bg); background: var(--accent); border-radius: var(--radius-sm); text-decoration: none; }
 .rs-go:hover { filter: brightness(1.1); }
@@ -3315,3 +3304,117 @@ button.sim-row[aria-pressed="true"] { border-color: var(--accent); background: c
 
 /* the speed of a replay / simulation: one button that cycles ×1, ×2, ×4 */
 button.rp-speed { margin-left: auto; color: var(--text); font-size: 0.85rem; }
+
+/* Simulation: the custom team (Personnalisée): "?" slots, the dialog with the roster of a player capped to the line */
+.sim-modes { display: flex; flex-wrap: wrap; gap: 0.6rem; margin: 0 0 1rem; }
+.sim-mode-btn { min-width: 11rem; align-items: flex-start; text-align: left; padding: 0.6rem 0.9rem; }
+.sim-mode-btn b { font-size: 0.95rem; color: var(--text); }
+.sim-mode-btn small { font-size: 0.75rem; font-weight: 500; color: var(--text-muted); }
+.sim-custom { display: grid; gap: 1rem; padding: 0.9rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.sim-cu-col h3 { margin: 0 0 0.45rem; font-size: 0.85rem; color: var(--text-muted); font-weight: 600; }
+.sim-cu-slots { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
+.sim-q { cursor: pointer; }
+.sim-q:hover { outline: 2px solid var(--accent); }
+.sim-table .unit.unit-q { display: inline-flex; align-items: center; justify-content: center; border: 1px dashed var(--border); color: var(--text-muted); font-size: 0.8rem; font-weight: 700; box-sizing: border-box; }
+.sim-table .unit.unit-q.mow { border-radius: 6px; }
+.sim-cu-hint { margin: 0.5rem 0 0; font-size: 0.8rem; color: var(--text-muted); }
+.sim-cu-def { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+.sim-cu-actions { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.sim-go:disabled { opacity: 0.45; cursor: not-allowed; }
+dialog.sim-pick { width: min(70rem, 96vw); max-height: 92vh; padding: 0; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+dialog.sim-pick[open] { display: flex; flex-direction: column; }
+dialog.sim-pick::backdrop { background: rgba(0, 0, 0, 0.6); }
+.sp-head { display: flex; align-items: center; justify-content: space-between; padding: 0.7rem 1rem; border-bottom: 1px solid var(--border); }
+.sp-head h3 { margin: 0; font-size: 1.05rem; }
+.sp-x { font: inherit; font-size: 1.4rem; line-height: 1; background: none; border: 0; color: var(--text-muted); cursor: pointer; }
+.sp-bar { display: flex; flex-wrap: wrap; gap: 0.8rem 1.2rem; align-items: center; padding: 0.6rem 1rem; }
+.sp-who { font-size: 0.85rem; color: var(--text-muted); }
+.sp-who select { font: inherit; margin-left: 0.4rem; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.25rem 0.4rem; }
+.sp-tiers { display: flex; gap: 0.4rem; }
+.sp-sel { display: flex; flex-wrap: wrap; align-items: center; gap: 0.8rem; padding: 0 1rem 0.5rem; font-size: 0.82rem; color: var(--text-muted); }
+.sp-note { min-height: 1.1rem; padding: 0 1rem; font-size: 0.8rem; color: #f2b134; }
+.sp-roster { flex: 1 1 auto; overflow: auto; padding: 0.4rem 1rem 1rem; }
+.sp-roster .rc { cursor: pointer; }
+.sp-roster .rc.is-picked { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 8px; }
+.sp-roster .rc.rc-low { opacity: 0.6; }
+.sp-foot { display: flex; justify-content: flex-end; gap: 0.6rem; padding: 0.7rem 1rem; border-top: 1px solid var(--border); }
+
+/* The expanders of the War pages (the maps of Défenses, "Voir l'adversaire") look like the "Autres défenses" of Simulation: a dashed button, the arrow turns when it opens */
+details.map-defense, details.adv-expand { border: 0; background: none; box-shadow: none; overflow: visible; }
+details.map-defense > summary, details.adv-expand > summary {
+  padding: 0.55rem 0.8rem; border: 1px dashed var(--border); border-radius: var(--radius-sm); background: none;
+  color: var(--text-muted); font-weight: 600; font-size: 0.9rem; list-style: none;
+}
+details.map-defense > summary::before, details.adv-expand > summary::before { content: "\25B8"; display: inline-block; margin-right: 0; transition: transform 120ms ease; }
+details.map-defense[open] > summary::before, details.adv-expand[open] > summary::before { content: "\25B8"; transform: rotate(90deg); }
+details.map-defense > summary:hover, details.adv-expand > summary:hover { background: none; border-color: var(--text-muted); color: var(--text); }
+details.map-defense > summary .map-name { color: var(--text); }
+details.map-defense > .table-scroll { margin-top: 0.4rem; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+details.adv-expand > :not(summary):first-of-type { margin-top: 0.4rem; }
+
+.sim-cu-pick { margin-left: auto; }
+.sim-pv-head .sim-cu-pick { font-size: 0.78rem; padding: 0.3rem 0.7rem; }
+
+/* the selection on top of the dialog: the same cards as the roster, six of them, the machine last */
+.sp-sel { padding: 0 1rem 0.4rem; }
+.sp-slots { grid-template-columns: repeat(6, 88px); gap: 0.45rem; justify-content: start; margin-bottom: 0.3rem; }
+.sp-slots .rc { cursor: pointer; }
+.sp-slots .rc.sp-in { outline: 2px solid var(--accent); outline-offset: 1px; border-radius: 8px; }
+.sp-empty { opacity: 0.55; cursor: default; }
+.sp-empty .rc-portrait { display: grid; place-items: center; border: 1px dashed var(--border); border-radius: 8px; font-size: 1.4rem; color: var(--text-muted); }
+.sp-count { font-size: 0.8rem; color: var(--text-muted); }
+@media (max-width: 760px) { .sp-slots { grid-template-columns: repeat(3, 88px); } }
+.sp-sel { display: block; }
+
+/* Raid > Simulation (same steps as the war page): the bosses and the primes on two lines, portrait maps, the team step with the preview */
+.rs-line + .rs-line { margin-top: 0.6rem; }
+.rs-line:empty { display: none; }
+.sim-map-chip.rs-map { width: 6.4rem; }
+.sim-map-chip .sim-map-art.rs-portrait { aspect-ratio: 344 / 512; }
+.sim-map-chip .sim-map-art.rs-portrait .map-chip-img { transform: none; }
+.sim-level-chip { min-width: 4.2rem; align-items: center; justify-content: center; }
+.sim-level-chip b { font-size: 0.95rem; color: var(--text); }
+#rs-s-team .sim-table tr.is-picked td { background: color-mix(in srgb, var(--accent) 10%, var(--table-bg)); }
+#rs-s-team .sim-table tbody tr[data-i] { cursor: pointer; }
+.rs-pv-boss { position: absolute; left: 50%; top: 50%; width: 3.4rem; height: 3.4rem; transform: translate(-50%, -50%); border-radius: 10px; border: 2px solid var(--border); object-fit: cover; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6); }
+.rs-pv-units { display: flex; flex-wrap: wrap; gap: 0.2rem; margin-top: 0.6rem; }
+.rs-pv-units .unit { width: 28px; height: 28px; border-radius: 50%; background: var(--surface); }
+#rs-s-team .sim-preview .pl-board { position: relative; }
+
+.rs-maps[hidden], .rs-tbl[hidden], #rs-custom[hidden], #rs-rec[hidden] { display: none; }
+
+/* the line of the custom team: three big buttons that stay pressed, a bar that calls for attention until one is chosen */
+.sp-bar { margin: 0.2rem 1rem 0.6rem; padding: 0.6rem 0.8rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--table-header-bg); transition: border-color 150ms ease, background 150ms ease; }
+.sp-bar.is-required { border-color: var(--accent); border-style: dashed; animation: sp-need 1.6s ease-in-out infinite; }
+@keyframes sp-need { 0%, 100% { box-shadow: 0 0 0 0 transparent; } 50% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent); } }
+.sp-bar-title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.2rem 0.7rem; margin-bottom: 0.5rem; }
+.sp-bar-title b { font-size: 0.9rem; }
+.sp-bar-title small { font-size: 0.74rem; color: var(--text-muted); }
+.sp-tiers { gap: 0.6rem; }
+.map-chip.sp-tier { min-width: 9.5rem; align-items: flex-start; text-align: left; padding: 0.55rem 0.9rem; }
+.map-chip.sp-tier b { font-size: 0.95rem; color: var(--text); }
+.map-chip.sp-tier small { font-size: 0.72rem; font-weight: 500; color: var(--text-muted); }
+.map-chip.sp-tier[aria-pressed="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 22%, var(--table-header-bg)); box-shadow: inset 0 0 0 1px var(--accent); }
+.map-chip.sp-tier[aria-pressed="true"] b::before { content: "\2713\00a0"; color: var(--accent); }
+@media (prefers-reduced-motion: reduce) { .sp-bar.is-required { animation: none; } }
+
+/* Raid > Simulation: the bosses are small pills again (one line of text each), the primes on a second line; the attacks table of the team step */
+.rs-row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.rs-row + .rs-row { margin-top: 0.6rem; }
+.rs-boss { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.35rem 0.8rem 0.35rem 0.4rem; font: inherit; font-size: 0.82rem; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 999px; cursor: pointer; }
+.rs-boss img { width: 1.9rem; height: 1.9rem; border-radius: 50%; object-fit: cover; }
+.rs-boss:hover { border-color: var(--accent); }
+.rs-boss[aria-pressed="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 16%, var(--surface)); }
+#rs-s-team .sim-table td.a-lvl b { font-variant-numeric: tabular-nums; }
+#rs-s-team .sim-table td.a-dmg { font-variant-numeric: tabular-nums; white-space: nowrap; }
+#rs-s-team .sim-table td.a-rp { width: 1.6rem; text-align: center; color: var(--accent); }
+.rs-link { font-size: 0.78rem; color: var(--text-muted); text-decoration: none; }
+.rs-link:hover { color: var(--text); }
+
+/* the health bar, the shield bar and the states are in a layer above every avatar (sb-over): same movement and fading as the token */
+.rp-board .tk-ov { transition: transform 0.4s cubic-bezier(0.3, 0.7, 0.3, 1), opacity 0.3s ease; pointer-events: none; }
+.rp-board .tk-ov.gone { opacity: 0; }
+.sb-shv { font-style: normal; color: #60a5fa; font-weight: 600; margin-left: 0.3rem; }
+
+/* the first frame of a played action: the board jumps to the state before it without any fade or movement */
+.sb-board.sb-notrans .tk, .sb-board.sb-notrans .tk-ov, .sb-board.sb-notrans .tk-body, .sb-board.sb-notrans .tk-hp { transition: none !important; animation: none !important; }

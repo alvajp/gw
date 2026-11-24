@@ -60,9 +60,29 @@
     list("d").forEach(function (id, i) { const u = mk(id, 1, false); u.t0 = (d.start.e || [])[i] || null; units.push(u); });
     list("am").forEach(function (id) { units.push(mk(id, 0, true)); });
     list("dm").forEach(function (id) { units.push(mk(id, 1, true)); });
+    let CUST = {};  // a custom team: for each of our characters, its rank, its stars and its items, as the player's roster has them (capped to the line): id -> [rank (0-based), stars, [[item, level] ...]]
+    try { CUST = JSON.parse(q.get("ad") || "{}") || {}; } catch (e) { CUST = {}; }
+    const itemsOf = function (c) {  // the crit / block items, the boosters and the defensive items of a roster's unit, as {c, b, cb, bb, d}
+      const res = { c: [], b: [], cb: [0, 0], bb: [0, 0], d: [0, 0] }, table = UNITS._items || {};
+      (c[2] || []).forEach(function (x) {
+        const it = table[x[0]];
+        if (!it) return;
+        const lv = it[2][Math.max(0, Math.min(it[2].length, +x[1] || 1) - 1)] || [0, 0];
+        if (it[0] === "c" || it[0] === "b") res[it[0]].push(lv.slice());
+        else { res[it[0]][0] += lv[0]; res[it[0]][1] += lv[1]; }
+      });
+      return res;
+    };
     const initUnit = function (u) {
       u.t = u.t0 && u.t0.slice();
-      const st = u.rules.st && u.rules.st[rar];
+      let st = u.rules.st && u.rules.st[rar];
+      const cu = !u.mow && !u.summon && u.side === 0 && CUST[u.id];
+      u.itc = null;
+      if (cu && u.rules.bs && u.rules.ic) {  // the roster's data: the stats of its rank and stars, and its own items
+        u.itc = itemsOf(cu);
+        st = u.rules.bs.map(function (b, i) { return Math.round((b + u.rules.ic.slice(0, cu[0]).reduce(function (a, x) { return a + x[i]; }, 0)) * (100 + 10 * cu[1]) / 100); });
+        st[0] += u.itc.d[0]; st[2] += u.itc.d[1];
+      }
       u.max = st ? st[0] : 0; u.max0 = u.max; u.atk = st ? st[1] : 0; u.arm = st ? st[2] : 0;  // health, damage, armour at the top of the rarity
       u.hp = u.max; u.alive = true; u.spent = 0; u.acted = false; u.nAtk = 0; u.hitNow = false; u.termUsed = false; u.advStart = false; u.startAdj = [];
       u.ambush = false; u.fallen = false;
@@ -127,12 +147,13 @@
       cells += '<polygon class="rp-cell" data-c="' + c[0] + '" data-r="' + c[1] + '" data-k="' + c[4] + '" points="' + hexAt(cx(c[0]), cy(c[0], c[1]), 0.97) + '" fill="' + tint(c) + '" stroke="rgba(0,0,0,.35)" stroke-width="1"' +
         (maskOf[c[0] + "," + c[1]] ? ' mask="url(#' + maskOf[c[0] + "," + c[1]] + ')"' : "") + "/>";
     });
-    d.cells.forEach(function (c) { cells += '<text class="rp-el" x="' + (cx(c[0]) - R * 0.55).toFixed(1) + '" y="' + (cy(c[0], c[1]) - R * 0.45).toFixed(1) + '">' + c[3] + "</text>"; });
+    let elevNums = "";  // the altitude figures are in a layer above the tokens (they show over the characters)
+    d.cells.forEach(function (c) { elevNums += '<text class="rp-el" x="' + (cx(c[0]) - R * 0.55).toFixed(1) + '" y="' + (cy(c[0], c[1]) - R * 0.45).toFixed(1) + '">' + c[3] + "</text>"; });
     const svgBox = $("sb-board");
     svgBox.innerHTML = '<svg viewBox="' + vb.map(function (v) { return v.toFixed(1); }).join(" ") + '" role="img" aria-label="Plateau">' +
       '<image x="' + vb[0].toFixed(1) + '" y="' + vb[1].toFixed(1) + '" width="' + vb[2].toFixed(1) + '" height="' + vb[3].toFixed(1) + '" preserveAspectRatio="none" href="' + assets + esc(pic.src) + '"/>' +
       cells + '<defs><linearGradient id="sbBandG" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#34d399" stop-opacity="0.55"/><stop offset="1" stop-color="#34d399" stop-opacity="0"/></linearGradient>' +
-      '<linearGradient id="sbBandR" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f06b6b" stop-opacity="0.55"/><stop offset="1" stop-color="#f06b6b" stop-opacity="0"/></linearGradient></defs><g id="sb-turnband" pointer-events="none"></g><g id="sb-mk" class="sb-starts"></g><g id="sb-tiles"></g><g id="sb-zone"></g><g id="sb-hexes"></g><g id="sb-tok"></g><g id="sb-fx"></g><g id="sb-nums" class="sb-starts"></g></svg>';
+      '<linearGradient id="sbBandR" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f06b6b" stop-opacity="0.55"/><stop offset="1" stop-color="#f06b6b" stop-opacity="0"/></linearGradient></defs><g id="sb-turnband" pointer-events="none"></g><g id="sb-mk" class="sb-starts"></g><g id="sb-tiles"></g><g id="sb-zone"></g><g id="sb-hexes"></g><g id="sb-tok"></g><g id="sb-over" pointer-events="none"></g><g id="sb-fx"></g><g id="sb-nums" class="sb-starts"></g><g id="sb-elv" pointer-events="none">' + elevNums + '</g></svg>';
     svgBox.classList.add("has-map");
     const tipEl = document.createElement("div");  // the tooltip of the chosen action sits over the top of the map
     tipEl.className = "sb-tip"; tipEl.id = "sb-tip"; tipEl.hidden = true;
@@ -171,8 +192,20 @@
         (u.mow || u.decoy ? "" : '<g class="tk-bar" transform="translate(' + (-r * 0.65).toFixed(1) + "," + (r * 0.34).toFixed(1) + ')"><rect width="' + (1.3 * r).toFixed(1) + '" height="6" rx="3" fill="#0b0e12" stroke="rgba(255,255,255,.4)" stroke-width="0.8"/>' +
           '<rect class="tk-hp" x="1" y="1" width="' + (1.3 * r - 2).toFixed(1) + '" height="4" rx="2" fill="#34d399"/></g><g class="tk-sts" transform="translate(0,' + (r * 0.34 + 11.6).toFixed(1) + ')"></g>') + "<title>" + esc(u.name) + "</title>";
       u.g = g;
-      u.hpEl = g.querySelector(".tk-hp");
-      u.stG = g.querySelector(".tk-sts"); u.stShown = {};
+      const bar = g.querySelector(".tk-bar"), sts = g.querySelector(".tk-sts");
+      u.ov = null;
+      if (bar && sts) {  // the health bar, the shield bar and the states of a character sit in a layer above every avatar: they stay readable when two characters overlap
+        const w = 1.3 * r - 2, sh = document.createElementNS(NS, "rect");
+        sh.setAttribute("class", "tk-sh"); sh.setAttribute("x", "1"); sh.setAttribute("y", "7.6"); sh.setAttribute("width", w.toFixed(1)); sh.setAttribute("height", "2.6"); sh.setAttribute("rx", "1.3"); sh.setAttribute("fill", "#60a5fa"); sh.style.display = "none";
+        bar.appendChild(sh);
+        const ov = document.createElementNS(NS, "g");
+        ov.setAttribute("class", "tk-ov"); ov.dataset.i = u.i;
+        ov.appendChild(bar); ov.appendChild(sts);
+        $("sb-over").appendChild(ov); u.ov = ov; pos(ov, home(u));
+      }
+      u.hpEl = (u.ov || g).querySelector(".tk-hp");
+      u.shEl = (u.ov || g).querySelector(".tk-sh");
+      u.stG = (u.ov || g).querySelector(".tk-sts"); u.stShown = {};
       pos(g, home(u));
       tokLayer.appendChild(g);
     };
@@ -444,6 +477,9 @@
       });
       if (spots.length) w.t = spots[0].slice();
     };
+    const wrathShield = function (by, wd) {  // Wrask: a shield for him and the Chaos units next to him
+      [by].concat(live().filter(function (x) { return x !== by && x.side === by.side && x.rules.al === "Chaos" && RULES.dist(x.t, by.t) === 1; })).forEach(function (x) { x.shield = { amt: wd.shieldHp || 0, until: by.side === 0 ? round : round + 1 }; regenLog.push({ u: x, amt: wd.shieldHp || 0, label: "bouclier", shield: true }); });
+    };
     const hurt = function (t, dmg, by, per, prof) {  // a hit lands: its health, the kill of the one who struck, and the decoy a fallen Ambush unit leaves
       if (t.lastAtk !== curAtk) { t.lastAtk = curAtk; t.attacked++; }
       t.hitNow = true;
@@ -496,8 +532,8 @@
       });
       if (t.hp > 0 && dmg > 0 && by && by.side !== t.side) battleFocus(t);
       if (t.hp > 0 && hyp && by && by.alive) {  // she then steps to a free adjacent hex and, if the attacker is within 2, shoots it
-        const sp2 = prio(t, freeAround(t), t.t);
-        if (sp2.length) t.t = sp2[0].slice();
+        const sp2 = prio(t, freeAround(t), t.t), from2 = t.t.slice();
+        if (sp2.length) { t.t = sp2[0].slice(); if (putDecoy(t, from2)) regenLog.push({ u: t, amt: 0, label: "laisse un leurre sur sa case de départ", flee: true }); }  // Judh leaves a decoy on the hex she started from
         if (RULES.dist(t.t, by.t) <= (parseInt(hyp.range, 10) || 2)) fireBack(t, by, hyp, "Projectile", "Sens hyper-aiguisés");
       }
       if (dmg > 0 && by && by.alive && by.side !== t.side) live().forEach(function (e) {  // Exitor-Rho: an enemy next to him that another allied mechanical unit attacks takes his energy hits
@@ -538,7 +574,7 @@
         if (by && by !== t && by.t && by.side !== t.side && RULES.dist(by.t, t.t) === 1) {
           meleeDead++;
           const wd = abOf(by, "WrathfulDevotion");
-          if (wd) [by].concat(live().filter(function (x) { return x !== by && x.side === by.side && x.rules.al === "Chaos" && RULES.dist(x.t, by.t) === 1; })).forEach(function (x) { x.shield = { amt: wd.shieldHp || 0, until: by.side === 0 ? round : round + 1 }; regenLog.push({ u: x, amt: wd.shieldHp || 0, label: "bouclier", shield: true }); });  // Wrask: a shield for him and the Chaos units next to him
+          if (wd) wrathShield(by, wd);  // Wrask: a shield for him and the Chaos units next to him
         }
         if (abOf(t, "ArmourOfShriekingSouls") && by && by.side !== t.side && by.alive) by.euph = t;  // Lucius: whoever kills him becomes euphoric
         if (t.euph && !t.euph.alive) { const lu = t.euph; lu.alive = true; lu.t = t.t.slice(); lu.hp = Math.min(lu.max, (abOf(lu, "ArmourOfShriekingSouls") || {}).hp || 1); lu.fx = {}; lu.acted = true; lu.spent = 99; regenLog.push({ u: lu, amt: lu.hp, label: "ressuscite là où son bourreau est tombé", revive: true }); t.euph = null; }  // ... and Lucius comes back where it falls
@@ -798,6 +834,7 @@
             if (onDecoy && pr2) { m.u.fx.decoyb = { id: "decoyb", until: m.u.side === 0 ? round : round + 1, extra: abOf(pr2, "DecoysAndMisdirection").extraDmg || 0 }; if (m.u.rules.fa === "Genestealers") { const hs = prio(m.u, freeAround(m.u), m.u.t).filter(function (h) { return !decoys().some(function (x) { return sameHex(x.t, h); }); }); if (hs.length) putDecoy(pr2, hs[0]); } }
           }
           if (m.u.summon && m.u.alive) field.forEach(function (x) { if (x.alive && x.side !== m.u.side && m.u.alive && abOf(x, "SavageKiller") && RULES.dist(x.t, m.to) === 1 && RULES.dist(x.t, m.from) > 1) fireBack(x, m.u, abOf(x, "SavageKiller"), "Power", "Tueur sauvage"); });  // a summon moves toward Ulf
+          if (m.tp && m.u.alive && abOf(m.u, "WrathfulDevotion")) wrathShield(m.u, abOf(m.u, "WrathfulDevotion"));  // Wrask comes back from Deep Strike
           m.trig = checkMarks(m.u).concat(owReact(m.u));  // a mine under its feet, a unit that watches
           field.forEach(function (x) { const sh = x.alive && x.side !== m.u.side && m.u.alive ? fxOn(x, "shackle") : null; if (sh && RULES.dist(x.t, m.from) === 1) fireBack(x, m.u, sh.v, "Bolter", "Entrave du moment"); });  // Trajann's Moment Shackle: an enemy leaving a hex next to him is hit
           field.forEach(function (x) { if (x.alive && x.side !== m.u.side && m.u.alive && abOf(x, "HatefulAssault") && RULES.dist(x.t, m.from) === 1) fireBack(x, m.u, abOf(x, "HatefulAssault"), "Power", "Assaut haineux"); });  // it left a hex next to a Terminator
@@ -1214,7 +1251,7 @@
       // the hits one by one: a critical hit adds its damage (after the buffs), a block takes some off; each hit has the same chance again, whatever the hit before (a chance for the first item, the
       // second item only on what the first left: 1 - (1 - c1)(1 - c2)); the boosters add up
       let total = per * hits, crits = 0, blocks = 0;
-      const itU = !ab && !spec.fixed && u.rules.it && u.rules.it[rar], itT = !spec.fixed && profile !== "DirectDamage" && t.rules.it && t.rules.it[rar];
+      const itU = !ab && !spec.fixed && (u.itc || (u.rules.it && u.rules.it[rar])), itT = !spec.fixed && profile !== "DirectDamage" && (t.itc || (t.rules.it && t.rules.it[rar]));
       const dwT = abOf(t, "Deathwing") || abOf(t, "DeathwingKnight"), anvT = abOf(t, "AnvilShield");
       if ((itU && itU.c.length) || (itT && itT.b.length)) {
         const nHit = Math.max(1, Math.round(hits)), cache = {}, perFor = function (extra) { const k = String(extra); if (cache[k] === undefined) cache[k] = post(perOf(raw + extra)); return cache[k]; };
@@ -1389,7 +1426,7 @@
       if (u.mow || u.decoy || u.summon) return;
       const ids = (u.rules.ab || []).map(function (x) { return x[0]; });
       u.dpool = { decoy: [], neo: [] };
-      if (ids.indexOf("SpiritualLeader") >= 0 || ids.indexOf("CosmicHorror") >= 0 || ids.indexOf("DecoysAndMisdirection") >= 0) for (let i = 0; i < 10; i++) u.dpool.decoy.push(spawn("genesSmnDecoy", u.side, u, u.t0 || [0, 0], null));
+      if (ids.indexOf("SpiritualLeader") >= 0 || ids.indexOf("HypersensoryAbilities") >= 0 || ids.indexOf("CosmicHorror") >= 0 || ids.indexOf("DecoysAndMisdirection") >= 0) for (let i = 0; i < 10; i++) u.dpool.decoy.push(spawn("genesSmnDecoy", u.side, u, u.t0 || [0, 0], null));
       if (ids.indexOf("SpiritualLeader") >= 0) { const sl = (u.rules.ab.filter(function (x) { return x[0] === "SpiritualLeader"; })[0][8] || {})[rar] || {}; for (let i = 0; i < 4; i++) u.dpool.neo.push(spawn("genesSmnNeophyte", u.side, u, u.t0 || [0, 0], [sl.summonHp || 1, sl.summonDmg || 1, sl.summonArmor || 0], false)); }
     });
     const fromPool = function (owner, kind) { owner.pi = owner.pi || {}; const k = owner.pi[kind] || 0; owner.pi[kind] = k + 1; return owner.dpool && owner.dpool[kind] ? owner.dpool[kind][k] || null : null; };  // the next one not used yet in this replay
@@ -1665,7 +1702,7 @@
       };
       const btns = auto ? '<p class="rp-none">Joue seule au début du tour de son camp (déplacement et attaque automatiques).</p>' + (opts.some(function (o) { return o.ab; }) ? '<div class="sb-acts">' + opts.filter(function (o) { return o.ab; }).map(mkBtn).join("") + "</div>" : "") : '<div class="sb-acts">' + opts.map(mkBtn).join("") + "</div>";
       const tr = (ru.tr || []).map(function (t) { return '<span class="sb-trait" title="' + esc(t[1]) + '"><img src="' + assets + "traits/" + esc(t[0]) + '.webp" alt="" onerror="this.style.display=\'none\'">' + esc(t[1]) + "</span>"; }).join("");
-      return [head + btns, '<dl class="rp-stats">' + row("PV", st ? num(sel.hp) + " / " + num(sel.max) : "—") + (st ? row("Dégâts", num(st[1])) + row("Armure", num(st[2])) : "") +
+      return [head + btns, '<dl class="rp-stats">' + row("PV", st ? num(sel.hp) + " / " + num(sel.max) + (sel.shield && round <= sel.shield.until && sel.shield.amt > 0 ? ' <i class="sb-shv">+ ' + num(sel.shield.amt) + " bouclier</i>" : "") : "—") + (st ? row("Dégâts", num(sel.atk)) + row("Armure", num(sel.arm)) : "") +
         row("Mouvement", (ru.mv || 0) + (ru.ra ? " (+1 assaut rapide)" : "") + (can ? " · reste " + budget(sel) : "")) + row("Portée", reach) + '<div class="rp-sep"></div>' +
         row("Rareté", '<i class="rh rh-' + r.c + '">' + rar.toUpperCase() + "</i> " + r.n) + row("Niveau", r.lv + " / " + r.lv) +
         row("Rang", '<img class="mm-rank" src="' + assets + "ui/rank_" + (r.rank + 1) + '.png" alt=""> ' + RT[Math.floor(r.rank / 3)] + " " + RM[r.rank % 3]) +
@@ -1692,7 +1729,7 @@
         body = wp.map(function (w) {
           return (w[0] === 1 ? "<b>Mêlée</b> (case adjacente)" : "<b>Distance</b> (jusqu'à " + w[0] + " cases, ligne de vue dégagée, inutilisable au contact d'un ennemi)") + " · " + w[2] + " coup" + (w[2] > 1 ? "s" : "") + " de <b>" + num(sel.atk) + "</b> dégâts " + (PROFILE[w[1]] || "") + " (perçage " + pct(w[1]) + ")";
         }).join("<br>") + '<p class="sb-tip-fig">Bonus de la hauteur (+50 %) et des traits du perso, malus de l\'armure de la cible (chaque coup retire l\'armure, mais fait au moins le ratio de perçage des dégâts), du terrain (fils barbelés, tranchée, hautes herbes) et des traits de la cible.</p>' +
-          '<p class="sb-tip-fig">Dés : chaque attaque normale varie de −20 % à +20 % (DAMVAR). Les objets de ' + (sel.rules.it && sel.rules.it[rar] && sel.rules.it[rar].c.length ? "critique (" + sel.rules.it[rar].c.map(function (c2) { return c2[0] + (sel.rules.it[rar].cb[0] || 0) + " % · +" + num(c2[1] + (sel.rules.it[rar].cb[1] || 0)); }).join(", ") + ")" : "critique (aucun)") + " ajoutent leurs dégâts après les bonus (seules la hauteur et les traits les augmentent) ; ceux de blocage de la cible en retirent. Chaque coup tire ses dés à nouveau, avec la même chance.</p>" +
+          '<p class="sb-tip-fig">Dés : chaque attaque normale varie de −20 % à +20 % (DAMVAR). Les objets de ' + ((sel.itc || (sel.rules.it && sel.rules.it[rar])) && (sel.itc || sel.rules.it[rar]).c.length ? "critique (" + (sel.itc || sel.rules.it[rar]).c.map(function (c2) { const it2 = sel.itc || sel.rules.it[rar]; return c2[0] + (it2.cb[0] || 0) + " % · +" + num(c2[1] + (it2.cb[1] || 0)); }).join(", ") + ")" : "critique (aucun)") + " ajoutent leurs dégâts après les bonus (seules la hauteur et les traits les augmentent) ; ceux de blocage de la cible en retirent. Chaque coup tire ses dés à nouveau, avec la même chance.</p>" +
           (sel.tset.Healer ? '<p class="sb-tip-fig">Soin : sur un allié blessé non mécanique, l\'attaque rend (nombre de coups × dégâts) points de vie.</p>' : "") + (sel.tset.Mechanic ? '<p class="sb-tip-fig">Réparation : sur un allié blessé mécanique, l\'attaque rend (nombre de coups × dégâts) points de vie.</p>' : "");
       }
       let go = "";
@@ -1723,6 +1760,7 @@
         gl.forEach(function (x) {
           if (!x.g.g) return;
           x.g.g.classList.remove("gone"); x.g.g.classList.add("tk-hit"); pos(x.g.g, home(x.g));
+          if (x.g.ov) { x.g.ov.classList.remove("gone"); pos(x.g.ov, home(x.g)); }
           if (x.dmg) h += '<text class="rp-fig" x="' + cx(x.g.t[0]).toFixed(1) + '" y="' + (cy(x.g.t[0], x.g.t[1]) - R * 0.55).toFixed(1) + '" text-anchor="middle">−' + num(x.dmg) + "</text>";
         });
         fx.innerHTML = h;
@@ -1906,18 +1944,22 @@
       return !options(u).some(function (o) { return o.ok && (targetsOf(u, o).length || hexesOf(u, o).length); });
     };
     function render() {
+      if (seqActive && !seqRender) { endSeq(); $("sb-fx").innerHTML = ""; }  // the player clicked: the beats stop, the board shows the settled state
       units.forEach(function (u) {
         if (!u.g) return;
         u.g.classList.toggle("tk-sel", u === sel);
         u.g.classList.toggle("gone", !u.alive);
+        if (u.ov) u.ov.classList.toggle("gone", !u.alive);
         u.g.classList.toggle("tk-done", isDone(u));
         u.g.classList.toggle("tk-ds", !!(u.ds && u.alive));  // Deep Strike (it has not come down yet): a blue tint on its portrait  // nothing left to do this turn: greyed
         u.g.classList.toggle("tk-target", !!(act && sel && (tgtSet[u.i] || allyHex(u))));  // (a machine of war that casts on itself lights up too)
         if (u.mow) return;
         pos(u.g, home(u));
+        if (u.ov) pos(u.ov, home(u));
         u.g.classList.toggle("sb-drag", u.side === active && u.alive);  // only the side whose turn it is can be moved
         u.g.classList.toggle("tk-target", !!(act && sel && (tgtSet[u.i] || allyHex(u))));
         if (u.hpEl) { const pct = u.max ? Math.max(0, Math.min(1, u.hp / u.max)) : 1; u.hpEl.style.transform = "scaleX(" + pct.toFixed(3) + ")"; u.hpEl.setAttribute("fill", pct > 0.5 ? "#34d399" : pct > 0.25 ? "#f2b134" : "#f87171"); }
+        if (u.shEl) { const sa = u.shield && round <= u.shield.until && u.shield.amt > 0 ? u.shield.amt : 0; u.shEl.style.display = sa ? "" : "none"; u.shEl.style.transform = "scaleX(" + Math.max(0.04, Math.min(1, u.max ? sa / u.max : 1)).toFixed(3) + ")"; }  // the shield: extra health that cannot be regenerated, a blue bar under the health bar
       });
       const TILE = { fire: ["#ff7a1a", "fire"], ice: ["#7dd3fc", "ice"], contam: ["#7bd34a", "poisoned"], despoiled: ["#a855f7", "possessed"] };
       $("sb-tiles").innerHTML = Object.keys(hexfx).filter(function (k) { return hexKind(k.split(",").map(Number)); }).map(function (k) {  // the hex effects on the map: a tint and the effect's icon
@@ -1980,12 +2022,88 @@
       $("sb-prev").disabled = cur === 0;
       $("sb-next").disabled = cur >= steps.length;
     }
+    // ---- an action made of many actions (Waaagh!: the buffs, the summons that appear and hit, the passive's second attack ...) is played one beat at a time: the board first shows the state before it,
+    // then each hit, each summon, each heal comes in turn (a beam, the figure, the health bar moving); the final state is the one the step settles to ----
+    let seqTimers = [], seqActive = false, seqRender = false;
+    const endSeq = function () { seqTimers.forEach(clearTimeout); seqTimers = []; seqActive = false; };
+    const snapshot = function () { const o = {}; units.forEach(function (x) { o[x.i] = { t: x.t ? x.t.slice() : null, hp: x.hp, alive: x.alive }; }); return o; };
+    const hexXY = function (h) { return [cx(h[0]), cy(h[0], h[1])]; };
+    const hasBeats = function (m) {
+      if (!m) return false;
+      const recs = (m.auto || []).concat(m.autoNow || []).concat(m.react || []).concat(m.trig || []);
+      const extra = (m.more || []).length + (m.adds || []).filter(function (a) { return !a.decoy; }).length + recs.length + (m.booms || []).length + (m.regen || []).filter(function (r) { return r.amt > 0; }).length + (m.heals || []).length;
+      return m.k === "atk" ? extra > 0 && (m.dmg > 0 || extra > 1) : extra > 1;
+    };
+    function playBeats(m, pre) {
+      endSeq(); seqActive = true;
+      const fx = $("sb-fx"), vis = {}, hp = {}, gap = 620 / 4 / speed;  // the beats of one action go four times faster than the pace of the steps (x4 on its own)
+      const place = function (x, h) { if (!x.g || x.mow || !h) return; vis[x.i] = h; const xy = hexXY(h); pos(x.g, xy); if (x.ov) pos(x.ov, xy); };
+      const bar = function (x) {
+        if (!x.hpEl) return;
+        const pct = x.max ? Math.max(0, Math.min(1, hp[x.i] / x.max)) : 1;
+        x.hpEl.style.transform = "scaleX(" + pct.toFixed(3) + ")"; x.hpEl.setAttribute("fill", pct > 0.5 ? "#34d399" : pct > 0.25 ? "#f2b134" : "#f87171");
+      };
+      const show = function (x, on) { if (!x.g) return; x.g.classList.toggle("gone", !on); if (x.ov) x.ov.classList.toggle("gone", !on); };
+      // the state before the action
+      units.forEach(function (x) {
+        const p = pre[x.i]; if (!x.g || x.mow) return;
+        hp[x.i] = p ? p.hp : x.hp;
+        if (p && p.t) place(x, p.t); else vis[x.i] = x.t;
+        show(x, !!(p && p.alive)); bar(x);
+        x.g.classList.remove("tk-hit", "tk-act");
+      });
+      fx.innerHTML = "";
+      const at = function (x) { return vis[x.i] ? hexXY(vis[x.i]) : home(x); };
+      const beam = function (from, to, text, cls) {  // a beam from one token to another and the figure over the target
+        const a = at(from), t = at(to);
+        fx.innerHTML = (from !== to ? '<line class="rp-beam" x1="' + a[0].toFixed(1) + '" y1="' + a[1].toFixed(1) + '" x2="' + t[0].toFixed(1) + '" y2="' + t[1].toFixed(1) + '"/>' : "") +
+          '<text class="rp-fig' + (cls ? " " + cls : "") + '" x="' + t[0].toFixed(1) + '" y="' + (t[1] - R * 0.55).toFixed(1) + '" text-anchor="middle">' + text + "</text>";
+        units.forEach(function (x) { if (x.g) x.g.classList.remove("tk-hit", "tk-act"); });
+        if (to.g) to.g.classList.add("tk-hit"); if (from.g && from !== to) from.g.classList.add("tk-act");
+      };
+      const hit = function (from, to, dmg) {
+        if (!from || !to || !(dmg > 0)) return;
+        beam(from, to, "\u2212" + num(dmg));
+        hp[to.i] = Math.max(0, (hp[to.i] || 0) - dmg); bar(to);
+        if (hp[to.i] <= 0 && !to.alive) show(to, false);
+      };
+      const healed = function (x, amt) { if (!x || !(amt > 0)) return; beam(x, x, "+" + num(amt), "rp-heal"); hp[x.i] = Math.min(x.max, (hp[x.i] || 0) + amt); bar(x); };
+      const frame = window.requestAnimationFrame || function (f) { return setTimeout(f, 32); };
+      frame(function () { frame(function () { svgBox.classList.remove("sb-notrans"); }); });  // two frames later the beats move and fade normally
+      const beats = [];
+      const add = function (fn) { beats.push(fn); };
+      (m.moves || []).forEach(function (mv) { add(function () { place(mv.u, mv.to); }); });  // the moves of the action (a charge, a pull, a swap)
+      if (m.k === "atk" && m.tgt && m.tgt !== m.u && m.dmg > 0) add(function () { hit(m.u, m.tgt, m.dmg); });
+      (m.more || []).forEach(function (x) { add(function () { hit(x.by || m.u, x.tgt, x.dmg); }); });
+      (m.adds || []).filter(function (a) { return !a.decoy; }).forEach(function (a) { add(function () { if (a.t) place(a, a.t); show(a, a.alive); if (a.g) { a.g.classList.add("tk-new"); setTimeout(function () { a.g.classList.remove("tk-new"); }, 500); } hp[a.i] = a.max; bar(a); }); });
+      (m.heals || []).forEach(function (h) { add(function () { healed(h.u, h.amt); }); });
+      const recs = (m.react || []).concat(m.trig || []).concat(m.auto || []).concat(m.autoNow || []);
+      recs.forEach(function (r) {
+        if (r.u && r.u.alive !== undefined && pre[r.u.i] && !pre[r.u.i].alive && r.u.alive) add(function () { if (r.u.t) place(r.u, r.u.t); show(r.u, true); hp[r.u.i] = r.u.max; bar(r.u); });  // a unit that comes in to play
+        if (r.to) add(function () { place(r.u, r.to); });
+        if (r.tgt && r.dmg > 0) add(function () { hit(r.u, r.tgt, r.dmg); });
+        (r.more || []).forEach(function (x) { add(function () { hit(x.by || r.u, x.tgt, x.dmg); }); });
+      });
+      (m.booms || []).forEach(function (x) { add(function () { hit(x.from, x.tgt, x.dmg); }); });
+      (m.regen || []).filter(function (r) { return r.amt > 0 && !r.shield && !r.shielded && !r.spawn && !r.revive && !r.flee; }).forEach(function (r) { add(function () { healed(r.u, r.amt); }); });
+      beats.forEach(function (fn, i) { seqTimers.push(setTimeout(fn, 100 + i * gap)); });
+      seqTimers.push(setTimeout(function () {  // the end: the settled state, everything in its place
+        seqRender = true; render(); seqRender = false; seqActive = false; fx.innerHTML = "";
+        units.forEach(function (x) { if (x.g) x.g.classList.remove("tk-hit", "tk-act"); });
+        reviveFx(m);
+      }, 100 + beats.length * gap + 350));
+    }
     const go = function (k) {
       const before = cur, back = Math.max(0, Math.min(steps.length, k));
       if (back < before) salts[back] = (salts[back] || 0) + 1;
+      const forward = back === before + 1 && steps[back - 1] ? snapshot() : null;  // the state before the step that is played
+      endSeq();
+      const seq = !!forward && hasBeats(steps[back - 1]);
+      if (seq) svgBox.classList.add("sb-notrans");  // the settled state is drawn only to be replaced at once by the state before the action: no fade, no pop for that
       cur = back; settle(cur); act = null; tgtSet = {}; hexSet = {}; render();
-      flash(cur === before + 1 ? steps[cur - 1] : null);  // one step forward (a launch, Suiv., the player): its effects are played
-      reviveFx(cur === before + 1 ? steps[cur - 1] : null);
+      const m = cur === before + 1 ? steps[cur - 1] : null;  // one step forward (a launch, Suiv., the player): its effects are played
+      if (seq) { flash(null); playBeats(m, forward); }
+      else { flash(m); reviveFx(m); }
     };
     const stop = function () { if (timer) { clearInterval(timer); timer = null; } $("sb-play").innerHTML = I_PLAY + '<span class="rp-lab"> Lecture</span>'; };
     let tgtSet = {}, hexSet = {};  // the characters the chosen action can hit (by index)
@@ -2927,7 +3045,7 @@
       if (!steps.length) return;
       if (cur >= steps.length) go(0);
       $("sb-play").innerHTML = I_PAUSE + '<span class="rp-lab"> Pause</span>';
-      timer = setInterval(function () { if (cur >= steps.length) return stop(); go(cur + 1); }, 900 / speed);
+      timer = setInterval(function () { if (seqActive) return; if (cur >= steps.length) return stop(); go(cur + 1); }, 900 / speed);
     };
     $("sb-end").onclick = function () { stop(); sel = null; push({ k: "end" }); };
     $("sb-undo").onclick = function () { stop(); if (!steps.length) return; steps.pop(); go(Math.min(cur, steps.length)); };

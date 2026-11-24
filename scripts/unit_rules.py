@@ -143,6 +143,11 @@ def main():
         return rec
     out["_summons"] = {sid: {**record(su), "pa": su.get("passiveAbilities") or [], "ab": [ability(a, k, su) for k, key in (("a", "activeAbilities"), ("p", "passiveAbilities")) for a in su.get(key) or []],
                              "name": fr.get("Units/" + sid + "_Name") or su.get("name") or sid} for sid, su in units["summons"].items()}  # the units abilities summon
+    # the stats of the items by level (a roster's items): [kind, rarity (0 Common ... 5 Mythic), [level 1 stats, level 2 ...]]; crit / block: [chance, damage], boosters: [chance bonus, damage bonus], defensive: [health, armour]
+    ITEM = {"I_Crit": ("c", ("critChance", "critDmg")), "I_Block": ("b", ("blockChance", "blockDmg")), "I_Booster_Crit": ("cb", ("critChanceBonus", "critDmgBonus")),
+            "I_Booster_Block": ("bb", ("blockChanceBonus", "blockDmgBonus")), "I_Defensive": ("d", ("hp", "fixedArmor"))}
+    out["_items"] = {k: [ITEM[v["itemType"]][0], RANKS.index(v["rarity"]), [[lv["stats"].get(ITEM[v["itemType"]][1][0], 0), lv["stats"].get(ITEM[v["itemType"]][1][1], 0)] for lv in v["levels"]]]
+                     for k, v in items.items() if v.get("itemType") in ITEM}
     for uid, u in lineup.items():
         tr = set(u.get("traits") or [])
         ranges = sorted({w.get("Range") or 1 for w in u.get("weapons") or []}) or [1]
@@ -160,6 +165,8 @@ def main():
         rec["al"] = u.get("GrandAllianceId") or ""
         rec["fa"] = u.get("FactionId") or ""
         if rec.get("st"):
+            rec["bs"] = [base["Health"], base["Damage"], base["FixedArmor"]]  # base stats and what each rank adds (health, damage, armour): any rank and number of stars, for a roster's unit
+            rec["ic"] = [[x[0] + x[1], x[2] + x[3], x[4] + x[5]] for x in inc]
             rec["it"] = {rar: equipment(u, rar) for rar in TOP}  # the crit / block items and boosters it carries at the top of each rarity
             for rar in TOP:  # the defensive items add their health and armour to the stats
                 rec["st"][rar][0] += rec["it"][rar]["d"][0]

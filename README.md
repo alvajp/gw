@@ -77,7 +77,7 @@ The Raid insignia (`scripts/medals.py`, `raid_ranking`) works season by season o
 
 ### Raid and Records tabs
 
-`raid.html` ranks the members on the raid ranking above, one column per season (relative damage, % above the guild average), with the seasons in the menu's second row leading to `raid/<season>.html` (everybody who played the season, one column per boss). `metas.html` shows each boss and sub-boss with its metas and the podium of the records, and `metas/<boss>.html` its metas, best attacks and records table; `raid-simulation.html` picks a boss, a map and a level and shows the recommended meta; `boss/<key>.html` ranks the members on their all-time relative damage against that boss, one column per season it was fought. Both read `data/raid/` through `scripts/medals.py`.
+`raid.html` ranks the members on the raid ranking above, one column per season (relative damage, % above the guild average), with the seasons in the menu's second row leading to `raid/<season>.html` (everybody who played the season, one column per boss). `metas.html` shows each boss and sub-boss with its metas and the podium of the records, and `metas/<boss>.html` its metas, best attacks and records table; (the Raid > Simulation page, `raid-simulation.html` + `assets/raid-simulation.js`, is hidden for now: `RAID_SIMULATION = False` in `scripts/generate_site.py`, set it to True to bring it back); `boss/<key>.html` ranks the members on their all-time relative damage against that boss, one column per season it was fought. Both read `data/raid/` through `scripts/medals.py`.
 
 One-shots: every one-shot counts (a kill from full HP in one attack, at the boss's full HP); only finishing blows (a kill after earlier damage) and bombs are left out.
 

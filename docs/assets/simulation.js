@@ -9,7 +9,7 @@
   const $ = function (id) { return document.getElementById(id); };
   const esc = function (s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); };
   const RAR = { m: ["M", "mythic"], l: ["L", "legendary"], e: ["E", "epic"], r: ["R", "rare"] };
-  let map = -1, defKey = null;
+  let map = -1, defKey = null, mode = "rec";
   const unit = function (i, mow) {
     const u = D.u[i];
     return u && u[1] ? '<img class="unit' + (mow ? " mow" : "") + '" src="' + esc(u[1]) + '" alt="' + esc(u[0]) + '" title="' + esc(u[0]) + '" loading="lazy">' : '<span class="unit unit-missing" title="' + esc(u ? u[0] : "?") + '">?</span>';
@@ -102,14 +102,22 @@
     slotsOf().then(function (all) {
       const slot = all[id], size = all.size || 480;
       const at = function (xy) { return "left:" + (xy[0] / size * 100).toFixed(2) + "%;top:" + (xy[1] / size * 100).toFixed(2) + "%"; };
+      const placeIds = function (ids, side, cls) {  // our own team: unit ids, not rows of the blob
+        return ids.map(function (u, k) {
+          const xy = slot && slot[side][k];
+          return xy ? '<img class="pl-unit ' + cls + '" style="' + at(xy) + '" src="assets/units/' + esc(u) + '.webp" alt="" draggable="false">' : "";
+        }).join("");
+      };
       const place = function (ids, side, cls) {
         return ids.map(function (u, k) {
           const xy = slot && slot[side][k], d = D.u[u];
           return xy && d && d[1] ? '<img class="pl-unit ' + cls + '" style="' + at(xy) + '" src="' + esc(d[1]) + '" alt="' + esc(d[0]) + '" title="' + esc(d[0]) + '" draggable="false">' : "";
         }).join("");
       };
-      box.innerHTML = '<div class="sim-pv-head"><b>' + esc(D.p[r[11]]) + "</b><small>" + esc(D.g[r[12]]) + " \u00b7 " + esc(D.w[r[8]]) + '</small><span class="sim-score ' + "is-win" + '">' + r[7] + "</span></div>" +
-        '<div class="pl-board" tabindex="0" role="link" title="Ouvrir la simulation (d\u00e9placer les persos)" data-sb="' + esc(boardUrl(r)) + '"><img class="pl-map" src="' + esc(img) + '" alt="" draggable="false"><span class="sim-play" aria-hidden="true"><svg viewBox="0 0 24 24" width="34" height="34" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg></span>' + (slot ? place(r[10], "e", "pl-def") + place(r[4], "o", "pl-att") : "") + "</div>";
+      const ours = mode === "custom" ? placeIds(picked.units.map(function (x) { return x.id; }), "o", "pl-att") : place(r[4], "o", "pl-att");
+      box.innerHTML = (mode === "custom" ? '<div class="sim-pv-head"><b>Simulation personnalis\u00e9e</b><button type="button" class="rp-btn sim-cu-pick">' + (picked.units.length ? "Modifier mon \u00e9quipe" : "Choisir mon \u00e9quipe") + "</button></div>"
+        : '<div class="sim-pv-head"><b>' + esc(D.p[r[11]]) + "</b><small>" + esc(D.g[r[12]]) + " \u00b7 " + esc(D.w[r[8]]) + '</small><span class="sim-score ' + "is-win" + '">' + r[7] + "</span></div>") +
+        '<div class="pl-board" tabindex="0" role="link" title="Ouvrir la simulation (d\u00e9placer les persos)" data-sb="' + esc(mode === "custom" ? "custom:" + i : boardUrl(r)) + '"><img class="pl-map" src="' + esc(img) + '" alt="" draggable="false"><span class="sim-play" aria-hidden="true"><svg viewBox="0 0 24 24" width="34" height="34" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg></span>' + (slot ? place(r[10], "e", "pl-def") + ours : "") + "</div>";
     });
   }
   let cands = [], noteHtml = "";
@@ -127,9 +135,13 @@
   }
   // the table of the best 20 victories found and the preview of the first
   function renderAttacks() {
-    shownRows = cands.slice(0, 20);
+    if (mode === "custom") {  // the same table: the defenses that exist (one row each), the attack is ours to choose
+      shownRows = groups(cands, dkey).sort(function (a, b) { return b.n - a.n || b.last - a.last; }).slice(0, 20).map(function (g) { return g.r; });
+    } else shownRows = cands.slice(0, 20);
     $("sim-atk").querySelector(".sim-list").innerHTML = (shownRows.length
       ? noteHtml + '<table class="attacks-table sim-table"><thead><tr><th class="a-who">Joueur</th><th class="a-comp">Attaque</th><th class="a-def">D\u00e9fense</th></tr></thead><tbody>' + shownRows.map(function (r, i) {
+        if (mode === "custom") return '<tr data-i="' + i + '" tabindex="0"><td class="a-who"><b>' + (mine ? esc(mine.name) : "Mon \u00e9quipe") + "</b></td>" + '<td class="a-comp">' + customAtk() +
+          '</td><td class="a-def">' + comp(r[10], r[3]) + "</td></tr>";
         return '<tr data-i="' + i + '" tabindex="0"><td class="a-who"><b>' + esc(D.p[r[11]]) + "</b><small>" + esc(D.g[r[12]]) + " \u00b7 " + esc(D.w[r[8]]) + '</small></td><td class="a-comp">' + comp(r[4], r[5]) +
           '</td><td class="a-def">' + badge(r[9]) + comp(r[10], r[3]) + "</td></tr>";
       }).join("") + "</tbody></table>"
@@ -138,9 +150,50 @@
     if (shownRows.length) preview(0);
   }
 
+
+
+  // ---- 3 bis. a custom team: the table stays (the defenses that exist), the attack column is ours to fill with five characters and a machine of our own roster ----
+  const TIERS = RosterPicker.TIERS;
+  let picked = { units: [], mow: null }, tier = null, mine = RosterPicker.me();  // units / mow: {id, rk, sk, it}; tier: the line, chosen in the dialog
+  const slotHtml = function (it, mow, i) {  // the attack column: the avatar of the character (or a "?" of the same size and place), like every other row
+    return it ? '<img class="unit sim-q' + (mow ? " mow" : "") + '" data-slot="' + i + '" src="assets/units/' + esc(it.id) + '.webp" alt="" title="' + (mow ? "Machine de guerre" : "Personnage " + (i + 1)) + '">'
+      : '<span class="unit unit-q sim-q' + (mow ? " mow" : "") + '" data-slot="' + i + '" title="' + (mow ? "Machine de guerre" : "Personnage " + (i + 1)) + '">?</span>';
+  };
+  const customAtk = function () { return [0, 1, 2, 3, 4].map(function (i) { return slotHtml(picked.units[i], false, i); }).join("") + slotHtml(picked.mow, true, 5); };
+  const complete = function () { return picked.units.length === 5 && !!picked.mow; };
+  // the board for a row of the table: our team on the defense of that row (the board needs the whole team: before that, the dialog)
+  function openBoard(sb) {
+    if (sb.indexOf("custom:") !== 0) { location.href = sb; return; }
+    if (!complete()) { openPicker(); return; }
+    const r = shownRows[+sb.slice(7)];
+    if (!r) return;
+    const m = D.m[map], p = new URLSearchParams();
+    p.set("m", m[0]); p.set("n", m[1]); p.set("l", TIERS[tier].n);
+    p.set("a", picked.units.map(function (x) { return x.id; }).join(",")); p.set("am", picked.mow.id);
+    p.set("d", r[10].map(uid).join(",")); if (r[3] >= 0) p.set("dm", uid(r[3]));
+    p.set("r", TIERS[tier].cap); if (mine) p.set("p", mine.name);
+    const ad = {};  // the roster's data of each character: rank, stars, items
+    picked.units.forEach(function (x) { ad[x.id] = [x.rk, x.sk, x.it]; });
+    p.set("ad", JSON.stringify(ad));
+    location.href = "simulation-board.html#" + p.toString();
+  }
+  const openPicker = function () {
+    RosterPicker.open({ picked: picked, tier: tier, machine: true, capped: true, onDone: function (p, t) { picked = p; tier = t; renderAttacks(); } });
+  };
+  document.addEventListener("click", function (e) {
+    const mb = e.target.closest(".sim-mode-btn");
+    if (mb) {
+      mode = mb.dataset.mode;
+      document.querySelectorAll(".sim-mode-btn").forEach(function (b) { b.setAttribute("aria-pressed", String(b === mb)); });
+      if (defKey) renderAttacks();
+      return;
+    }
+    if (e.target.closest("dialog.sim-pick")) return;  // the dialog handles its own clicks
+    if (e.target.closest(".sim-q") || e.target.closest(".sim-cu-pick")) { e.stopPropagation(); openPicker(); }
+  }, true);
   document.addEventListener("keydown", function (e) {
     const b = e.key === "Enter" && e.target.closest && e.target.closest(".sim-preview .pl-board[data-sb]");
-    if (b) location.href = b.dataset.sb;
+    if (b) openBoard(b.dataset.sb);
   });
   document.addEventListener("click", function (e) {
     const m = e.target.closest(".sim-map-chip"), d = e.target.closest(".sim-row[data-def]"), t = e.target.closest(".sim-table tbody tr");
@@ -155,7 +208,7 @@
       attacks();
       $("sim-atk").scrollIntoView({ behavior: "smooth", block: "start" });
     } else if (e.target.closest(".sim-preview .pl-board[data-sb]")) {
-      location.href = e.target.closest(".pl-board").dataset.sb;
+      openBoard(e.target.closest(".pl-board").dataset.sb);
     } else if (t) {
       preview(+t.dataset.i);
     }

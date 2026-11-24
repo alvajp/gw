@@ -444,7 +444,7 @@ def render_topbar(prefix, active, sub=None, wars=None):
     top = "".join(link(href, label, key == section) for key, href, label in top_items)
     sub_html = ""
     if section == "raid":
-        first = [("rsim", "raid-simulation.html", "Simulation"), ("next", "saison-prochaine.html", 'Saisons'), ("metas", "metas.html", "Métas")]
+        first = ([("rsim", "raid-simulation.html", "Simulation")] if RAID_SIMULATION else []) + [("next", "saison-prochaine.html", 'Saisons'), ("metas", "metas.html", "Métas")]
         seasons = [(f"raid-{n}", f"raid/{n}.html", f"S{n}") for n in NAV_SEASONS["raid"]]
     elif section == "war":
         first = [("sim", "simulation.html", "Simulation"), ("strategy", "strategie.html", "Attaques"), ("defenses", "defenses.html", "Défenses")]
@@ -2681,9 +2681,12 @@ def render_simulation_page(all_wars):
     body = (
         '<div id="sim" class="sim"><section class="sim-step" id="sim-map"><h2><span class="sim-n">1</span>Map</h2><div class="sim-maps"></div></section>'
         '<section class="sim-step" id="sim-def" hidden><h2><span class="sim-n">2</span>Défense à affronter</h2><div class="sim-list"></div></section>'
-        '<section class="sim-step" id="sim-atk" hidden><h2><span class="sim-n">3</span>Équipe conseillée</h2>'
+        '<section class="sim-step" id="sim-atk" hidden><h2><span class="sim-n">3</span>Équipe</h2>'
+        '<div class="sim-modes" role="group" aria-label="Mode">'
+        '<button type="button" class="map-chip sim-mode-btn" data-mode="rec" aria-pressed="true"><b>Conseillée</b><small>les attaques déjà victorieuses</small></button>'
+        '<button type="button" class="map-chip sim-mode-btn" data-mode="custom" aria-pressed="false" title="Choisir soi-même ses 5 personnages et sa machine dans son roster"><b>Personnalisée</b><small>mon roster</small></button></div>'
         '<div class="sim-atk-grid"><div class="sim-list"></div><aside class="sim-preview" aria-label="Aperçu de la map"></aside></div></section></div>'
-        + blob + f'<script src="assets/simulation.js?v={ASSETS_VERSION}"></script>'
+        + blob + f'<script src="assets/roster-picker.js?v={ASSETS_VERSION}"></script><script src="assets/simulation.js?v={ASSETS_VERSION}"></script>'
     )
     html = render_page(
         nav_active="sim", page_kind="strategy", title="Simulation", asset_prefix="", body=body, back_link=back_link_html("war.html", "War"),
@@ -2709,6 +2712,7 @@ def render_simulation_board_page():
     units["_pierce"] = rules.get("_pierce", {})  # damage profile -> the % of the armour it ignores
     units["_summons"] = rules.get("_summons", {})  # the units the abilities summon (decoys, neophytes ...)
     units["_tv"] = rules.get("_tv", {})  # the numbers of the traits, the terrain and the elevation
+    units["_items"] = rules.get("_items", {})  # the stats of the items by level (the items of a roster)
     blob = '<script type="application/json" id="sb-units">' + json.dumps(units, separators=(",", ":"), ensure_ascii=False).replace("</", "<\\/") + "</script>"
     body = '<div class="rp sb" id="sb"><p class="mnone">Chargement de la simulation…</p></div>' + blob + f'<script src="assets/hex-rules.js?v={ASSETS_VERSION}"></script><script src="assets/sim-board.js?v={ASSETS_VERSION}"></script>'
     html = render_page(nav_active="sim", page_kind="replay", title="Simulation", asset_prefix="", body=body, back_link=back_link_html("simulation.html", "Simulation"),
@@ -3202,11 +3206,19 @@ def render_metas_page(all_wars):
     print(f"Generated metas.html + {len(slots)} boss page(s)")
 
 
+RAID_SIMULATION = False  # the Raid > Simulation page (raid-simulation.html, assets/raid-simulation.js) is hidden for now: no menu entry, no page published; set True to bring it back
+
+
 def render_raid_simulation_page(all_wars):
     """docs/raid-simulation.html (first item of the Raid menu, before the seasons): pick a boss (or prime), the map it is played on, and the level, and get the recommended meta
     of that boss, with a link to its page (best attacks of that map and level, records). Everything is in the page (raid-simulation.js): the recommended metas of every boss are
     embedded, only the one of the chosen boss is shown."""
     if GUILD != "ljp":
+        return
+    if not RAID_SIMULATION:  # hidden: the page is not generated (and an old copy is taken off the site)
+        old = os.path.join(DOCS_DIR, "raid-simulation.html")
+        if os.path.exists(old):
+            os.remove(old)
         return
     rosters = rosters_mod.load_rosters()
     if not rosters:
@@ -3217,24 +3229,45 @@ def render_raid_simulation_page(all_wars):
         for a in atks:
             if a["map"] and a["map"] not in used.setdefault(a["key"], []):
                 used[a["key"]].append(a["map"])
-    bosses, maps, metas = "", "", ""
+    unit_names = rosters_mod._unit_names()
+    names = {r["uid"]: r["name"] for r in rosters}
+    replays = load_replay_index()
+    attacks = medals_mod.season_attacks()
+    chip = lambda cls, attrs, art, label, ratio="": (f'<button type="button" class="map-chip sim-map-chip {cls}" {attrs} aria-pressed="false" title="{label}">'  # the map chips of the war page's steps
+                                                      f'<span class="sim-map-art{ratio}"><img class="map-chip-img" src="{art}" alt="" loading="lazy"></span><span>{label}</span></button>')
+    bosses, primes, maps, tables = "", "", "", ""
     for slot in slots:
         key = slot["key"]
         label = html_escape(slot["name"])
-        bosses += (f'<button type="button" class="rs-boss" data-boss="{key}" aria-pressed="false" title="{label}"><img src="assets/{slot["art"]}" alt=""><span>{label}</span></button>')
-        chips = "".join(f'<button type="button" class="rs-map" data-map="{b.lower()}" aria-pressed="false" title="{html_escape(medals_mod.map_label(b))}">'
-                        f'<img src="assets/raid-maps/{b.lower()}.webp" alt=""><span>{html_escape(medals_mod.map_label(b))}</span></button>' for b in used.get(key, []))
-        maps += f'<div class="rs-maps" data-for="{key}" hidden>{chips or "<p class=mnone>Pas encore jouée sur une map connue</p>"}</div>'
-        metas += f'<div class="rs-meta" data-for="{key}" hidden>{rosters_mod.render_boss_metas_body(slot, rosters, prefix="") or "<p class=mnone>Pas de méta pour ce boss.</p>"}</div>'
-    levels = "".join(f'<button type="button" class="rs-lvl" data-lvl="{lv}" aria-pressed="false">{lv}</button>' for lv in ("L4", "L5", "M1", "M2", "M3"))
+        c = (f'<button type="button" class="rs-boss" data-boss="{key}" aria-pressed="false" title="{label}"><img src="assets/{slot["art"]}" alt=""><span>{label}</span></button>')  # small pills: a boss is one line of text
+        if " (" in slot["name"]:
+            primes += c
+        else:
+            bosses += c
+        chips = "".join(chip("rs-map", f'data-map="{b.lower()}"', f'assets/raid-maps/{b.lower()}.webp', html_escape(medals_mod.map_label(b)), " rs-portrait") for b in used.get(key, []))
+        maps += f'<div class="sim-maps rs-maps" data-for="{key}" hidden>{chips or "<p class=mnone>Pas encore jouée sur une map connue</p>"}</div>'
+        for board in used.get(key, []):  # the attacks we have on that boss and map: the level, the damage, who dealt it and, when the game's replay was kept, the way to play it again
+            found = sorted((a for atks in attacks.values() for a in atks if a["key"] == key and a["map"] == board and a["uid"] in names), key=lambda a: -a["dmg"])[:30]
+            rows = ""
+            for a in found:
+                rid = replays.get(f'{a["uid"]}|{a["at"]}')
+                heroes = ",".join(u for u in a["heroes"] if os.path.exists(os.path.join(ASSETS_DIR, "units", u + ".webp")))  # the avatars are drawn by the page when the table shows (a light page)
+                mow = a["mow"] if a["mow"] and os.path.exists(os.path.join(ASSETS_DIR, "units", a["mow"] + ".webp")) else ""
+                dmg = f"{a['dmg']:,}".replace(",", "\u202f")
+                rows += (f'<tr tabindex="0" data-lvl="{a["lvl"]}" data-dmg="{dmg}" data-who="{html_escape(names[a["uid"]])}"' + (f' data-rid="{rid}"' if rid else "") + f'><td class="a-lvl"><b>{a["lvl"]}</b></td>'
+                         f'<td class="a-who"><b>{html_escape(names[a["uid"]])}</b></td><td class="a-dmg">{dmg}</td><td class="a-comp" data-team="{heroes}" data-mow="{mow}"></td><td class="a-rp">{"<span class=atk-playmark title=Replay>▶</span>" if rid else ""}</td></tr>')
+            tables += (f'<div class="rs-tbl" data-for="{key}" data-map="{board.lower()}" hidden>' + (f'<table class="attacks-table sim-table"><thead><tr><th class="a-lvl">Niveau</th><th class="a-who">Joueur</th><th class="a-dmg">Dégâts</th><th class="a-comp">Équipe</th><th class="a-rp"></th></tr></thead><tbody>{rows}</tbody></table>'
+                       if rows else '<p class="mnone">Aucune attaque connue sur cette map.</p>') + "</div>")
     body = (
         '<div id="rsim" class="sim">'
-        f'<section class="sim-step"><h2><span class="sim-n">1</span>Boss</h2><div class="rs-row rs-bosses">{bosses}</div></section>'
-        f'<section class="sim-step"><h2><span class="sim-n">2</span>Map</h2>{maps}</section>'
-        f'<section class="sim-step"><h2><span class="sim-n">3</span>Niveau</h2><div class="rs-row rs-levels">{levels}</div></section>'
-        f'<section class="sim-step"><h2><span class="sim-n">4</span>Notre méta</h2>{metas}'
-        '<p class="rs-go-wrap"><a class="rs-go" id="rs-go" href="#">Meilleures attaques et records sur ce boss<span aria-hidden="true"> →</span></a></p></section></div>'
-        f'<script src="assets/raid-simulation.js?v={ASSETS_VERSION}"></script>'
+        f'<section class="sim-step" id="rs-s-boss"><h2><span class="sim-n">1</span>Boss</h2><div class="rs-row rs-line">{bosses}</div><div class="rs-row rs-line">{primes}</div></section>'
+        f'<section class="sim-step" id="rs-s-map" hidden><h2><span class="sim-n">2</span>Map</h2>{maps}</section>'
+        '<section class="sim-step" id="rs-s-team" hidden><h2><span class="sim-n">3</span>Équipe</h2>'
+        '<div class="sim-modes" role="group" aria-label="Mode">'
+        '<button type="button" class="map-chip sim-mode-btn" data-mode="rec" aria-pressed="true"><b>Conseillée</b><small>nos attaques déjà jouées sur cette map</small></button>'
+        '<button type="button" class="map-chip sim-mode-btn" data-mode="custom" aria-pressed="false" title="Choisir la difficulté, ses 5 personnages et sa machine dans son roster"><b>Personnalisée</b><small>mon roster</small></button></div>'
+        f'<div class="sim-atk-grid"><div class="sim-list"><div id="rs-rec">{tables}</div><div id="rs-custom" hidden></div></div><aside class="sim-preview" aria-label="Aperçu de la map"></aside></div></section></div>'
+        f'<script src="assets/roster-picker.js?v={ASSETS_VERSION}"></script><script src="assets/raid-simulation.js?v={ASSETS_VERSION}"></script>'
     )
     html = render_page(nav_active="rsim", page_kind="boss", title="Simulation", asset_prefix="", body=body, back_link=back_link_html("raid.html", "Raid"),
                        title_class="hero-title", header_extra="", header_action="", v=ASSETS_VERSION)
