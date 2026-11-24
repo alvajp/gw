@@ -32,6 +32,15 @@ BUFF_ACRONYM = {
 TOKENS_PER_WAR = 10
 
 
+RARITY_FROM = [(16, "m"), (12, "l"), (9, "e"), (6, "r")]  # progressionIndex -> rarity: Mythic 16+, Legendary 12-15, Epic 9-11, Rare 6-8
+
+
+def line_rarity(units):
+    """Rarity code of a squad ("m", "l", "e", "r"; "" when below Rare): the highest of its units."""
+    best = max((u.get("progressionIndex") or 0 for u in units), default=0)
+    return next((c for start, c in RARITY_FROM if best >= start), "")
+
+
 def zone_clear_bonus(zone_type):
     if zone_type == "HQ":
         return 40000
@@ -276,6 +285,8 @@ def compute_ranking(json_path, maps, extra=None):
                 # the attack's outcome -- it describes the defense position).
                 "defender": (e.get("defender") or {}).get("userId"), "zone": zt,
                 "units": [u["unitId"] for u in (e.get("defender") or {}).get("units", [])],
+                # the defense line's rarity (m / l / e / r): the highest rarity among its units (a zone's 5 lines are 2 of the higher rarity, then 3 of the lower)
+                "rar": line_rarity((e.get("defender") or {}).get("units", [])),
                 "mow": ((e.get("defender") or {}).get("machineOfWar") or {}).get("unitId"),
                 "buffs": {
                     acr: sum(1 for b in e.get("buffs", []) if BUFF_ACRONYM.get(b.get("abilityId")) == acr)

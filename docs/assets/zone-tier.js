@@ -1,7 +1,7 @@
 // The level of a war zone. Two things come from the game's zone tiers (Hero = 2 Mythic then 3 Legendary, Elite = 2 Legendary then 3 Epic, Veteran = 2 Epic then 3 Rare; the
 // zones of the guild's battlefield level 5, see globalconfigs):
 //  - window.zoneTier("HQ") / ("MS1 · S28 G3") -> the HTML of the five small diamonds next to a zone's name ("" when unknown);
-//  - every attack / defense line (a row of unit portraits next to a zone) gets, on each of its five units, the hexagonal rarity badge of its slot (M, L, E, R).
+//  - every attack / defense line (a row of unit portraits) gets one hexagonal rarity badge at its start (M, L, E, R): the rarity of the defense line it is about.
 (function () {
   const TIERS = {
     hero: ["Héros", ["mythic", "mythic", "legendary", "legendary", "legendary"]],
@@ -32,23 +32,18 @@
     const sm = tr && tr.querySelector("td.guild small");  // the "by map" lists: "S28 G2 · AP1" under the guild's name
     return sm && sm.firstChild ? sm.firstChild.textContent.split(" · ").pop() : "";
   }
-  // the five units of a line each carry the hexagonal rarity badge of their slot (Hero: M M L L L, Elite: L L E E E, Veteran: E E R R R), on the game's bright hexagon
+  // a line of portraits (an attack, a defense) carries ONE hexagonal rarity badge at its start: the rarity of the defense line it is about (M, L, E or R). A zone has 5 defense
+  // lines per defender, the first two of the higher rarity of the zone, the three others of the lower one, in no fixed order, so the rarity comes from the squad itself
+  // (data-rar, set where the line is built; the game's own data: the highest rarity among its units).
+  const LETTER2 = { m: ["M", "mythic"], l: ["L", "legendary"], e: ["E", "epic"], r: ["R", "rare"] };
   function decorate(box) {
-    if (box.dataset.rh) return;
-    const t = tierOf(zoneOf(box));
-    if (!t) return;
+    if (box.dataset.rh || box.querySelector(".rh")) return;
+    const tr = box.closest("tr"), code = box.dataset.rar || (tr && tr.dataset.rar) || "", c = LETTER2[code];
+    if (!c) return;
     box.dataset.rh = "1";
-    const units = box.querySelectorAll(".unit:not(.mow)");
-    for (let i = 0; i < units.length && i < t[1].length; i++) {
-      const u = units[i], c = t[1][i], w = document.createElement("span");
-      w.className = "uw";
-      w.title = u.getAttribute("title") || "";
-      u.parentNode.insertBefore(w, u);
-      w.appendChild(u);
-      w.insertAdjacentHTML("beforeend", '<i class="rh rh-' + c + '" title="' + NAME[c][0] + '">' + LETTER[c] + "</i>");
-    }
+    box.insertAdjacentHTML("afterbegin", '<i class="rh rh-' + c[1] + '" title="' + NAME[c[1]][0] + '">' + c[0] + "</i>");
   }
-  const LINES = ".a-comp, .a-def, td.comp, .dm-comp, .dm-def-comp";
+  const LINES = "td.a-comp, td.a-def, td.comp, .dm-comp";
   let queued = false;
   function scan() {
     queued = false;

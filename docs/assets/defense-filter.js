@@ -102,7 +102,7 @@
       const comp = a[3].map(function (u) { return portrait(u, false); }).join("") + (a[4] ? portrait(a[4], true) : "");
       return '<div class="dm-row"' + plAttrs(mapImg && mapImg.getAttribute("src"), a[3], defIds) + '>' +
         '<span class="dm-player">' + esc(names[a[0]] || a[0]) + '</span>' +
-        '<span class="dm-comp">' + comp + '</span>' +
+        '<span class="dm-comp" data-rar="' + esc(tr.dataset.rar || "") + '">' + comp + '</span>' +
         '<span class="dm-result ' + o[1] + '">' + o[0] + '</span>' +
         '<span class="dm-score">' + a[2] + '</span></div>';
     }).join("");
@@ -125,7 +125,7 @@
       const comp = l[0].map(function (u) { return portrait(u, false); }).join("") + (l[1] ? portrait(l[1], true) : "");
       return '<div class="dm-lineup" role="button" tabindex="0" data-line="' + (i + 1) + '">' +
         '<span class="dm-linestats">' + l[2] + " att. · " + l[3] + " échec" + (l[3] > 1 ? "s" : "") + " · " + l[4] + '</span>' +
-        '<span class="dm-comp">' + comp + '</span></div>';
+        '<span class="dm-comp" data-rar="' + esc(l[5] || "") + '">' + comp + '</span></div>';
     }).join("");
 
     const attacks = d.a.map(function (a) {
@@ -134,7 +134,7 @@
       const line = d.l[a[5] - 1];
       return '<div class="dm-row" data-line="' + a[5] + '"' + plAttrs(d.i, a[3], line ? line[0] : []) + '>' +
         '<span class="dm-player">' + esc(names[a[0]] || a[0]) + '</span>' +
-        '<span class="dm-comp">' + comp + '</span>' +
+        '<span class="dm-comp" data-rar="' + esc(line && line[5] || "") + '">' + comp + '</span>' +
         '<span class="dm-result ' + o[1] + '">' + o[0] + '</span>' +
         '<span class="dm-score">' + a[2] + '</span></div>';
     }).join("");

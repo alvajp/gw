@@ -54,7 +54,7 @@
           // Clickable when the map is known: placement.js shows both lineups on the map's hexes.
           const pl = map ? ' tabindex="0" data-pl-img="' + esc(map[1]) + '" data-pl-att="' + r[3].map(function (i) { return d.u[i]; }).join(" ") +
             '" data-pl-def="' + r[5].map(function (i) { return d.u[i]; }).join(" ") + '"' : "";
-          return "<tr" + pl + ">" +
+          return "<tr" + pl + ' data-rar="' + (r[10] || "") + '">' +
             '<td class="a-comp">' + comp(r[3], r[4]) + "</td>" +
             '<td class="a-def">' + comp(r[5], r[6]) + "</td>" +
             '<td class="a-score ' + o[1] + '" title="' + o[0] + '">' + r[2] + "</td>" +

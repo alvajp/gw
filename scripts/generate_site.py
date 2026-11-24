@@ -1363,7 +1363,7 @@ def compute_defense_teams(result, our_idx):
     for (team, uid, units, mow), a in acc.items():
         rows.append({
             "team": team, "uid": uid, "units": units, "mow": mow, "n": a["n"], "fails": a["fail"],
-            "avg": a["score"] / a["n"], "fail_rate": a["fail"] / a["n"],
+            "avg": a["score"] / a["n"], "fail_rate": a["fail"] / a["n"], "rar": a["attacks"][0].get("rar", "") if a["attacks"] else "",
             "buffs": {acr: c / a["n"] for acr, c in a["buffs"].items()},
             "zone": max(a["zones"], key=a["zones"].get),
             "attacks": sorted(a["attacks"], key=lambda e: e["createdOn"]),
@@ -1446,7 +1446,7 @@ def render_defense_table(rows, players, boards, prefix, top=None):
         bg = value_to_bg(hi - (r["avg"] - lo), lo, hi)  # low conceded score = good = green
         hidden = "" if i < DEFENSE_VISIBLE_ROWS else " hidden"
         body.append(
-            f'<tr{hidden} tabindex="0" data-attacks="{_attacks_attr(r["attacks"])}">'
+            f'<tr{hidden} tabindex="0" data-rar="{r.get("rar", "")}" data-attacks="{_attacks_attr(r["attacks"])}">'
             f'<td>{html_escape(players.get(r["uid"], {}).get("displayName", r["uid"]))}</td>'
             f'<td class="zone">{zone_html}</td><td class="comp">{comp}</td>'
             f'<td>{r["n"]}</td><td{bg}>{r["avg"]:.0f}</td>'
@@ -1523,7 +1523,7 @@ def compute_defense_by_map(all_wars):
                 continue
             by_board[board].append({
                 "board": board, "war": w, "team": team, "uid": uid, "units": units, "mow": mow, "zone": zone,
-                "n": a["n"], "avg": a["score"] / a["n"], "fail_rate": a["fail"] / a["n"],
+                "n": a["n"], "avg": a["score"] / a["n"], "fail_rate": a["fail"] / a["n"], "rar": a["attacks"][0].get("rar", "") if a["attacks"] else "",
                 "buffs": {acr: c / a["n"] for acr, c in a["buffs"].items()},
                 "guild": OUR_GUILD_LABEL if team == our_idx else result["guilds"][team]["name"],
                 "player": result["players"].get(uid, {}).get("displayName", uid),
@@ -1573,7 +1573,7 @@ def render_defense_by_map(all_wars, prefix=""):
             wr = r["war"]
             label = f'S{wr["season"]}&nbsp;G{wr["war_number"]}' if wr.get("war_number") else f'S{wr["season"]}'
             trs.append(
-                f'<tr tabindex="0" data-attacks="{_attacks_attr(r["attacks"])}" data-map="{prefix}{m["image"]}" data-map-name="{html_escape(m["name"])}" '
+                f'<tr tabindex="0" data-rar="{r.get("rar", "")}" data-attacks="{_attacks_attr(r["attacks"])}" data-map="{prefix}{m["image"]}" data-map-name="{html_escape(m["name"])}" '
                 f'data-zone="{html_escape(ZONE_LABELS.get(r["zone"], r["zone"]))}" data-war="{html_escape(r["guild"])} · {label}"><td>{html_escape(r["player"])}</td>'
                 f'<td class="guild">{html_escape(r["guild"])}<small>{label} · {ZONE_LABELS.get(r["zone"], r["zone"])}{zone_tier_html(ZONE_LABELS.get(r["zone"], r["zone"]))}</small></td>'
                 f'<td class="comp">{comp}</td><td>{r["n"]}</td><td>{r["avg"]:.0f}</td>'
@@ -1624,7 +1624,7 @@ def compute_battlefield(result):
                 for e in events:
                     k = (tuple(e["units"]), e["mow"])
                     if k not in lines:
-                        lines[k] = {"units": e["units"], "mow": e["mow"], "n": 0, "fails": 0, "score": 0}
+                        lines[k] = {"units": e["units"], "mow": e["mow"], "n": 0, "fails": 0, "score": 0, "rar": e.get("rar", "")}
                         order.append(k)
                     ln = lines[k]
                     ln["n"] += 1
@@ -1642,7 +1642,7 @@ def _battlefield_chip(entry, zone, board_name, board_img, players):
     name = players.get(entry["uid"], {}).get("displayName", entry["uid"])
     payload = {
         "p": entry["uid"], "z": ZONE_LABELS.get(zone, zone), "m": board_name, "i": board_img,
-        "l": [[ln["units"], ln["mow"], ln["n"], ln["fails"], round(ln["score"] / ln["n"])] for ln in entry["lines"]],
+        "l": [[ln["units"], ln["mow"], ln["n"], ln["fails"], round(ln["score"] / ln["n"]), ln["rar"]] for ln in entry["lines"]],
         "a": [[e["uid"], TIER_CODE.get(e["tier"], "u"), round(e["adj"]), e["att_units"], e["att_mow"],
                e["_line"]] for e in entry["events"]],
     }
@@ -1766,7 +1766,7 @@ def render_opponent_map(all_wars, prefix=""):
                 aidx("p", e["uid"]), TIER_CODE.get(e["tier"], "u"), round(e["adj"]),
                 [aidx("u", u) for u in e["att_units"]], aidx("u", e["att_mow"]) if e["att_mow"] else -1,
                 [aidx("u", u) for u in e["units"]], aidx("u", e["mow"]) if e["mow"] else -1,
-                aidx("z", f'{ZONE_LABELS.get(e["zone"], e["zone"])} · {war_tag}'), aidx("m", board), aidx("g", opp_name),
+                aidx("z", f'{ZONE_LABELS.get(e["zone"], e["zone"])} · {war_tag}'), aidx("m", board), aidx("g", opp_name), e.get("rar", ""),
             ])
         for side, team in (("us", our_idx), ("them", opp_idx)):
             for zone, entries in field.get(team, {}).items():
@@ -1882,7 +1882,7 @@ def build_attacks(result, our_idx, boards, prefix="../"):
                 pi, TIER_CODE.get(e["tier"], "u"), round(e["adj"]),
                 [idx(units, u) for u in e["att_units"]], idx(units, e["att_mow"]) if e["att_mow"] else -1,
                 [idx(units, u) for u in e["units"]], idx(units, e["mow"]) if e["mow"] else -1,
-                idx(zones, ZONE_LABELS.get(e["zone"], e["zone"])), mi,
+                idx(zones, ZONE_LABELS.get(e["zone"], e["zone"])), mi, -1, e.get("rar", ""),
             ])
         rows_by_team.append(rows)
         if not rows:
