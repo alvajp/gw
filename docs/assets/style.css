@@ -2962,10 +2962,10 @@ body[data-page="replay"]::before {
 
 /* Saisons: replays of a meta on the card's map, next to the meta's name */
 .ns-rep { margin-left: 0.5rem; color: var(--accent); font-size: 0.75rem; font-weight: 600; white-space: nowrap; }
-/* the title and the "Prochaine" button share one line and one centre (the h1's bottom margin would pull the title up) */
-#title-row:has(.ns-switch) { flex-wrap: nowrap; padding-bottom: 0.9rem; }
-#title-row:has(.ns-switch) #page-title { margin: 0; min-width: 0; }
-#title-row:has(.ns-switch) #header-action { margin: 0; flex: none; }
+/* the title and the "Prochaine" button share one line and one centre */
+#title-row:has(.ns-switch) { flex-wrap: nowrap; }
+#title-row:has(.ns-switch) #page-title { min-width: 0; }  /* the h1 keeps its usual margins: it never moves, whatever sits next to it */
+#title-row:has(.ns-switch) #header-action { flex: none; align-self: flex-start; align-items: center; margin: 0.3rem 0 0; height: 3rem; }  /* the button is centred on the h1's own line (3rem, below its 0.3rem top margin) */
 .rep-toggle { display: inline-flex; align-items: center; gap: 0.4rem; }
 .rep-toggle small { opacity: 0.7; font-size: 0.72rem; }
 .rep-toggle .atk-playmark { margin-right: 0; flex: none; vertical-align: baseline; }
