@@ -1830,7 +1830,7 @@ def render_opponent_map(all_wars, prefix=""):
                  '<div class="attacks-scroll"><table class="attacks-table"><thead><tr><th class="a-comp">Attaque</th><th class="a-def">Contre</th>'
                  '<th class="a-score">Score</th><th class="a-map">Map</th></tr></thead><tbody></tbody></table></div></div>') if pills else ""
         sections.append(
-            f'<section class="ns-boss opp-section" id="{slugs[g]}" data-boss="{slugs[g]}"><h2 class="opp-title">{guild_badge(g, prefix)}{html_escape(g)}</h2>'
+            f'<section class="ns-boss opp-section" id="{slugs[g]}" data-boss="{slugs[g]}"><h2 class="opp-title">{guild_badge(g, prefix)}Attaques de {html_escape(g)}</h2>'
             f'<div class="battlefield opp-one"><div class="battlefield-side side-0"><div class="battlefield-grid">{"".join(tiles)}</div>{under}</div></div></section>'
         )
     nav = ('<nav class="map-filter ns-filter opp-nav" aria-label="Aller à une guilde adverse">'
