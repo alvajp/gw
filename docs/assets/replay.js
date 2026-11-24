@@ -76,8 +76,12 @@
     let minX = 1e9, maxX = -1e9, minY = 1e9, maxY = -1e9;
     d.cells.forEach(function (c) { const x = cx(c[0]), y = cy(c[0], c[1]); minX = Math.min(minX, x - R); maxX = Math.max(maxX, x + R); minY = Math.min(minY, y - HS / 2); maxY = Math.max(maxY, y + HS / 2); });
     const M = R * 0.6;  // a little terrain around the cells
-    // the machines of war are not on the board: ours has its platform under the cells at the left, the enemy's above them at the right (the picture is cropped with room for them)
-    const dock = function (side) { return side === 0 ? [minX + 1.9 * R, maxY + 1.6 * R] : [maxX - 1.9 * R, minY - 1.6 * R]; };
+    // the machines of war are not on the board: ours against the left edge of the picture (under the cells), theirs against the right edge (above them), always inside the picture (the token and its ring are
+    // 0.88 R + 5 wide); the same place as on the Simulation board (sim-board.js), in the raid and the guild war replays alike
+    const dock = function (side) {
+      const m = 0.88 * R + 5, y = side === 0 ? maxY + 1.6 * R : minY - 1.6 * R;
+      return [side === 0 ? vb[0] + m : vb[0] + vb[2] - m, Math.min(Math.max(y, vb[1] + m), vb[1] + vb[3] - m)];
+    };
     const vb = HD ? [d.pic.x0 * K, d.pic.y0 * K, d.pic.w * K, d.pic.h * K] : [minX - M, minY - 2.7 * R, maxX - minX + 2 * M, maxY - minY + 5.4 * R + 24];
     const tint = function (cell) {  // [col, row, tile, elevation, kind]
       const t = cell[2], el = cell[3], l = 24 + Math.min(el, 4) * 5;

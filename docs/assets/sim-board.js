@@ -243,7 +243,7 @@
       psyCount = [0, 0];
       live().forEach(function (c) { const tm = abOf(c, "TimesplinterMantle"); if (tm) live().forEach(function (x) { if (x.side === c.side && x.tset.Mechanical && (x === c || RULES.dist(x.t, c.t) === 1)) x.cloak = tm.dmgReduction || 0; }); });  // Timesplinter Mantle at the start of every turn
       units.forEach(function (u) { if (u.side === active) { u.ow = false; u.owCut = 0; u.owForce = false; u.smasha = false; u.stillPrev = u.moves === 0; u.outr = {}; }  // Sentinelle ends as its owner's turn begins
-        u.spent = 0; u.relocated = false; u.moves = 0; u.moveExtra = 0; u.moveAfter = false; u.acted = false; u.noRanged = false; u.hitNow = false; u.termUsed = false; u.usedActive = false; if (u.markedBy === active) { if (u.markFresh) u.markFresh = false; else { u.marked = false; u.markedBy = -1; } } });  // a mark lasts until its owner's next turn (a drone's markerlight: until the end of it)
+        u.endDone = false; u.spent = 0; u.relocated = false; u.moves = 0; u.moveExtra = 0; u.moveAfter = false; u.acted = false; u.noRanged = false; u.hitNow = false; u.termUsed = false; u.usedActive = false; if (u.markedBy === active) { if (u.markFresh) u.markFresh = false; else { u.marked = false; u.markedBy = -1; } } });  // a mark lasts until its owner's next turn (a drone's markerlight: until the end of it)
       field.filter(function (u) { return u.fallen && u.side === active; }).forEach(function (u) {
         const mine = decoys().filter(function (x) { return x.side === u.side; });
         if (!mine.length) return;  // no decoy left: it stays down
@@ -752,17 +752,43 @@
       if (sp) live().filter(function (x) { return x.side === u.side && x !== u && RULES.dist(x.t, u.t) === 1 && !mech(x); }).forEach(function (x) { heal(x, (sp.hpToHeal || 0) + stepRng() * ((sp.maxHpToHeal || 0) - (sp.hpToHeal || 0)), "Prêtre sanguinaire"); });
       if (fa) { const near = live().filter(function (x) { return x.side === u.side && x !== u && RULES.dist(x.t, u.t) === 1 && mech(x) && x.hp < x.max; }); if (near.length) heal(near[Math.floor(stepRng() * near.length)], fa.hpToRepair || 0, "Réseau de griffes"); }
     };
-    const endRegen = function () {
+    const endRegen = function (only) {
+      const pick = function (x) { return (!only || x === only) && !x.endDone; };
       field.forEach(function (g) {  // Grot: at the end of its turn, at full health, a chance to bring another Grot next to it (less for each Grot on the board)
-        const pi = g.alive && g.side === active && g.kids ? abOf(g, "PileIn") : null;
+        const pi = g.alive && g.side === active && pick(g) && g.kids ? abOf(g, "PileIn") : null;
         if (!pi || g.hp < g.max || g.born === turnNo) return;  // a Grot that has just appeared cannot copy itself in the turn it comes
         const chance = (parseInt(pi.chance, 10) || 75) - (parseInt(pi.chance_2, 10) || 5) * live().filter(function (x) { return x.side === g.side && x.id === "orksGrot"; }).length;
         g.kidIdx = g.kidIdx || 0;
         const reach = stepsOf(g, 1), k = g.kids[g.kidIdx], hs = prio(g, Object.keys(reach).filter(function (key) { return reach[key] === 1; }).map(function (key) { return key.split(",").map(Number); }), g.t);  // only a free adjacent hex it could walk onto (elevation, walls, bridges)
         if (k && hs.length && stepRng() * 100 < chance) { g.kidIdx++; k.t = hs[0].slice(); k.alive = true; k.hp = k.max; k.acted = false; k.spent = 0; k.arrRound = round; k.born = turnNo; regenLog.push({ u: k, amt: k.hp, label: "invoqué par Entassement", spawn: true }); }
       });
-      field.forEach(function (u) { const tpz = u.alive && u.side === active ? fxOn(u, "terror") : null; if (tpz && tpz.by) { const r0 = abilityHit(tpz.by, u, avgOf(tpz.v, ""), "Toxic", parseInt(tpz.v.poisonedNrOfHits, 10) || 1), d0 = Math.round(r0.tot); boomLog.push({ tgt: u, dmg: d0, hits: r0.hits, per: Math.round(r0.per), from: tpz.by, label: "empoisonné" }); curAtk++; hurt(u, d0, tpz.by, Math.round(r0.per)); } });  // Poisoned: toxic damage at the end of its turn
-      field.forEach(function (u) { if (u.alive && u.side === active && u.spent === 0 && !u.relocated && (abOf(u, "SanguinaryPriest") || abOf(u, "FabricatorClawArray") || MOVE_AB.some(function (id) { return abOf(u, id); }))) afterMove(u); }); };
+      field.forEach(function (u) { const tpz = u.alive && u.side === active && pick(u) ? fxOn(u, "terror") : null; if (tpz && tpz.by) { const r0 = abilityHit(tpz.by, u, avgOf(tpz.v, ""), "Toxic", parseInt(tpz.v.poisonedNrOfHits, 10) || 1), d0 = Math.round(r0.tot); boomLog.push({ tgt: u, dmg: d0, hits: r0.hits, per: Math.round(r0.per), from: tpz.by, label: "empoisonné" }); curAtk++; hurt(u, d0, tpz.by, Math.round(r0.per)); } });  // Poisoned: toxic damage at the end of its turn
+      field.forEach(function (u) { if (u.alive && u.side === active && pick(u) && u.spent === 0 && !u.relocated && (abOf(u, "SanguinaryPriest") || abOf(u, "FabricatorClawArray") || MOVE_AB.some(function (id) { return abOf(u, id); }))) afterMove(u); }); };
+    // the effects of the end of a character's turn: they come when it can do nothing more (it is greyed), not when the whole side ends its turn; the ones of the characters still able to act come with the end of the turn
+    const endUnit = function (only) {
+      const pick = function (x) { return (!only || x === only) && !x.endDone; };
+          field.forEach(function (x) {  // Daemonic Patrons: at the end of his next turn Hascule loses 30 % of his health unless he killed a taunted enemy
+            const ob = x.alive && x.side === active && pick(x) ? fxOn(x, "observed") : null;
+            if (ob && ob.until === round && !ob.kill) { curAtk++; hurt(x, Math.round(x.hp * (ob.v.hpPct || 30) / 100), null); }
+          });
+          field.forEach(function (x) { const we = x.alive && x.side === active && pick(x) ? abOf(x, "WaaaghEnergy") : null; if (we && (x.waaaghLvl || 0) >= (parseInt(we.effectLevel, 10) || 7)) { curAtk++; hurt(x, Math.round(x.hp * (parseInt(we.hpPct, 10) || 25) / 100), null); } });  // too much Waaagh! energy burns him
+          field.forEach(function (x) { if (x.alive && x.aug && x.side === active && pick(x)) { curAtk++; hurt(x, Math.round(x.max * (x.aug.pct || 20) / 100), null); } });  // augmented: it loses 20 % of its maximum health at the end of each of its turns
+          field.forEach(function (x) {  // My Will Be Done: at the end of Anuphet's turn an adjacent mechanical ally attacks; if none could, he hits harder next turn
+            const mw = x.alive && x.side === active && pick(x) ? abOf(x, "MyWillBeDoneOverlord") : null;
+            if (!mw) return;
+            let done = false;
+            live().filter(function (y) { return y !== x && y.side === x.side && y.tset.Mechanical && RULES.dist(y.t, x.t) === 1; }).some(function (y) {
+              y.acted = false;
+              const best = targetsOf(y, { id: "atk", ok: true }).filter(function (z) { return z.dmg > 0; }).sort(function (a, b2) { return ((b2.dmg >= b2.u.hp) - (a.dmg >= a.u.hp)) || b2.dmg - a.dmg; })[0];
+              if (!best) return false;
+              const per = Math.min(best.per, mw.maxDmg || 7830); curAtk++; hurt(best.u, Math.round(per * best.hits), y, per);
+              boomLog.push({ tgt: best.u, dmg: Math.round(per * best.hits), hits: best.hits, per: Math.round(per), from: y, label: "Ma volonté sera faite" }); done = true; return true;
+            });
+            if (!done) x.fx.will = { id: "will", extra: mw.extraDmg || 0, until: round + 1 };
+          });
+          endRegen(only);
+      field.forEach(function (x) { if (x.side === active && (!only || x === only)) x.endDone = true; });
+    };
     const startRegen = function () {
       live().filter(function (u) { return u.side === active; }).forEach(function (u) {
         const tk = abOf(u, "ToughToKill"), tf = abOf(u, "TimeFlux");
@@ -825,7 +851,7 @@
     const diceSeed = function () { const idx = settling ? rollKey : cur; return ((idx + 1) * 2654435761) ^ ((settling ? rollSalt : (salts[idx] || 0)) * 1597334677); };  // the dice of the hits (damage variation, critical hits, blocks) are seeded by the step being replayed, or by the step about to be taken
     const settle = function (k) {  // everybody on the hexes, with the health, they have after k steps, and whose turn it is
       settling = true;
-      field.forEach(function (u) { u.max = u.max0; u.fx = {}; u.twisted = false; u.twistDmg = 0; u.t = u.t0 ? u.t0.slice() : null; u.hp = u.max; u.alive = !u.summon; u.nAtk = 0; u.kills = 0; u.attacked = 0; u.lastAtk = -1; u.annBy = null; u.shun = null; u.used = {}; u.marked = false; u.markedBy = -1; u.markFresh = false; u.came = false; u.exploded = false; u.grim = 0; u.euph = null; u.neuro = 0; u.cloak = 0; u.hypTurn = -1; u.lcTurn = -1; u.miTurn = -1; u.atkTurns = 0; u.lastAtkTurn = -1; u.shield = null; u.waaaghLvl = 0; u.relocated = false; u.aug = null; u.dutyDmg = 0; u.armCut = 0; u.charKills = 0; u.smasha = false; u.auto = false; u.rage = false; u.chargedTurn = -1; u.psyTurn = -1; u.ghost = null; u.pi = {}; u.kidIdx = 0; u.born = -1; u.outr = {}; u.yexec = false; u.stillPrev = false; u.tfUsed = false; u.stance = 0; u.stTurn = -1; u.grimTurn = -1; u.ripAtk = -1; u.ow = false; u.owCut = 0; u.owForce = false; u.ds = !!u.tset.TeleportStrike && !u.summon; u.noRanged = false; u.lastSpent = 0; u.nano = false; u.moveBonus = 0; u.shroud = 0; u.ambush = !!u.tset.Ambush && !u.decoy; u.fallen = false; });
+      field.forEach(function (u) { u.endDone = false; u.max = u.max0; u.fx = {}; u.twisted = false; u.twistDmg = 0; u.t = u.t0 ? u.t0.slice() : null; u.hp = u.max; u.alive = !u.summon; u.nAtk = 0; u.kills = 0; u.attacked = 0; u.lastAtk = -1; u.annBy = null; u.shun = null; u.used = {}; u.marked = false; u.markedBy = -1; u.markFresh = false; u.came = false; u.exploded = false; u.grim = 0; u.euph = null; u.neuro = 0; u.cloak = 0; u.hypTurn = -1; u.lcTurn = -1; u.miTurn = -1; u.atkTurns = 0; u.lastAtkTurn = -1; u.shield = null; u.waaaghLvl = 0; u.relocated = false; u.aug = null; u.dutyDmg = 0; u.armCut = 0; u.charKills = 0; u.smasha = false; u.auto = false; u.rage = false; u.chargedTurn = -1; u.psyTurn = -1; u.ghost = null; u.pi = {}; u.kidIdx = 0; u.born = -1; u.outr = {}; u.yexec = false; u.stillPrev = false; u.tfUsed = false; u.stance = 0; u.stTurn = -1; u.grimTurn = -1; u.ripAtk = -1; u.ow = false; u.owCut = 0; u.owForce = false; u.ds = !!u.tset.TeleportStrike && !u.summon; u.noRanged = false; u.lastSpent = 0; u.nano = false; u.moveBonus = 0; u.shroud = 0; u.ambush = !!u.tset.Ambush && !u.decoy; u.fallen = false; });
       round = 1; active = 0; pending = []; hexfx = {}; zmarks = []; turnNo = 0; meleeDead = 0; activeUses = [0, 0]; psyCount = [0, 0]; regenLog = []; boomLog = []; deadLog = []; overLog = [];
       units.forEach(function (u) { u.lastPer = 0; u.narthAt = -1; if (u.mow) { u.fx = {}; u.used = {}; u.acted = false; u.deployed = false; u.nAtk = 0; u.usedActive = false; } });
       turnStart();
@@ -926,32 +952,16 @@
             x.smasha = x.alive && !!abOf(x, "SmashaEad") && x.spent >= 2;
             x.ow = x.alive && ((x.tset.Overwatch && !x.acted) || x.owForce || (!!abOf(x, "CalibaniteGreatsword") && !x.stance) || (!!abOf(x, "PurgeResponse") && live().some(function (y) { return y !== x && y.side === x.side && y.rules.fa === "LeaguesOfVotann" && !y.summon && RULES.dist(y.t, x.t) === 1; })) || (!!abOf(x, "PropheticSentinel") && live().some(function (y) { return y.side === x.side && y !== x && y.tset.Psyker && RULES.dist(y.t, x.t) === 1; })));
           });
-          field.forEach(function (x) {  // Daemonic Patrons: at the end of his next turn Hascule loses 30 % of his health unless he killed a taunted enemy
-            const ob = x.alive && x.side === active ? fxOn(x, "observed") : null;
-            if (ob && ob.until === round && !ob.kill) { curAtk++; hurt(x, Math.round(x.hp * (ob.v.hpPct || 30) / 100), null); }
-          });
-          field.forEach(function (x) { const we = x.alive && x.side === active ? abOf(x, "WaaaghEnergy") : null; if (we && (x.waaaghLvl || 0) >= (parseInt(we.effectLevel, 10) || 7)) { curAtk++; hurt(x, Math.round(x.hp * (parseInt(we.hpPct, 10) || 25) / 100), null); } });  // too much Waaagh! energy burns him
-          field.forEach(function (x) { if (x.alive && x.aug && x.side === active) { curAtk++; hurt(x, Math.round(x.max * (x.aug.pct || 20) / 100), null); } });  // augmented: it loses 20 % of its maximum health at the end of each of its turns
-          field.forEach(function (x) {  // My Will Be Done: at the end of Anuphet's turn an adjacent mechanical ally attacks; if none could, he hits harder next turn
-            const mw = x.alive && x.side === active ? abOf(x, "MyWillBeDoneOverlord") : null;
-            if (!mw) return;
-            let done = false;
-            live().filter(function (y) { return y !== x && y.side === x.side && y.tset.Mechanical && RULES.dist(y.t, x.t) === 1; }).some(function (y) {
-              y.acted = false;
-              const best = targetsOf(y, { id: "atk", ok: true }).filter(function (z) { return z.dmg > 0; }).sort(function (a, b2) { return ((b2.dmg >= b2.u.hp) - (a.dmg >= a.u.hp)) || b2.dmg - a.dmg; })[0];
-              if (!best) return false;
-              const per = Math.min(best.per, mw.maxDmg || 7830); curAtk++; hurt(best.u, Math.round(per * best.hits), y, per);
-              boomLog.push({ tgt: best.u, dmg: Math.round(per * best.hits), hits: best.hits, per: Math.round(per), from: y, label: "Ma volonté sera faite" }); done = true; return true;
-            });
-            if (!done) x.fx.will = { id: "will", extra: mw.extraDmg || 0, until: round + 1 };
-          });
-          endRegen();  // the regenerations that wait for the end of a turn when the unit has not moved
+          endUnit(null);  // the effects that come at the end of a character's turn (the ones that are not already over: a character that cannot act any more has had its own earlier)
           turnNo++;  // a unit in Deep Strike mode can be hit again once its side's turn is over
           if (active === 0) active = 1; else { active = 0; round++; }
           turnStart();
           startRegen();  // Tough to Kill, Time Flux
           m.auto = tileTurn().concat(resolveMarks(), resolvePending(), summonsPlay(), betray());  // what acts by itself at the start of this turn: the summons first, then the characters that do
         }
+        if (m.k !== "end") field.forEach(function (x) {  // a character that can do nothing more this turn (it is greyed) ends its turn now: Xybia, Nicodemus, Mephiston standing still ...
+          if (x.side === active && x.alive && !x.decoy && !x.summon && !x.auto && !x.mow && !x.endDone && isDone(x)) endUnit(x);
+        });
         field.forEach(function (x) { if (x.ghost && live().some(function (y) { return y !== x && y.t[0] === x.ghost[0] && y.t[1] === x.ghost[1]; })) x.ghost = null; });  // Toth's time ghost vanishes when another unit stands on it
         m.deaths = deadLog.filter(function (x, k, a) { return a.indexOf(x) === k; }); m.regen = regenLog; m.booms = boomLog; m.over = overLog;  // the heals, the revivals and the mine blasts this step caused
       }
@@ -3264,21 +3274,32 @@
       }
       return false;
     };
-    const walkToward = function (u) {  // nothing to hit this turn: as far as it can go toward the nearest enemy (not into razor wire unless it must)
+    const walkToward = function (u) {  // nothing to hit this turn: as far as it can go toward the nearest enemy by the way it would really walk (walls, cliffs), not into razor wire unless it must
       if (u.mow) return;
       const reach = stepsOf(u, budget(u)), foesNow = foes(u);
       if (!foesNow.length) return;
-      const dist = function (h) { return Math.min.apply(null, foesNow.map(function (e) { return RULES.dist(h, e.t); })); };
+      const fly = !!u.rules.fl, pd = {}, queue = [];
+      foesNow.forEach(function (e) { footOf(e).forEach(function (h) { const k = h[0] + "," + h[1]; if (pd[k] === undefined) { pd[k] = 0; queue.push(h); } }); });
+      for (let i = 0; i < queue.length; i++) {  // the walking distance from the enemies (a flyer crosses walls, nobody climbs more than one level)
+        const q = queue[i], here = RULES.cell(q[0], q[1]);
+        RULES.around(q[0], q[1]).forEach(function (n) {
+          const key = n[0] + "," + n[1], c = RULES.cell(n[0], n[1]);
+          if (pd[key] !== undefined || !c || c.kind === 2 || (c.kind === 1 && !fly) || (!fly && here && Math.abs(c.el - here.el) > 1)) return;
+          pd[key] = pd[q[0] + "," + q[1]] + 1; queue.push(n);
+        });
+      }
+      const dist = function (h) { const v = pd[h[0] + "," + h[1]]; return v !== undefined ? v : 500 + Math.min.apply(null, foesNow.map(function (e) { return RULES.dist(h, e.t); })); };
       let best = null;
       Object.keys(reach).forEach(function (key) {
         const h = key.split(",").map(Number), c = RULES.cell(h[0], h[1]);
         if (!c || c.kind !== 0 || reach[key] === 0) return;
-        const rank = [c.tile === "Swamp" && !u.rules.us && !u.rules.fl ? 0 : 1, -dist(h), -reach[key]];
+        const rank = [c.tile === "Swamp" && !u.rules.us && !u.rules.fl ? 0 : 1, -dist(h), c.el || 0, c.tile === "DryBush" && !u.tset.BigTarget ? 1 : 0, -reach[key]];  // at the same distance: the highest ground, then tall grass, then the shortest walk
         let better = !best;
         if (best) for (let i = 0; i < rank.length; i++) if (rank[i] !== best.rank[i]) { better = rank[i] > best.rank[i]; break; }
         if (better) best = { h: h, k0: reach[key], rank: rank };
       });
-      if (best && -best.rank[1] < dist(u.t)) push({ k: "mv", u: u, from: u.t.slice(), to: best.h, cost: best.k0, tp: false, tpm: false });
+      if (best && -best.rank[1] < dist(u.t)) { push({ k: "mv", u: u, from: u.t.slice(), to: best.h, cost: best.k0, tp: false, tpm: false }); return true; }
+      return false;
     };
     // An active that summons around its caster (Re'vas's Early Warning Override: two drones and the Sentinel mode) is used after a walk: to a hex that is not next to an enemy, as near as possible to the nearest
     // one (2 hexes from it), with room around for the summons. It returns true when the character has walked (the active then waits for the walk to end).
@@ -3333,7 +3354,15 @@
               return;
             }
             strike(u, plan.o, plan.t);
-          } else if (!u.acted) walkToward(u);
+          } else if (!u.acted && walkToward(u)) {  // it only walked: once it has arrived, its active (or its attack) is used if the new hex allows it
+            setTimeout(function () {
+              if (!autoRun) return;
+              const p2 = u.acted || !u.alive ? null : planFor(u);
+              if (p2 && !(p2.h && p2.k0 > 0)) strike(u, p2.o, p2.t);
+              setTimeout(next, 450 / speed);
+            }, 480 / speed);
+            return;
+          }
           setTimeout(next, 450 / speed);
         };
         if (moveForActive(u)) setTimeout(function () { if (autoRun) play(); }, 480 / speed); else play();

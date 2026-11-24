@@ -434,7 +434,7 @@ def extract_map(board, cols, rows, geo=None):
     hs = sy * 3 ** 0.5 * R
     # the picture is centred on the visual grid: GEO was fitted on 13 x 15 grids, other sizes shift by half the difference (a war board is 13 x 14: half a row lower)
     ox = g["ox"] + (g.get("vw", 13) - vw) * 0.75 * R
-    oy = g["oy"] + (g.get("vh", 15) - vh) * hs / 2
+    oy = g["oy"] + (g.get("vh", 15) - vh) * hs * (0.5 if geo else 1.0)  # a raid board one row shorter (the "support" boards, 14 rows) sits a whole row lower (checked on the hexagonal plateaus of the pictures), a war board half a row
     xs = [ox + R + (c + c0) * 1.5 * R for c in range(cols)]
     ys = [oy + (r0 - r + (0.5 if (c + c0) % 2 == 0 else 0)) * hs + hs / 2 for c in range(cols) for r in range(rows)]
     m, my = 0.6 * R, 1.9 * hs  # the machines of war have their platform above (the enemy's) and under (ours) the cells: room for them
@@ -448,7 +448,7 @@ def extract_map(board, cols, rows, geo=None):
     for obj in UnityPy.load(found[0]).objects:
         if obj.type.name == "Texture2D":
             os.makedirs(MAPS_DIR, exist_ok=True)
-            obj.read().image.crop(box).save(out, "WEBP", quality=82, method=6)
+            obj.read().image.convert("RGB").crop(box).save(out, "WEBP", quality=82, method=6)  # RGB: the picture's alpha marks the water, whose colour sits in the RGB of those pixels (the WebP encoder drops it under transparency: grey holes)
             return pic
     return None
 
