@@ -3049,6 +3049,7 @@ body[data-page="replay"]::before {
 
 /* Simulation: map -> level -> defense to face -> team to use */
 .sim { display: grid; gap: 1.6rem; max-width: 64rem; }
+.sim-step { scroll-margin-top: 6rem; }  /* the section's title stays below the sticky top bar when a click scrolls to it */
 .sim-step[hidden] { display: none; }
 .sim-step h2 { display: flex; align-items: center; gap: 0.6rem; margin: 0 0 0.7rem; font-size: 1.15rem; }
 .sim-n { display: inline-flex; align-items: center; justify-content: center; width: 1.6rem; height: 1.6rem; border-radius: 50%; background: var(--accent); color: #0d1014; font-size: 0.85rem; font-weight: 800; }
