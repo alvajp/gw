@@ -1,7 +1,7 @@
 // The level of a war zone. Two things come from the game's zone tiers (Hero = 2 Mythic then 3 Legendary, Elite = 2 Legendary then 3 Epic, Veteran = 2 Epic then 3 Rare; the
 // zones of the guild's battlefield level 5, see globalconfigs):
 //  - window.zoneTier("HQ") / ("MS1 · S28 G3") -> the HTML of the five small diamonds next to a zone's name ("" when unknown);
-//  - every attack / defense line (a row of unit portraits next to a zone) gets one hexagonal badge at its start: M (Hero), L (Elite) or R (Veteran).
+//  - every attack / defense line (a row of unit portraits next to a zone) gets, on each of its five units, the hexagonal rarity badge of its slot (M, L, E, R).
 (function () {
   const TIERS = {
     hero: ["Héros", ["mythic", "mythic", "legendary", "legendary", "legendary"]],
@@ -32,16 +32,23 @@
     const sm = tr && tr.querySelector("td.guild small");  // the "by map" lists: "S28 G2 · AP1" under the guild's name
     return sm && sm.firstChild ? sm.firstChild.textContent.split(" · ").pop() : "";
   }
-  // one badge for a whole line (the zone's level, the same for its five units): M = Hero, L = Elite, R = Veteran, at the start of the line
-  const BADGE = { hero: ["M", "mythic"], elite: ["L", "legendary"], veteran: ["R", "rare"] };
+  // the five units of a line each carry the hexagonal rarity badge of their slot (Hero: M M L L L, Elite: L L E E E, Veteran: E E R R R), on the game's bright hexagon
   function decorate(box) {
     if (box.dataset.rh) return;
-    const label = String(zoneOf(box) || "").split(" · ")[0].trim(), key = ZONE[label];
-    if (!key) return;
+    const t = tierOf(zoneOf(box));
+    if (!t) return;
     box.dataset.rh = "1";
-    box.insertAdjacentHTML("afterbegin", '<i class="rh rh-' + BADGE[key][1] + '" title="' + TIERS[key][0] + '">' + BADGE[key][0] + "</i>");
+    const units = box.querySelectorAll(".unit:not(.mow)");
+    for (let i = 0; i < units.length && i < t[1].length; i++) {
+      const u = units[i], c = t[1][i], w = document.createElement("span");
+      w.className = "uw";
+      w.title = u.getAttribute("title") || "";
+      u.parentNode.insertBefore(w, u);
+      w.appendChild(u);
+      w.insertAdjacentHTML("beforeend", '<i class="rh rh-' + c + '" title="' + NAME[c][0] + '">' + LETTER[c] + "</i>");
+    }
   }
-  const LINES = "td.a-comp, td.comp, .dm-comp, .dm-def-comp";  // the attack lines (a row's first cell), the defense lines and the dialogs' lines
+  const LINES = ".a-comp, .a-def, td.comp, .dm-comp, .dm-def-comp";
   let queued = false;
   function scan() {
     queued = false;
