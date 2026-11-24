@@ -51,34 +51,38 @@
     shown("sim-level", true);
   }
 
-  // ---- 3. the defenses met on that map at that level, grouped by archetype (a line holds the 3 core units of an archetype), the others below ----
+  // ---- 3. the defenses met on that map at that level: ONE row per archetype (a line holds the 3 core units of an archetype), the other lines below ----
+  const archOf = function (r) {
+    const have = r[2].concat(r[3] >= 0 ? [r[3]] : []);
+    return D.a.filter(function (a) { return a[1].every(function (u) { return have.indexOf(u) >= 0; }); })[0] || null;
+  };
+  const stats = function (x) {
+    return '<span class="sim-stats"><b>' + pl(x.n, "fois", "fois") + "</b><small>" + pl(x.w + x.f, "victoire", "victoires") + " \u00b7 " + pl(x.x, "\u00e9chec", "\u00e9checs") + "</small></span>";
+  };
   function defRow(x, i) {
-    const arch = x.arch, units = x.r[2], all = units.concat(x.r[3] >= 0 ? [x.r[3]] : []);
-    let body;
-    if (arch) {  // the archetype's three units first, a separator, then every other character of the line (and its machine of war)
-      const core = arch[1], rest = units.filter(function (u) { return core.indexOf(u) < 0; });
-      body = core.filter(function (u) { return u !== x.r[3]; }).map(function (u) { return unit(u, false); }).join("") + (core.indexOf(x.r[3]) >= 0 ? unit(x.r[3], true) : "") +
-        '<span class="sim-sep" aria-hidden="true"></span>' + rest.map(function (u) { return unit(u, false); }).join("") + (x.r[3] >= 0 && core.indexOf(x.r[3]) < 0 ? unit(x.r[3], true) : "");
-    } else body = comp(units, x.r[3]);
-    return '<button type="button" class="sim-row" data-def="' + esc(x.k) + '" aria-pressed="false"><span class="sim-rank">' + (i + 1) + '</span><span class="sim-comp">' + badge(topRar(x)) + body + "</span>" +
-      '<span class="sim-stats"><b>' + pl(x.n, "fois", "fois") + "</b><small>" + pl(x.w + x.f, "victoire", "victoires") + " \u00b7 " + pl(x.x, "\u00e9chec", "\u00e9checs") + "</small></span></button>";
+    return '<button type="button" class="sim-row" data-def="' + esc(x.k) + '" aria-pressed="false"><span class="sim-rank">' + (i + 1) + '</span><span class="sim-comp">' + badge(topRar(x)) + comp(x.r[2], x.r[3]) + "</span>" + stats(x) + "</button>";
+  }
+  function archRow(x, i) {  // the archetype's three units, a separator, then every other character met in its lines (the most frequent first)
+    const core = x.a[1], others = Object.keys(x.others).map(Number).sort(function (a, b) { return x.others[b] - x.others[a]; });
+    return '<button type="button" class="sim-row" data-def="arch:' + esc(x.a[0]) + '" aria-pressed="false"><span class="sim-rank">' + (i + 1) + '</span><span class="sim-comp">' + badge(topRar(x)) +
+      '<span class="sim-arch-name">' + esc(x.a[0]) + "</span>" + core.map(function (u) { return unit(u, false); }).join("") + '<span class="sim-sep" aria-hidden="true"></span>' +
+      others.map(function (u) { return unit(u, false); }).join("") + "</span>" + stats(x) + "</button>";
   }
   function defenses() {
     const list = rows.filter(function (r) { return r[0] === map && r[1] === level; });
-    const g = groups(list, dkey).sort(function (a, b) { return b.n - a.n || b.last - a.last; });
-    g.forEach(function (x) {
-      const have = x.r[2].concat(x.r[3] >= 0 ? [x.r[3]] : []);
-      x.arch = D.a.filter(function (a) { return a[1].every(function (u) { return have.indexOf(u) >= 0; }); })[0] || null;
+    const byArch = {}, loose = [];
+    list.forEach(function (r) {
+      const a = archOf(r);
+      if (!a) { loose.push(r); return; }
+      const x = byArch[a[0]] || (byArch[a[0]] = { a: a, n: 0, w: 0, f: 0, x: 0, last: -1, rar: {}, others: {} });
+      x.n++; x[r[6] === "w" ? "w" : r[6] === "f" ? "f" : "x"]++; x.last = Math.max(x.last, r[8]);
+      if (r[9]) x.rar[r[9]] = (x.rar[r[9]] || 0) + 1;
+      r[2].concat(r[3] >= 0 ? [r[3]] : []).forEach(function (u) { if (a[1].indexOf(u) < 0) x.others[u] = (x.others[u] || 0) + 1; });
     });
-    let html = "";
-    D.a.forEach(function (a) {
-      const mine = g.filter(function (x) { return x.arch === a; });
-      if (!mine.length) return;
-      html += '<h3 class="sim-group"><span class="sim-core">' + a[1].map(function (u) { return unit(u, false); }).join("") + "</span>" + esc(a[0]) + "<small>" + pl(mine.reduce(function (t, x) { return t + x.n; }, 0), "fois", "fois") + " \u00b7 " + pl(mine.length, "ligne", "lignes") + "</small></h3>" +
-        mine.slice(0, 10).map(defRow).join("");
-    });
-    const others = g.filter(function (x) { return !x.arch; });
-    if (others.length) html += (html ? '<h3 class="sim-group">Autres d\u00e9fenses</h3>' : "") + others.slice(0, 12).map(defRow).join("");
+    const arch = Object.keys(byArch).map(function (k) { return byArch[k]; }).sort(function (a, b) { return b.n - a.n; });
+    const g = groups(loose, dkey).sort(function (a, b) { return b.n - a.n || b.last - a.last; });
+    let html = arch.map(archRow).join("");
+    if (g.length) html += (html ? '<h3 class="sim-group">Autres d\u00e9fenses</h3>' : "") + g.slice(0, 12).map(defRow).join("");
     $("sim-def").querySelector(".sim-list").innerHTML = html || '<p class="mnone">Aucune d\u00e9fense vue.</p>';
     shown("sim-def", true);
     shown("sim-atk", false);
@@ -110,9 +114,10 @@
   }
   function attacks() {
     const here = rows.filter(function (r) { return r[0] === map && r[1] === level && r[6] === "w"; });  // real victories only (no finishing blows)
-    const mine = rows.filter(function (r) { return dkey(r) === defKey; })[0][2];
-    const exact = here.filter(function (r) { return dkey(r) === defKey; });
-    const near = exact.length ? [] : here.filter(function (r) { return r[2].filter(function (u) { return mine.indexOf(u) >= 0; }).length >= 4; });
+    const isArch = defKey.indexOf("arch:") === 0;
+    const exact = isArch ? here.filter(function (r) { const a = archOf(r); return a && a[0] === defKey.slice(5); }) : here.filter(function (r) { return dkey(r) === defKey; });
+    const mine = isArch ? [] : rows.filter(function (r) { return dkey(r) === defKey; })[0][2];
+    const near = exact.length || isArch ? [] : here.filter(function (r) { return r[2].filter(function (u) { return mine.indexOf(u) >= 0; }).length >= 4; });
     const best = function (a, b) { return b[7] - a[7] || b[8] - a[8]; };
     shownRows = (exact.length ? exact : near).slice().sort(best).slice(0, 20);
     const note = !exact.length && near.length ? '<p class="sim-note">Cette d\u00e9fense n\'a jamais \u00e9t\u00e9 battue telle quelle : voici des victoires contre des d\u00e9fenses proches (au moins 4 unit\u00e9s en commun).</p>' : "";
