@@ -3001,8 +3001,18 @@ body[data-page="replay"]::before {
 /* the level of a war zone: the rarity badges of its five slots (zone-tier.js / zone_tier_html) */
 .zone-tier { display: inline-flex; align-items: center; gap: 0.15rem; margin-left: 0.45rem; vertical-align: middle; }
 .zone-tier .zt { width: 0.5rem; height: 0.5rem; border-radius: 2px; transform: rotate(45deg); background: var(--zc, #9aa3b2); box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45); }
-.zt-mythic { --zc: var(--r-mythic); }
-.zt-legendary { --zc: var(--r-legendary); }
-.zt-epic { --zc: var(--r-epic); }
-.zt-rare { --zc: var(--r-rare); }
+.zt-mythic { --zc: #f56708; }  /* the colours of the game's hexagonal rarity badges (assets/ui/rh_*.webp) */
+.zt-legendary { --zc: #a9d9c0; }
+.zt-epic { --zc: #e0bd7e; }
+.zt-rare { --zc: #c4c6ca; }
 .zone-text b { display: inline-flex; align-items: center; }
+
+/* an attack / defense line: each of its five units carries the hexagonal rarity badge (M / L / E / R) of its slot, like in the game */
+.uw { position: relative; display: inline-block; vertical-align: middle; margin-right: 3px; line-height: 0; }
+.uw .unit { margin-right: 0 !important; display: block; }
+.rh { position: absolute; right: -4px; bottom: -3px; width: 0.95rem; height: 0.95rem; display: flex; align-items: center; justify-content: center; font: 700 0.5rem/1 var(--font, system-ui), sans-serif; font-style: normal; color: #fff; text-shadow: 0 0 2px #000; background: center / contain no-repeat; pointer-events: none; }
+.rh-mythic { background-image: url("ui/rh_mythic.webp"); }
+.rh-legendary { background-image: url("ui/rh_legendary.webp"); }
+.rh-epic { background-image: url("ui/rh_epic.webp"); }
+.rh-rare { background-image: url("ui/rh_rare.webp"); }
+.dm-comp .rh, .dm-def-comp .rh { width: 1.1rem; height: 1.1rem; font-size: 0.58rem; }
