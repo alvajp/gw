@@ -61,7 +61,9 @@
     const C0 = HD ? d.pic.c0 : 0, R0 = HD ? d.pic.r0 : d.h - 1, X0 = HD ? K * d.pic.ox + R : R, Y0 = HD ? K * d.pic.oy : 0;
     const lower = function (c) { return (c + (HD ? C0 : 3)) % 2 === 0; };  // the columns that sit half a cell lower (the odd columns of the game's logical grid)
     const cx = function (c) { return X0 + (c + C0) * 1.5 * R; };
-    const cy = function (c, r) { return Y0 + (R0 - r + (lower(c) ? 0.5 : 0)) * HS + HS / 2; };
+    const KE = HD ? K * (d.pic.ke || 0) : 0, elev = {};  // a guild war board's picture: a hex at a higher elevation is drawn higher (ke texture pixels per level, 2 being the level the lattice was fitted on)
+    d.cells.forEach(function (c) { elev[c[0] + "," + c[1]] = c[3]; });
+    const cy = function (c, r) { return Y0 + (R0 - r + (lower(c) ? 0.5 : 0)) * HS + HS / 2 - KE * ((elev[c + "," + r] || 0) - 2); };
     const hexAt = function (x, y, k) {
       let p = "";
       for (let i = 0; i < 6; i++) p += (x + R * k * Math.cos(i * Math.PI / 3)).toFixed(1) + "," + (y + SY * R * k * Math.sin(i * Math.PI / 3)).toFixed(1) + " ";
@@ -184,11 +186,25 @@
     window.addEventListener("resize", chrome);
 
     // ---- the board: cells once, then the layers the tokens and the effects live in ----
-    let cells = "";
-    d.cells.forEach(function (c) {
-      cells += '<polygon class="rp-cell" data-c="' + c[0] + '" data-r="' + c[1] + '" data-k="' + c[4] + '" points="' + hexAt(cx(c[0]), cy(c[0], c[1]), 0.97) + '" fill="' + tint(c) + '" stroke="rgba(0,0,0,.35)" stroke-width="1"/>' +
-        '<text class="rp-el" x="' + (cx(c[0]) - R * 0.55).toFixed(1) + '" y="' + (cy(c[0], c[1]) - R * 0.45).toFixed(1) + '">' + c[3] + "</text>";
+    // the hexes at the back are drawn first, and of each one the part a higher neighbour covers is hidden (a raised hex stands in front of the lower hex behind it)
+    const hexes = d.cells.slice().sort(function (a, b) { return a[3] - b[3] || b[1] - a[1]; });
+    let defs = "";
+    const mv = vb.map(function (v) { return v.toFixed(1); });
+    const maskOf = {};
+    if (KE > 0) hexes.forEach(function (c) {
+      const x = cx(c[0]), y = cy(c[0], c[1]);
+      const up = d.cells.filter(function (o) { return o[3] > c[3] && Math.hypot(cx(o[0]) - x, cy(o[0], o[1]) - y) < 2.4 * R; });
+      if (!up.length) return;
+      maskOf[c[0] + "," + c[1]] = "hm" + c[0] + "_" + c[1];
+      defs += '<mask id="hm' + c[0] + "_" + c[1] + '" maskUnits="userSpaceOnUse" x="' + mv[0] + '" y="' + mv[1] + '" width="' + mv[2] + '" height="' + mv[3] + '"><rect x="' + mv[0] + '" y="' + mv[1] + '" width="' + mv[2] + '" height="' + mv[3] + '" fill="#fff"/>' +
+        up.map(function (o) { return '<polygon points="' + hexAt(cx(o[0]), cy(o[0], o[1]), 1) + '" fill="#000"/>'; }).join("") + "</mask>";
     });
+    let cells = "<defs>" + defs + "</defs>";
+    hexes.forEach(function (c) {
+      cells += '<polygon class="rp-cell" data-c="' + c[0] + '" data-r="' + c[1] + '" data-k="' + c[4] + '" points="' + hexAt(cx(c[0]), cy(c[0], c[1]), 0.97) + '" fill="' + tint(c) + '" stroke="rgba(0,0,0,.35)" stroke-width="1"' +
+        (maskOf[c[0] + "," + c[1]] ? ' mask="url(#' + maskOf[c[0] + "," + c[1]] + ')"' : "") + "/>";
+    });
+    d.cells.forEach(function (c) { cells += '<text class="rp-el" x="' + (cx(c[0]) - R * 0.55).toFixed(1) + '" y="' + (cy(c[0], c[1]) - R * 0.45).toFixed(1) + '">' + c[3] + "</text>"; });
     $("rp-board").innerHTML = '<svg viewBox="' + vb.map(function (v) { return v.toFixed(1); }).join(" ") + '" role="img" aria-label="Plateau du combat">' + cells + '<g id="rp-tfx"></g><g id="rp-tok"></g><g id="rp-fx"></g></svg>';
     // the game's own picture of the board (a crop of its 2048-pixel "visual" texture, see scripts/replays.py) goes under the cells; without it the coloured cells stay
     if (HD) {

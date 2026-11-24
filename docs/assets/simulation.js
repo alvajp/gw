@@ -92,7 +92,7 @@
     p.set("m", m[0]); p.set("n", m[1]); p.set("l", D.t[r[1]] ? D.t[r[1]][1] : "");
     p.set("a", r[4].map(uid).join(",")); if (r[5] >= 0) p.set("am", uid(r[5]));
     p.set("d", r[10].map(uid).join(",")); if (r[3] >= 0) p.set("dm", uid(r[3]));
-    p.set("p", D.p[r[11]]); p.set("g", D.g[r[12]]); p.set("w", D.w[r[8]]); p.set("s", r[7]);
+    p.set("r", r[9] || ""); p.set("p", D.p[r[11]]); p.set("g", D.g[r[12]]); p.set("w", D.w[r[8]]); p.set("s", r[7]);
     return "simulation-board.html#" + p.toString();
   }
   function preview(i) {

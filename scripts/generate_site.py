@@ -2702,7 +2702,13 @@ def render_simulation_board_page():
             rules = json.load(f)  # movement, reach and traits of the characters (scripts/unit_rules.py)
     except OSError:
         rules = {}
-    units = {u: [v["name"], v["image"], rules.get(u, {})] for u, v in UNITS_DB.items()}
+    if not rosters_mod.UNIT_RELIC:
+        rosters_mod.apply_default_relics()
+    # per unit: name, portrait, its rules / stats (data/unit_rules.json) and the relic it carries at the mythic level, as far as the metas and the rosters show
+    units = {u: [v["name"], v["image"], rules.get(u, {})] + ([[rosters_mod.UNIT_RELIC[u], rosters_mod.RELIC_NAMES.get(rosters_mod.UNIT_RELIC[u], rosters_mod.UNIT_RELIC[u])]] if u in rosters_mod.UNIT_RELIC else [])
+             for u, v in UNITS_DB.items()}
+    units["_pierce"] = rules.get("_pierce", {})  # damage profile -> the % of the armour it ignores
+    units["_tv"] = rules.get("_tv", {})  # the numbers of the traits, the terrain and the elevation
     blob = '<script type="application/json" id="sb-units">' + json.dumps(units, separators=(",", ":"), ensure_ascii=False).replace("</", "<\\/") + "</script>"
     body = '<div class="rp sb" id="sb"><p class="mnone">Chargement de la simulation…</p></div>' + blob + f'<script src="assets/hex-rules.js?v={ASSETS_VERSION}"></script><script src="assets/sim-board.js?v={ASSETS_VERSION}"></script>'
     html = render_page(nav_active="strategy", page_kind="replay", title="Simulation", asset_prefix="", body=body, back_link=back_link_html("simulation.html", "Simulation"),

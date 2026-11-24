@@ -396,7 +396,7 @@ GEO = {"R": 91.5, "sy": 0.90, "ox": 104.0, "oy": 32.0}
 
 # the lattice of the guild war boards' pictures (they are zoomed in more than the raid boards'): fitted on the start hexes of data/war_board_slots.json against docs/assets/slots.json
 # (see war_boards.py), for the 13 x 14 visual grids (7 x 9 boards); the 13 x 15 ones shift by half a row
-WAR_GEO = {"R": 102.0, "sy": 0.90, "ox": 5.2, "oy": 8.4, "vw": 13, "vh": 14}
+WAR_GEO = {"R": 102.0, "sy": 0.90, "ox": 5.2, "oy": 8.4, "vw": 13, "vh": 14, "ke": 22}  # ke: a hex drawn this many texture pixels higher per elevation level above 2 (lower below)
 
 
 def _bundle_config(name):
@@ -438,8 +438,9 @@ def extract_map(board, cols, rows, geo=None):
     xs = [ox + R + (c + c0) * 1.5 * R for c in range(cols)]
     ys = [oy + (r0 - r + (0.5 if (c + c0) % 2 == 0 else 0)) * hs + hs / 2 for c in range(cols) for r in range(rows)]
     m, my = 0.6 * R, 1.9 * hs  # the machines of war have their platform above (the enemy's) and under (ours) the cells: room for them
-    box = [max(0, int(min(xs) - R - m)), max(0, int(min(ys) - hs / 2 - my)), min(2048, int(max(xs) + R + m) + 1), min(2048, int(max(ys) + hs / 2 + my) + 1)]
-    pic = {"src": "replay-maps/" + name + ".webp", "x0": box[0], "y0": box[1], "w": box[2] - box[0], "h": box[3] - box[1], "c0": c0, "r0": r0, "R": R, "sy": sy, "ox": ox, "oy": oy}
+    ek = 2 * g.get("ke", 0)  # the hexes at the lowest / highest elevation are drawn that much lower / higher than the lattice
+    box = [max(0, int(min(xs) - R - m)), max(0, int(min(ys) - hs / 2 - my - ek)), min(2048, int(max(xs) + R + m) + 1), min(2048, int(max(ys) + hs / 2 + my + ek) + 1)]
+    pic = {"src": "replay-maps/" + name + ".webp", "x0": box[0], "y0": box[1], "w": box[2] - box[0], "h": box[3] - box[1], "c0": c0, "r0": r0, "R": R, "sy": sy, "ox": ox, "oy": oy, **({"ke": g["ke"]} if g.get("ke") else {})}
     out = os.path.join(MAPS_DIR, name + ".webp")
     found = glob.glob(os.path.join(BUNDLES, name + "_texture_*.resource"))
     if not found:
