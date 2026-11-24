@@ -3124,6 +3124,11 @@ button.sim-row[aria-pressed="true"] { border-color: var(--accent); background: c
 .sim-lv-text b { font-size: 0.95rem; font-weight: 700; }
 .sim-lv-text small { font-size: 0.7rem; }
 .sim-preview .pl-board { cursor: pointer; }
+/* the big play button over the preview: it says the picture can be clicked to play the simulation */
+.sim-preview .pl-board { position: relative; }
+.sim-preview .sim-play { position: absolute; left: 50%; top: 50%; z-index: 3; display: grid; place-items: center; width: 4.6rem; height: 4.6rem; transform: translate(-50%, -50%); border-radius: 50%; color: #fff; background: rgba(16, 21, 28, 0.62); border: 2px solid rgba(255, 255, 255, 0.85); box-shadow: 0 6px 22px rgba(0, 0, 0, 0.5); backdrop-filter: blur(2px); pointer-events: none; transition: transform 0.18s ease, background 0.18s ease; }
+.sim-preview .sim-play svg { margin-left: 0.18rem; }
+.sim-preview .pl-board:hover .sim-play, .sim-preview .pl-board:focus-visible .sim-play { transform: translate(-50%, -50%) scale(1.1); background: rgba(52, 211, 153, 0.85); }
 .sim-others { margin-top: 0.8rem; }
 .sim-others > summary { cursor: pointer; padding: 0.55rem 0.8rem; border: 1px dashed var(--border); border-radius: var(--radius-sm); color: var(--text-muted); font-weight: 600; font-size: 0.9rem; list-style: none; }
 .sim-others > summary::-webkit-details-marker { display: none; }
@@ -3139,12 +3144,6 @@ button.sim-row[aria-pressed="true"] { border-color: var(--accent); background: c
 .sb-board.no-starts .sb-starts { display: none; }
 .sb-board .sb-starts { pointer-events: none; }
 .sb-board #sb-tiles { pointer-events: none; }
-/* whose turn it is: a soft green band along the bottom of the map on our turn, a red one along the top on the opponent's */
-.sb-board { position: relative; }
-.sb-board::before, .sb-board::after { content: ""; position: absolute; left: 0; right: 0; height: 11%; pointer-events: none; border-radius: var(--radius); opacity: 0; transition: opacity 0.35s; z-index: 2; }
-.sb-board::before { top: 0; background: linear-gradient(to bottom, rgba(240, 107, 107, 0.85) 0 3px, rgba(240, 107, 107, 0.26) 3px, transparent); }
-.sb-board::after { bottom: 0; background: linear-gradient(to top, rgba(52, 211, 153, 0.85) 0 3px, rgba(52, 211, 153, 0.26) 3px, transparent); }
-.sb-board.turn-them::before, .sb-board.turn-us::after { opacity: 1; }
 .sb-num { pointer-events: none; }
 .sb-num text { fill: #fff; font-size: 11px; font-weight: 700; text-anchor: middle; }
 .rp-log li.sb-later button { opacity: 0.55; }
@@ -3204,6 +3203,8 @@ button.sim-row[aria-pressed="true"] { border-color: var(--accent); background: c
 .sb-board .tk.tk-target { cursor: crosshair; }
 .sb-board .rp-z-mv:not(.rp-z-own) { pointer-events: all; cursor: pointer; }
 .sb-board .tk.gone { opacity: 0; pointer-events: none; }
+.sb-board .tk.tk-done .tk-body { filter: grayscale(1) brightness(0.62); }  /* a unit that has nothing left to do this turn */
+.sb-act.is-spent { opacity: 0.45; filter: grayscale(1); }  /* an ability already used (once per battle) or recharging */
 
 /* the character's panel (who, its actions, its targets) keeps its size; the stats panel under it takes what is left */
 .rp-right .sb-unit { font-size: 0.78rem; }

@@ -122,6 +122,7 @@
         up.map(function (o) { return '<polygon points="' + hexAt(cx(o[0]), cy(o[0], o[1]), 1) + '" fill="#000"/>'; }).join("") + "</mask>";
     });
     let cells = "<defs>" + defs + "</defs>";
+    const maskAttr = function (c, r) { return maskOf[c + "," + r] ? ' mask="url(#' + maskOf[c + "," + r] + ')"' : ""; };  // the colour layers (zones, hex effects) are cut by the same masks as the grid: a raised hex stays in front of the lower one
     hexes.forEach(function (c) {
       cells += '<polygon class="rp-cell" data-c="' + c[0] + '" data-r="' + c[1] + '" data-k="' + c[4] + '" points="' + hexAt(cx(c[0]), cy(c[0], c[1]), 0.97) + '" fill="' + tint(c) + '" stroke="rgba(0,0,0,.35)" stroke-width="1"' +
         (maskOf[c[0] + "," + c[1]] ? ' mask="url(#' + maskOf[c[0] + "," + c[1]] + ')"' : "") + "/>";
@@ -130,7 +131,8 @@
     const svgBox = $("sb-board");
     svgBox.innerHTML = '<svg viewBox="' + vb.map(function (v) { return v.toFixed(1); }).join(" ") + '" role="img" aria-label="Plateau">' +
       '<image x="' + vb[0].toFixed(1) + '" y="' + vb[1].toFixed(1) + '" width="' + vb[2].toFixed(1) + '" height="' + vb[3].toFixed(1) + '" preserveAspectRatio="none" href="' + assets + esc(pic.src) + '"/>' +
-      cells + '<g id="sb-mk" class="sb-starts"></g><g id="sb-tiles"></g><g id="sb-zone"></g><g id="sb-hexes"></g><g id="sb-tok"></g><g id="sb-fx"></g><g id="sb-nums" class="sb-starts"></g></svg>';
+      cells + '<defs><linearGradient id="sbBandG" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#34d399" stop-opacity="0.55"/><stop offset="1" stop-color="#34d399" stop-opacity="0"/></linearGradient>' +
+      '<linearGradient id="sbBandR" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f06b6b" stop-opacity="0.55"/><stop offset="1" stop-color="#f06b6b" stop-opacity="0"/></linearGradient></defs><g id="sb-turnband" pointer-events="none"></g><g id="sb-mk" class="sb-starts"></g><g id="sb-tiles"></g><g id="sb-zone"></g><g id="sb-hexes"></g><g id="sb-tok"></g><g id="sb-fx"></g><g id="sb-nums" class="sb-starts"></g></svg>';
     svgBox.classList.add("has-map");
     const tipEl = document.createElement("div");  // the tooltip of the chosen action sits over the top of the map
     tipEl.className = "sb-tip"; tipEl.id = "sb-tip"; tipEl.hidden = true;
@@ -179,6 +181,7 @@
     let pending = [];  // hits that land later (a Seeker missile at the start of its owner's next turn)
     // an active ability can be used once per battle, unless its text gives a recharge: "initial recharge N" = not before round N + 1, "recharge N" = N rounds after a use
     const abReady = function (u, a) {
+      if (a[0] === "CalibaniteGreatsword") return u.stTurn !== turnNo;  // once per turn, it only switches the stance
       const cd = a[11] || [0, null], used = u.used && u.used[a[0]];
       if (u.deployed) return false;  // a machine of war whose unit has been put on the board cannot be used any more
       return used === undefined ? round >= cd[0] + 1 : cd[1] !== null ? round >= used + cd[1] + 1 : u.mow && round > used;  // a machine of war has no ammunition here: with no recharge it can be used again next turn
@@ -191,16 +194,18 @@
     };
     const live = function () { return field.filter(function (u) { return u.alive && !u.decoy; }); };  // the characters and summons on the board (a decoy is not one: it cannot be targeted nor does it block)
     const decoys = function () { return field.filter(function (u) { return u.alive && u.decoy; }); };
-    const occupant = function (c, r, but) { return live().filter(function (o) { return o !== but && o.t[0] === c && o.t[1] === r; })[0]; };
+    const footOf = function (x) { return x.foot ? [x.t].concat(x.foot) : [x.t]; };  // the hexes a unit stands on (Boudicari and Galatian take 3)
+    const occupant = function (c, r, but) { return live().filter(function (o) { return o !== but && footOf(o).some(function (h) { return h[0] === c && h[1] === r; }); })[0]; };
     const turnStart = function () {  // a turn begins: nobody has moved or acted; the fallen of the side that plays come back on a decoy (Ambush); who stood next to an enemy is noted
-      units.forEach(function (u) { if (u.side === active) { u.ow = false; u.owCut = 0; u.owForce = false; }  // Sentinelle ends as its owner's turn begins
-        u.spent = 0; u.acted = false; u.noRanged = false; u.hitNow = false; u.usedActive = false; if (u.markedBy === active) { if (u.markFresh) u.markFresh = false; else { u.marked = false; u.markedBy = -1; } } });  // a mark lasts until its owner's next turn (a drone's markerlight: until the end of it)
+      units.forEach(function (u) { if (u.side === active) { u.ow = false; u.owCut = 0; u.owForce = false; u.smasha = false; }  // Sentinelle ends as its owner's turn begins
+        u.spent = 0; u.moves = 0; u.moveExtra = 0; u.moveAfter = false; u.acted = false; u.noRanged = false; u.hitNow = false; u.usedActive = false; if (u.markedBy === active) { if (u.markFresh) u.markFresh = false; else { u.marked = false; u.markedBy = -1; } } });  // a mark lasts until its owner's next turn (a drone's markerlight: until the end of it)
       field.filter(function (u) { return u.fallen && u.side === active; }).forEach(function (u) {
         const mine = decoys().filter(function (x) { return x.side === u.side; });
         if (!mine.length) return;  // no decoy left: it stays down
         const dd = mine.indexOf(u.dd) >= 0 ? u.dd : mine[0];
         u.t = dd.t.slice(); u.hp = u.max; u.alive = true; u.fallen = false; dd.alive = false;
       });
+      field.forEach(function (u) { if (u.jetFor && u.jetFor.side === active && u.jetFor.alive && u.alive) u.alive = false; });  // Mataneo's jump-pack Intercessors leave at the start of his turn
       field.forEach(function (u) { u.advStart = u.alive && !u.decoy && nextTo(u); });
       field.filter(function (u) { return u.side === active; }).forEach(function (u) {  // the auras that act as the turn begins: +1 movement, the shroud of Nightshroud (until its next turn)
         u.moveBonus = 0; u.shroud = 0;
@@ -225,12 +230,21 @@
     // Each one looks at the hexes it can reach and wants, in this order: to be able to attack, not to stand where it would be hurt (razor wire), to stand next to an ally whose ability helps it,
     // the higher ground (a normal attack from higher ground deals more), tall grass; then the hardest hit, then the shortest walk. With nothing to attack it walks toward the nearest enemy.
     // Hexes marked by an enemy ability for the next turn (a raid boss's zone) are to be avoided as well: none exist in this simulation yet.
+    // a summon whose passive protects its neighbours (Savior Protocols of the T'au drones, Watched Over, Draw Fire, Twisted Mirage) first wants to stand next to someone it protects (u.t is the hex being tried)
+    const guardAt = function (u) {
+      const pa = u.rules.pa || [];
+      if (!pa.length) return false;
+      return live().some(function (x) {
+        if (x === u || x.side !== u.side || RULES.dist(x.t, u.t) !== 1) return false;
+        return (pa.indexOf("SaviorProtocols") >= 0 && x.rules.fa === "Tau" && !x.summon) || pa.indexOf("WatchedOver") >= 0 || pa.indexOf("DrawFire") >= 0 || (pa.indexOf("TwistedMirage") >= 0 && x.rules.fa === "ThousandSons" && !x.summon);
+      });
+    };
     const buffedAt = function (u, c) { return aurasOn(u, c).length > 0; };  // an ally nearby whose ability helps it, at the radius that ability gives (u.t is the hex being tried)
     const mineTurn = function (u, force) {
       const goal = force && force.alive ? force : foes(u).sort(function (a, b2) { return RULES.dist(u.t, a.t) - RULES.dist(u.t, b2.t); })[0];
       if (!goal) return null;
       const occ = {};
-      live().forEach(function (x) { if (x !== u) occ[x.t[0] + "," + x.t[1]] = x; });
+      live().forEach(function (x) { if (x !== u) footOf(x).forEach(function (h) { occ[h[0] + "," + h[1]] = x; }); });
       const cells = RULES.reach({ from: u.t, mov: u.spent < 99 ? Math.max(0, mvOf(u) - u.spent) : 0, fly: true, free: true, enemy: function (c, r) { return false; }, any: function (c, r) { return !!occ[c + "," + r]; }, stop: tileStop });
       const best = cells.sort(function (a, b2) { return RULES.dist([a.c, a.r], goal.t) - RULES.dist([b2.c, b2.r], goal.t) || a.k - b2.k; })[0];
       const rec = { u: u, to: null, tgt: null, dmg: 0, hits: 0, per: 0, label: "Mort flottante" };
@@ -244,8 +258,13 @@
     };
     const playSummon = function (u, force) {  // force: the target it was ordered to shoot (Yarrick's wave)
       if (isMine(u)) return mineTurn(u, force);
+      if (u.tset.InstinctiveBehaviour && !live().some(function (x) { return x.side === u.side && x.tset.Synapse && RULES.dist(x.t, u.t) <= 2; })) {  // Instinctive Behaviour: it goes for the nearest enemy and does not move if it can already hit something
+        const nearest = foes(u).sort(function (a, b2) { return RULES.dist(u.t, a.t) - RULES.dist(u.t, b2.t); })[0];
+        if (nearest) force = nearest;
+        if (targetsOf(u, { id: "atk", ok: true }).length) u.spent = Math.max(u.spent, 99);  // something is in range: it stays
+      }
       const home = u.t.slice(), occ = {}, canMove = u.spent < 99;
-      live().forEach(function (x) { if (x !== u) occ[x.t[0] + "," + x.t[1]] = x; });
+      live().forEach(function (x) { if (x !== u) footOf(x).forEach(function (h) { occ[h[0] + "," + h[1]] = x; }); });
       const cells = RULES.reach({ from: u.t, mov: canMove ? Math.max(0, mvOf(u) - u.spent) : 0, fly: !!u.rules.fl, free: !!u.rules.us,
         enemy: function (c, r) { const o = occ[c + "," + r]; return !!o && o.side !== u.side; }, any: function (c, r) { return !!occ[c + "," + r]; }, stop: tileStop });
       const foesNow = foes(u), atk = { id: "atk", ok: true };
@@ -253,7 +272,7 @@
         u.t = [p.c, p.r];
         const all = targetsOf(u, atk), cell = RULES.cell(p.c, p.r) || {};
         const near = foesNow.length ? Math.min.apply(null, foesNow.map(function (e) { return RULES.dist(u.t, e.t); })) : 0;
-        return { p: p, all: all, safe: !(cell.tile === "Swamp" && !u.rules.us && !u.rules.fl), buff: buffedAt(u, u.t), el: cell.el || 0, grass: cell.tile === "DryBush" && !u.tset.BigTarget, near: near };
+        return { guard: guardAt(u), p: p, all: all, safe: !(cell.tile === "Swamp" && !u.rules.us && !u.rules.fl), buff: buffedAt(u, u.t), el: cell.el || 0, grass: cell.tile === "DryBush" && !u.tset.BigTarget, near: near };
       });
       u.t = home;
       // the victim: the enemy it can hit hardest from anywhere it can reach, a kill first
@@ -261,7 +280,7 @@
       scored.forEach(function (x) { x.all = x.all.filter(function (r) { return r.u.side !== u.side && !r.heal; }); x.all.forEach(function (r) { const w = worth[r.u.i] = worth[r.u.i] || { u: r.u, dmg: 0 }; w.dmg = Math.max(w.dmg, r.dmg); }); });
       const victim = (force && worth[force.i]) || Object.keys(worth).map(function (k) { return worth[k]; }).sort(function (a, b2) { return ((b2.dmg >= b2.u.hp) - (a.dmg >= a.u.hp)) || b2.dmg - a.dmg; })[0];
       scored.forEach(function (x) { x.best = victim ? x.all.filter(function (r) { return r.u === victim.u; })[0] || null : null; });
-      const key = function (x) { return [x.best ? 1 : 0, x.safe ? 1 : 0, x.best ? 0 : -x.near, x.buff ? 1 : 0, x.el, x.grass ? 1 : 0, x.best ? x.best.dmg : 0, -x.p.k]; };
+      const key = function (x) { return [x.guard ? 1 : 0, x.best ? 1 : 0, x.safe ? 1 : 0, x.best ? 0 : -x.near, x.buff ? 1 : 0, x.el, x.grass ? 1 : 0, x.best ? x.best.dmg : 0, -x.p.k]; };
       scored.sort(function (a, b2) { const ka = key(a), kb = key(b2); for (let i = 0; i < ka.length; i++) if (ka[i] !== kb[i]) return kb[i] - ka[i]; return 0; });
       const pick = scored[0];
       if (!pick) return null;
@@ -276,7 +295,7 @@
     };
     const summonsPlay = function () {
       const out = [];
-      field.filter(function (u) { return u.summon && !u.decoy && u.alive && u.side === active; }).sort(function (a, b2) { return a.i - b2.i; }).forEach(function (u) { const r = playSummon(u); if (r) out.push(r); });
+      field.filter(function (u) { return (u.summon || u.auto) && !u.decoy && u.alive && u.side === active; }).sort(function (a, b2) { return a.i - b2.i; }).forEach(function (u) { const r = playSummon(u); if (r) out.push(r); });
       return out;
     };
     // Khârn's Betrayer: once he has killed an enemy, at the start of his turn he moves up to 2 hexes toward the nearest unit, then hits an adjacent one (an enemy if there is one, else an ally); then he can be played
@@ -288,7 +307,7 @@
         const goal = nearest(others.slice());
         if (!goal) return;
         const occ = {};
-        others.forEach(function (x) { occ[x.t[0] + "," + x.t[1]] = x; });
+        others.forEach(function (x) { footOf(x).forEach(function (h) { occ[h[0] + "," + h[1]] = x; }); });
         const cells = RULES.reach({ from: u.t, mov: 2, fly: !!u.rules.fl, free: !!u.rules.us, enemy: function (c, r) { const o = occ[c + "," + r]; return !!o && o.side !== u.side; }, any: function (c, r) { return !!occ[c + "," + r]; }, stop: tileStop });
         const best = cells.sort(function (x, y) { return RULES.dist([x.c, x.r], goal.t) - RULES.dist([y.c, y.r], goal.t) || x.k - y.k; })[0];
         const rec = { u: u, to: null, tgt: null, dmg: 0, hits: 0, per: 0, label: a[1] };
@@ -316,7 +335,7 @@
         curAtk++; hurt(e, Math.round(r.tot), m, r.per);
         const rec = { tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), from: m }; out.push(rec); boomLog.push(rec);
       });
-      m.alive = false; m.hp = 0;
+      m.alive = false; m.hp = 0; deadLog.push(m);
       return out;
     };
     const mineChain = function (m) {  // a defeated mine and the allied mines next to it
@@ -334,47 +353,131 @@
       return hs.length ? { g: next, hex: hs[0] } : null;
     }
     // regeneration and revival: a heal also ends a stun, a pin and a markerlight; every event goes in the log of the step that caused it
-    let regenLog = [], turnNo = 0;
+    let deadLog = [];  // the units defeated during a step, for the log
+    let regenLog = [], turnNo = 0, meleeDead = 0, activeUses = [0, 0];  // activeUses: abilities used by each side's characters (Titus)  // meleeDead: the units defeated in melee in this battle (Blessings of Khorne)
     const abOf = function (u, id) { const a = (u.rules.ab || []).filter(function (x) { return x[0] === id; })[0]; return a ? ((a[8] && a[8][rar]) || {}) : null; };
     const heal = function (u, amt, label) {
-      amt = Math.max(0, Math.min(u.max - u.hp, Math.round(amt)));
+      if (fxOn(u, "noheal")) return 0;  // Fury of the Ancients: no healing for 2 rounds
+      amt = Math.max(0, Math.min(u.max - u.hp, Math.round(amt + (u.nano ? u.nanoBonus || 0 : 0))));
       if (!amt || !u.alive) return 0;
       u.hp += amt; delete u.fx.stun; delete u.fx.pin; u.marked = false; u.markedBy = -1;
       regenLog.push({ u: u, amt: amt, label: label });
       return amt;
     };
     const mech = function (x) { return !!(x.tset.Mechanical || x.tset.LivingMetal); };
-    const reviveBy = function (t) {  // Narthecium (an adjacent non-mechanical ally comes back with up to 7 830 health, once per turn), Tainted Narthecium (Chaos, 75 %)
+    const reviveBy = function (t, ext) {  // Narthecium (an adjacent non-mechanical ally comes back with up to 7 830 health, once per turn), Tainted Narthecium (Chaos, 75 %)
       const near = live().filter(function (e) { return e.side === t.side && e !== t && RULES.dist(e.t, t.t) === 1 && e.narthAt !== turnNo; });
       for (let i = 0; i < near.length; i++) {
         const e = near[i], a = abOf(e, "Narthecium"), b2 = abOf(e, "TaintedNarthecium");
         if (mech(t)) continue;
-        if (a) { e.narthAt = turnNo; return { by: e, hp: a.hp || 1 }; }
+        if (a && !ext) { e.narthAt = turnNo; return { by: e, hp: a.hp || 1 }; }  // Narthecium: not for an exterminated unit
         if (b2 && t.rules.al === "Chaos") { e.narthAt = turnNo; if (stepRng() * 100 < (parseInt(b2.chance, 10) || 75)) return { by: e, hp: b2.hp || 1 }; }
       }
       return null;
     };
+    // reactions to a hit during the enemy turn: Tyrith (Unwavering Sentinel) answers the attacker within 2 (1 if an enemy is next to her); Sarquael (Grim Retribution) fires back once per turn, at the first attacker in
+    // range, when he or an adjacent Dark Angel is attacked and no enemy is next to him
+    const fireBack = function (a, tg, v, prof, label) {
+      const r = abilityHit(a, tg, avgOf(v, ""), prof, parseInt(v.nrOfHits, 10) || 1);
+      curAtk++; hurt(tg, Math.round(r.tot), a, r.per);
+      boomLog.push({ tgt: tg, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), from: a, label: label });
+    };
+    const riposte = function (t, by) {
+      if (RULES.dist(t.t, by.t) === 1) {
+        const ww = abOf(t, "WireweaveNet"), ms = abOf(t, "MartialSuperiority");
+        if (ww && t.wwTurn !== turnNo) { t.wwTurn = turnNo; fireBack(t, by, ww, "Piercing", "Filet tissé"); }  // the first melee attack of the enemy turn
+        if (ms && t.msAtk !== curAtk && by.alive) { t.msAtk = curAtk; fireBack(t, by, ms, "Power", "Supériorité martiale"); }  // every melee attack against Jaeger
+      }
+      const us = abOf(t, "UnwaveringSentinel");
+      if (us && t.ripAtk !== curAtk && RULES.dist(t.t, by.t) <= (nextTo(t) ? 1 : parseInt(us.range, 10) || 2)) { t.ripAtk = curAtk; fireBack(t, by, us, "Bolter", "riposte"); }
+      live().filter(function (h) { return h.side === t.side && h.grimTurn !== turnNo && abOf(h, "GrimRetribution") && (h === t || (t.rules.fa === "DarkAngels" && RULES.dist(h.t, t.t) === 1)) && !nextTo(h); }).forEach(function (h) {
+        const w = mainWeapon(h, false), dd = RULES.dist(h.t, by.t);
+        if (by.alive && w && w[0] > 1 && dd >= 2 && dd <= w[0] && RULES.sight(h.t, by.t)) { h.grimTurn = turnNo; fireBack(h, by, abOf(h, "GrimRetribution"), "Plasma", "tir Sentinelle"); }
+      });
+    };
+    // watchers, drones and mirrors: the passives of some summons that take the hits of the units next to them
+    let protecting = false;
+    const watcherFlee = function (w) {  // No Hiding from the Watchers: the Watcher steps 1 hex away from every other unit; with no other Dark Angel on the field (but Watchers) it leaves
+      if (!live().some(function (x) { return x.side === w.side && x !== w && x.rules.fa === "DarkAngels" && (x.rules.pa || []).indexOf("NoHidingFromTheWatchers") < 0; })) { w.alive = false; return; }
+      const others = live().filter(function (x) { return x !== w; }), spots = freeAround(w).sort(function (a, b2) {
+        const f = function (h) { return others.length ? Math.min.apply(null, others.map(function (x) { return RULES.dist(h, x.t); })) : 0; };
+        return f(b2) - f(a);
+      });
+      if (spots.length) w.t = spots[0].slice();
+    };
     const hurt = function (t, dmg, by, per) {  // a hit lands: its health, the kill of the one who struck, and the decoy a fallen Ambush unit leaves
       if (t.lastAtk !== curAtk) { t.lastAtk = curAtk; t.attacked++; }
       t.hitNow = true;
+      if (!protecting && by && by.side !== t.side && dmg > 0 && !t.decoy) {  // Savior Protocols (a T'au drone takes 50 % of each hit aimed at an adjacent T'au unit), Draw Fire (half of the hits go to the Terminator)
+        const one = per || dmg;
+        let left = Math.max(1, Math.round(dmg / Math.max(1, one)));
+        protecting = true;
+        live().forEach(function (x) {
+          const pa = x.rules.pa || [];
+          if (x === t || x.side !== t.side || !pa.length || RULES.dist(x.t, t.t) !== 1 || left <= 0) return;
+          let k = 0;
+          if (pa.indexOf("SaviorProtocols") >= 0 && t.rules.fa === "Tau") { for (let i = 0; i < left; i++) if (stepRng() * 100 < 50) k++; }
+          else if (pa.indexOf("DrawFire") >= 0) k = Math.floor(left / 2);
+          if (k > 0) { left -= k; const ge2 = { from: t, g: x, fresh: false, hit: true, dmg: Math.round(k * one) }; guardLog.push(ge2); hurt(x, Math.round(k * one), by, per); if (!x.alive) ge2.died = true; }
+        });
+        protecting = false;
+        dmg = Math.round(left * one);
+        if (dmg <= 0) return;
+      }
+      if (by && by.side !== t.side && dmg > 0 && t.rules.fa === "ThousandSons" && !t.summon) {  // Twisted Mirage: the adjacent Yazaghor loses the health instead
+        const tm = live().filter(function (x) { return x !== t && x.side === t.side && (x.rules.pa || []).indexOf("TwistedMirage") >= 0 && RULES.dist(x.t, t.t) === 1; })[0];
+        if (tm) { guardLog.push({ from: t, g: tm, fresh: false, hit: true }); t = tm; }
+      }
+      if ((t.rules.pa || []).indexOf("NoHidingFromTheWatchers") >= 0) { if (dmg > 0) watcherFlee(t); return; }  // a Watcher takes no damage at all
       const gp = by && by.side !== t.side && dmg > 0 ? guardOf(t) : null;
+      let ge = null;
       if (gp) {
         const g = gp.g;
         if (gp.hex) { g.t = gp.hex.slice(); g.alive = true; g.came = true; g.hp = g.max; g.acted = false; g.spent = 0; }
         if (t.guardSwap) { const a = g.t; g.t = t.t; t.t = a; }  // Kell takes Creed's hex and Creed his
-        guardLog.push({ from: t, g: g, fresh: !!gp.hex });
+        ge = { from: t, g: g, fresh: !!gp.hex, hit: true, dmg: dmg };
+        guardLog.push(ge);
         t = g;
       }
+      const hp0 = t.hp, ext = dmg - hp0 >= t.max;  // exterminated: the overkill is at least its whole health
       t.hp = healthAfter(t, dmg); t.lastPer = per || dmg;
+      if (ge && t.hp <= 0) ge.died = true;  // the guard that appeared and fell in the same hit
+      if (by && by.side !== t.side && t.fx && t.fx.chrono) delete t.fx.chrono;  // the extra damage of Chronometron goes to the first attack only
       if (t.hp > 0 && dmg > 0) live().forEach(function (e) {  // Medicus Ministorum: an adjacent non-mechanical ally that took damage and stands regenerates
         const a = e.side === t.side && e !== t && RULES.dist(e.t, t.t) === 1 && !mech(t) ? abOf(e, "MedicusMinistorum") : null;
         if (a) heal(t, a.hpToHeal || 0, "Medicus Ministorum");
       });
+      if (t.hp > 0 && dmg > 0 && by && by.alive && by.side !== t.side && active !== t.side) riposte(t, by);
       if (t.hp <= 0) {
-        if (by && by.side !== t.side) by.kills++;
-        const rv = reviveBy(t);
+        if (by && by.side !== t.side) { by.kills++; if (!t.summon) by.charKills = (by.charKills || 0) + 1; }
+        if (t.aug && t.aug.by) delete t.aug.by.used.PrimeTestSubject;  // Prime Test Subject can be used again
+        if (t.ghost && !t.tfUsed && abOf(t, "TimeFlux")) {  // Toth: the first time he is defeated, if his time ghost is on the field he comes back there (even if exterminated)
+          t.tfUsed = true; t.t = t.ghost.slice(); t.ghost = null; t.hp = Math.min(t.max, abOf(t, "TimeFlux").hp || 1);
+          regenLog.push({ u: t, amt: t.hp, label: "revient par son fantôme temporel", revive: true }); return;
+        }
+        if (!ext && fxOn(t, "reanim")) { const rz = fxOn(t, "reanim"); delete t.fx.reanim; t.hp = Math.min(t.max, rz.hp || 1); regenLog.push({ u: t, amt: t.hp, label: "réanimé par le faisceau", revive: true }); return; }  // Reanimation Beam
+        const rv = reviveBy(t, ext);
         if (rv) { t.hp = Math.min(t.max, rv.hp); regenLog.push({ u: t, amt: t.hp, label: "réanimé par " + rv.by.name, revive: true }); return; }
-        t.alive = false;
+        if (by && by !== t && by.t && by.side !== t.side && RULES.dist(by.t, t.t) === 1) meleeDead++;
+        if (by && by.alive && by.side !== t.side) { const ob = fxOn(by, "observed"), tn = fxOn(t, "taunt"); if (ob && tn && tn.taunt === by) { ob.kill = true; delete by.used.DaemonicPatrons; } }  // Hascule killed a taunted enemy: he may use the ability again
+        if (t.tset.FinalJustice && !t.fjDone && !ext) {  // Final Justice: one last normal attack before it is gone
+          t.fjDone = true; t.acted = false;
+          const tg = targetsOf(t, { id: "atk", ok: true }).sort(function (a, b2) { return ((b2.dmg >= b2.u.hp) - (a.dmg >= a.u.hp)) || b2.dmg - a.dmg; })[0];
+          if (tg && tg.dmg > 0) { boomLog.push({ tgt: tg.u, dmg: tg.dmg, hits: tg.hits, per: tg.per, from: t, label: "porte un dernier coup" }); curAtk++; hurt(tg.u, tg.dmg, t, tg.per); }
+        }
+        t.alive = false; deadLog.push(t);
+        live().filter(function (x) { return x.side === t.side && x.tset.BattleFatigue && RULES.dist(x.t, t.t) === 1 && !live().some(function (y) { return y.side === x.side && y.tset.Synapse && RULES.dist(y.t, x.t) <= 2; }); }).forEach(function (x) {  // Battle Fatigue: 10 % to flee when an adjacent ally falls, 50 % when it was exterminated
+          if (stepRng() * 100 < (ext ? 50 : 10)) { x.alive = false; x.hp = 0; regenLog.push({ u: x, amt: 0, label: "fuit le combat", flee: true }); }
+        });
+        if (t.tset.Explodes || t.tset.PutridExplosion) {  // explosions: 25 % of its maximum health to every adjacent unit (direct; toxic for Putrid Explosion, which spares the Death Guard)
+          live().filter(function (x) { return x !== t && RULES.dist(x.t, t.t) === 1; }).forEach(function (x) {
+            let dmg;
+            if (t.tset.Explodes) dmg = Math.round(t.max * (TV.explodesDmg || 25) / 100);
+            else if (x.rules.fa === "DeathGuard") return;
+            else dmg = Math.round(abilityHit(t, x, t.max * (TV.putridExplosionDmgPct || 25) / 100, TV.putridExplosionDamageProfile || "Toxic", 1).tot);
+            boomLog.push({ tgt: x, dmg: dmg, hits: 1, per: dmg, from: t, label: "explose" }); curAtk++; hurt(x, dmg, t, dmg);
+          });
+        }
         if (isMine(t) && !t.exploded) mineChain(t);
         if (t.ambush && t.dd) { t.ambush = false; t.fallen = true; t.dd.t = t.t.slice(); t.dd.alive = true; }
       }
@@ -397,6 +500,10 @@
     const sameHex = function (a, b2) { return a[0] === b2[0] && a[1] === b2[1]; };
     const enemiesOn = function (side, hexes) { return live().filter(function (x) { return x.side !== side && !x.ds && hexes.some(function (h) { return sameHex(h, x.t); }); }); };
     const BOMB = {  // what a marked zone does when its turn comes: [{tgt, dmg, hits, per, pin}]
+      OverwhelmingWrath: function (mk) {  // Azkor: the enemies next to him at the start of his turn
+        const v = (mk.ab[8] && mk.ab[8][rar]) || {};
+        return foes(mk.by).filter(function (e) { return RULES.dist(e.t, mk.by.t) === 1; }).map(function (e) { const r = abilityHit(mk.by, e, avgOf(v, ""), mk.ab[5] || "Chain", parseInt(v.nrOfHits, 10) || 2); return { tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per) }; });
+      },
       DevastatingRefrain: function (mk) {
         const v = (mk.ab[8] && mk.ab[8][rar]) || {};
         return enemiesOn(mk.by.side, mk.hexes).map(function (e) { const r = abilityHit(mk.by, e, avgOf(v, ""), mk.ab[5], parseInt(v.nrOfHits, 10) || 1); return { tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per) }; });
@@ -420,7 +527,7 @@
       const out = [], keep = [];
       zmarks.forEach(function (mk) {
         if (mk.by.side !== active) { keep.push(mk); return; }
-        if (mk.kind !== "bomb") return;
+        if (mk.kind !== "bomb" || !mk.by.alive) return;
         (BOMB[mk.ab[0]](mk) || []).forEach(function (r) {
           curAtk++; hurt(r.tgt, r.dmg, mk.by);
           if (r.pin && r.tgt.alive) r.tgt.fx.pin = { id: "pin", until: stunUntil(r.tgt) };
@@ -457,16 +564,43 @@
     };
     // regenerations that are not hits: after a move (Sanguinary Priest: the adjacent non-mechanical allies get 1 958-2 872; Fabricator Claw Array: a random adjacent mechanical ally gets 5 220), the same at the end of
     // the turn when the unit did not move; at the start of its turn Tough to Kill (Dreir) and Time Flux (Toth, plus the last hit he took, capped)
+    // passives that strike after the unit moved (or at the end of its turn if it did not): Mephiston, Cezare, Thutmose, Godswyl
+    const MOVE_AB = ["FuryOfTheAncients", "RedRampage", "LivingLightning", "ChampionOfTheFeast"];
+    const abName = function (u, id) { const a = (u.rules.ab || []).filter(function (x) { return x[0] === id; })[0]; return a ? a[1] : id; };
+    const moveStrikes = function (u) {
+      const adj = foes(u).filter(function (e) { return RULES.dist(u.t, e.t) === 1; }).sort(function (a, b2) { return a.hp - b2.hp; });
+      let a;
+      if ((a = abOf(u, "FuryOfTheAncients")) && adj.length) {  // an adjacent enemy and another one next to it: psychic hits, and they cannot be healed for 2 rounds
+        const first = adj[0], second = foes(u).filter(function (e) { return e !== first && RULES.dist(e.t, first.t) === 1; }).sort(function (x, y) { return x.hp - y.hp; })[0];
+        [first, second].forEach(function (e) { if (e && e.alive) { fireBack(u, e, a, "Psychic", abName(u, "FuryOfTheAncients")); if (e.alive) e.fx.noheal = { id: "noheal", until: round + 1 }; } });
+      }
+      if ((a = abOf(u, "RedRampage")) && adj.length) {  // every adjacent enemy; a kill gives +1 movement through his next turn
+        let kills = 0;
+        adj.forEach(function (e) { fireBack(u, e, a, "Power", abName(u, "RedRampage")); if (!e.alive) kills++; });
+        if (kills && u.alive) u.fx.mvup = { id: "mvup", until: round + 1, mv: parseInt(a.extraMovement, 10) || 1 };
+      }
+      if ((a = abOf(u, "LivingLightning"))) {  // a random enemy within 2
+        const c = foes(u).filter(function (e) { return RULES.dist(u.t, e.t) <= 2; });
+        if (c.length) fireBack(u, c[Math.floor(stepRng() * c.length)], a, "DirectDamage", abName(u, "LivingLightning"));
+      }
+      if ((a = abOf(u, "ChampionOfTheFeast")) && adj.length) {  // an adjacent enemy loses armour for the rest of the battle
+        const e = adj[0]; fireBack(u, e, a, "Power", abName(u, "ChampionOfTheFeast"));
+        if (e.alive) e.armCut = (e.armCut || 0) + (a.armorReduction || 0);
+      }
+    };
     const afterMove = function (u) {
       if (!u.alive) return;
+      if (MOVE_AB.some(function (id) { return abOf(u, id); })) moveStrikes(u);
       const sp = abOf(u, "SanguinaryPriest"), fa = abOf(u, "FabricatorClawArray");
       if (sp) live().filter(function (x) { return x.side === u.side && x !== u && RULES.dist(x.t, u.t) === 1 && !mech(x); }).forEach(function (x) { heal(x, (sp.hpToHeal || 0) + stepRng() * ((sp.maxHpToHeal || 0) - (sp.hpToHeal || 0)), "Prêtre sanguinaire"); });
       if (fa) { const near = live().filter(function (x) { return x.side === u.side && x !== u && RULES.dist(x.t, u.t) === 1 && mech(x) && x.hp < x.max; }); if (near.length) heal(near[Math.floor(stepRng() * near.length)], fa.hpToRepair || 0, "Réseau de griffes"); }
     };
-    const endRegen = function () { field.forEach(function (u) { if (u.alive && u.side === active && u.spent === 0 && (abOf(u, "SanguinaryPriest") || abOf(u, "FabricatorClawArray"))) afterMove(u); }); };
+    const endRegen = function () { field.forEach(function (u) { if (u.alive && u.side === active && u.spent === 0 && (abOf(u, "SanguinaryPriest") || abOf(u, "FabricatorClawArray") || MOVE_AB.some(function (id) { return abOf(u, id); }))) afterMove(u); }); };
     const startRegen = function () {
       live().filter(function (u) { return u.side === active; }).forEach(function (u) {
         const tk = abOf(u, "ToughToKill"), tf = abOf(u, "TimeFlux");
+        const dh = abOf(u, "DestroyerHive");  // Typhus: a random adjacent enemy takes direct damage at the start of his turn
+        if (dh) { const c = foes(u).filter(function (e) { return RULES.dist(u.t, e.t) === 1; }); if (c.length) fireBack(u, c[Math.floor(stepRng() * c.length)], dh, "DirectDamage", abName(u, "DestroyerHive")); }
         if (tk) heal(u, tk.hpToHeal || 0, "Dur à cuire");
         if (tf) { heal(u, Math.min(tf.maxHpToHeal || 1e9, (tf.hpToHeal || 0) + (u.lastPer || 0)), "Flux temporel"); u.lastPer = 0; }
       });
@@ -478,10 +612,13 @@
       if (!mv.alive || mv.ds || mv.tset.Infiltrate) return out;
       field.filter(function (x) { return x.alive && x.ow && x.side !== mv.side; }).forEach(function (x) {
         if (!mv.alive || fxOn(x, "pin")) return;
-        const w = mainWeapon(x, false), dd = RULES.dist(x.t, mv.t);
-        if (!w || w[0] <= 1 || dd < 2 || dd > w[0] || !RULES.sight(x.t, mv.t) || nextTo(x)) return;
+        const dd = RULES.dist(x.t, mv.t);
+        let w = null;  // an enemy that ends its move next to the watcher gets its melee weapon; further away its ranged one (not usable with an enemy next to the watcher)
+        if (dd === 1) { const mw = mainWeapon(x, true); w = mw && mw[0] === 1 ? mw : null; }
+        else { const rw = mainWeapon(x, false); if (rw && rw[0] > 1 && dd <= rw[0] && RULES.sight(x.t, mv.t) && !nextTo(x)) w = rw; }
+        if (!w) return;
         const id = abOf(x, "InescapableDeath"), sn = fxOn(x, "sentinel"), hail = fxOn(x, "hail"), cutBy = (id ? parseInt(id.hitsReduction, 10) || 1 : 0) || (sn ? parseInt(sn.cut, 10) || 1 : 0);
-        const w2 = [w[0], w[1], Math.max(1, w[2] - x.owCut)], r = damageOf(x, mv, { w: w2, extra: (id ? id.extraDmg || 0 : 0) + (sn ? sn.extra || 0 : 0), pierce: hail ? (hail.v && hail.v.extraPierceRatio) || 0 : 0 }, dd);
+        const w2 = [w[0], w[1], Math.max(1, w[2] - x.owCut)], r = damageOf(x, mv, { w: w2, sentinel: true, extra: (id ? id.extraDmg || 0 : 0) + (sn ? sn.extra || 0 : 0), pierce: hail ? (hail.v && hail.v.extraPierceRatio) || 0 : 0 }, dd);
         curAtk++; hurt(mv, Math.round(r.tot), x, r.per);
         out.push({ u: x, to: null, tgt: mv, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), label: "Sentinelle" });
         if (hail && hail.by) {  // the Storm Speeder fires at the same target
@@ -514,32 +651,49 @@
       return out;
     };
     const settle = function (k) {  // everybody on the hexes, with the health, they have after k steps, and whose turn it is
-      field.forEach(function (u) { u.max = u.max0; u.fx = {}; u.twisted = false; u.twistDmg = 0; u.t = u.t0 ? u.t0.slice() : null; u.hp = u.max; u.alive = !u.summon; u.nAtk = 0; u.kills = 0; u.attacked = 0; u.lastAtk = -1; u.annBy = null; u.shun = null; u.used = {}; u.marked = false; u.markedBy = -1; u.markFresh = false; u.came = false; u.exploded = false; u.ow = false; u.owCut = 0; u.owForce = false; u.ds = !!u.tset.TeleportStrike && !u.summon; u.noRanged = false; u.lastSpent = 0; u.nano = false; u.moveBonus = 0; u.shroud = 0; u.ambush = !!u.tset.Ambush && !u.decoy; u.fallen = false; });
-      round = 1; active = 0; pending = []; hexfx = {}; zmarks = []; turnNo = 0; regenLog = []; boomLog = [];
+      field.forEach(function (u) { u.max = u.max0; u.fx = {}; u.twisted = false; u.twistDmg = 0; u.t = u.t0 ? u.t0.slice() : null; u.hp = u.max; u.alive = !u.summon; u.nAtk = 0; u.kills = 0; u.attacked = 0; u.lastAtk = -1; u.annBy = null; u.shun = null; u.used = {}; u.marked = false; u.markedBy = -1; u.markFresh = false; u.came = false; u.exploded = false; u.aug = null; u.dutyDmg = 0; u.armCut = 0; u.charKills = 0; u.smasha = false; u.auto = false; u.rage = false; u.chargedTurn = -1; u.psyTurn = -1; u.ghost = null; u.tfUsed = false; u.stance = 0; u.stTurn = -1; u.grimTurn = -1; u.ripAtk = -1; u.ow = false; u.owCut = 0; u.owForce = false; u.ds = !!u.tset.TeleportStrike && !u.summon; u.noRanged = false; u.lastSpent = 0; u.nano = false; u.moveBonus = 0; u.shroud = 0; u.ambush = !!u.tset.Ambush && !u.decoy; u.fallen = false; });
+      round = 1; active = 0; pending = []; hexfx = {}; zmarks = []; turnNo = 0; meleeDead = 0; activeUses = [0, 0]; regenLog = []; boomLog = []; deadLog = [];
       units.forEach(function (u) { u.lastPer = 0; u.narthAt = -1; if (u.mow) { u.fx = {}; u.used = {}; u.acted = false; u.deployed = false; u.nAtk = 0; u.usedActive = false; } });
       turnStart();
       for (let i = 0; i < k; i++) {
         const m = steps[i];
-        curAtk++; stepRng = mulberry(((i + 1) * 2654435761) ^ 0x51ed270b); regenLog = []; boomLog = [];
+        curAtk++; stepRng = mulberry(((i + 1) * 2654435761) ^ 0x51ed270b); regenLog = []; boomLog = []; deadLog = [];
         if (m.k === "mv") {
-          m.u.t = m.to.slice(); m.u.spent += m.cost; if (m.tp) m.u.noRanged = true;  // Deep Strike: it teleported, no ranged attack until the end of its turn
+          m.u.t = m.to.slice(); m.u.spent += m.cost; m.u.moves++; if (abOf(m.u, "TimeFlux") && !m.u.tfUsed) m.u.ghost = m.from.slice(); if (m.tp && !m.tpm) m.u.noRanged = true;  // Deep Strike: it teleported, no ranged attack until the end of its turn
           decoys().forEach(function (x) { if (x.side !== m.u.side && x.t[0] === m.to[0] && x.t[1] === m.to[1]) x.alive = false; });  // an enemy stepping on a decoy destroys it
           m.trig = checkMarks(m.u).concat(owReact(m.u));  // a mine under its feet, a unit that watches
+          field.forEach(function (x) { if (x.alive && x.side !== m.u.side && m.u.alive && abOf(x, "HatefulAssault") && RULES.dist(x.t, m.from) === 1) fireBack(x, m.u, abOf(x, "HatefulAssault"), "Power", "Assaut haineux"); });  // it left a hex next to a Terminator
           afterMove(m.u);  // Sanguinary Priest, Fabricator Claw Array
         } else if (m.k === "atk") {
-          m.u.acted = true; m.u.ds = false; m.u.nAtk++; if (m.abId) { m.u.usedActive = true; m.u.used[m.abId] = round; }
+          if ((m.u.moves >= 1 || (m.moves || []).some(function (x) { return x.u === m.u; })) && !m.u.advStart) m.u.chargedTurn = turnNo;
+          if (m.abId && !m.u.mow && !m.u.summon) activeUses[m.u.side]++;
+          if (m.stance) { m.u.stance = 1 - (m.u.stance || 0); m.u.stTurn = turnNo; } else if (!m.keep) m.u.acted = true;  // some abilities do not end the turn
+          m.u.ds = false; m.u.nAtk++; if (m.abId) { m.u.usedActive = true; m.u.used[m.abId] = round; }
+          if (MOVE_AGAIN[m.abId]) { m.u.moveAfter = true; if (m.u.moves >= 1) { m.u.moveExtra++; m.u.spent = 0; } }  // these abilities let the unit move again, even after a move this turn
           (m.moves || []).forEach(function (x) { x.u.t = x.to.slice(); });  // the moves of the action (a pull, a dash, a swap)
           (m.fx || []).forEach(function (x) { x.u.fx[x.id] = x; if (x.id === "sentinel") x.u.owForce = true; });  // the states it puts on units
           (m.gone || []).forEach(function (g) { g.alive = false; });  // a drone sent away to make room (Sho'syl keeps 3)
           guardLog = [];
+          if (!(m.dmg > 0) && m.tgt && m.tgt !== m.u && m.tgt.side !== m.u.side && m.tgt.alive && m.tgt.pool && !m.stance) {  // being attacked is enough: the guard appears even if the attack does no damage
+            const gp0 = guardOf(m.tgt);
+            if (gp0 && gp0.hex) { const g0 = gp0.g; g0.t = gp0.hex.slice(); g0.alive = true; g0.came = true; g0.hp = g0.max; g0.acted = false; g0.spent = 0; guardLog.push({ from: m.tgt, g: g0, fresh: true, hit: false }); }
+          }
           if (m.dmg > 0) hurt(m.tgt, m.dmg, m.u, m.per);
           (m.more || []).forEach(function (x) { hurt(x.tgt, x.dmg, x.by || m.u, x.per); });  // the other hits of the action (splash, a second attack)
           m.guards = guardLog;  // who took a hit in the place of its owner (for the log)
+          if (m.prof === "Psychic") [m.tgt].concat((m.more || []).map(function (x) { return x.tgt; })).forEach(function (x) { x.psyTurn = turnNo; });  // took psychic damage this turn
+          if (m.abId === "BlackRage" && !m.u.rage) { const br = abOf(m.u, "BlackRage") || {}; m.u.rage = true; m.u.auto = true; if (m.u.moves === 0) m.u.hp = Math.min(m.u.max, Math.round(m.u.max * (br.hpPct || 50) / 100)); }  // Lucien: his health drops to 50 %, he moves faster and hits harder when charging, and from now on he plays by himself (like a summon)
           (m.mk || []).forEach(function (x) { zmarks.push(Object.assign({}, x, { by: m.u, hexes: x.hexes.map(function (h) { return h.slice(); }) })); });  // the zones it marks
-          (m.buff || []).forEach(function (x) { if (x.u.alive) { x.u.max += x.hp; x.u.hp += x.hp; x.u.nano = true; } });  // Nanoscarab protocols: health and maximum health
+          (m.buff || []).forEach(function (x) {
+            if (!x.u.alive) return;
+            x.u.max += x.hp; x.u.hp += x.hp;
+            if (x.aug) x.u.aug = x.aug;  // Prime Test Subject: augmented
+            else if (x.dutyDmg !== undefined) x.u.dutyDmg = (x.u.dutyDmg || 0) + x.dutyDmg;  // Unbreakable Duty
+            else { x.u.nano = true; x.u.nanoBonus = x.rep || 0; }
+          });  // Nanoscarab protocols: health and maximum health
           if (m.deploy) m.u.deployed = true;
           (m.hx || []).forEach(function (x) { hexfx[x.h[0] + "," + x.h[1]] = x; });  // the hexes it covers with fire, ice ...
-          (m.heals || []).forEach(function (h) { if (h.u.alive) { h.u.hp = Math.min(h.u.max, h.u.hp + h.amt); delete h.u.fx.stun; delete h.u.fx.pin; delete h.u.fx.brazier; h.u.marked = false; h.u.markedBy = -1; } });  // a heal ends a stun, a pin, a markerlight
+          (m.heals || []).forEach(function (h) { if (h.u.alive && !fxOn(h.u, "noheal")) { h.u.hp = Math.min(h.u.max, h.u.hp + h.amt + (h.u.nano ? h.u.nanoBonus || 0 : 0)); delete h.u.fx.stun; delete h.u.fx.pin; delete h.u.fx.brazier; h.u.marked = false; h.u.markedBy = -1; } });  // a heal ends a stun, a pin, a markerlight
           const tw = (m.u.rules.ab || []).filter(function (a) { return a[0] === "TwistedScience"; })[0];
           if (tw && m.heals) m.heals.forEach(function (h) {  // Twisted Science: a unit Hollan heals gets 3 916 health and maximum health for good, and the cult units hit harder
             const x = h.u, v = (tw[8] && tw[8][rar]) || {};
@@ -549,19 +703,27 @@
           if (m.mark && m.tgt.alive) { m.tgt.marked = true; m.tgt.markedBy = m.u.side; m.tgt.markFresh = true; }  // the markerlight of a drone attack lasts through the owner's next turn
           if (m.pend) { pending.push(m.pend); if (!m.pend.noMark) { m.tgt.marked = true; m.tgt.markedBy = m.u.side; } }  // the missile is on its way, the target is marked
           if (m.tgt !== m.u && (m.u.rules.ab || []).some(function (a) { return a[0] === "StructuralAnalyser"; }) && RULES.dist(m.u.t, m.tgt.t) > 1) { m.tgt.marked = true; m.tgt.markedBy = m.u.side; }  // Darkstrider's ranged hits mark
-          (m.adds || []).forEach(function (a) {  // what the action summoned (decoys, neophytes ...)
-            a.t = a.t0.slice(); a.hp = a.max; a.alive = true; a.acted = false; a.spent = a.noMove ? 99 : 0;
-            if (a.replaces) a.replaces.alive = false;
-          });
+          (m.revive || []).forEach(function (r) { r.u.alive = true; r.u.t = r.hex.slice(); r.u.hp = Math.min(r.u.max, Math.round(r.u.max * r.pct / 100)); r.u.acted = true; r.u.spent = 99; r.u.fx = {}; });  // the fallen that come back (they cannot act this turn)
+          (m.reuse || []).forEach(function (r) { r.u.used = {}; r.u.usedActive = false; });  // Inspired to Greatness: the ally can use its active ability again
+          (m.setHp || []).forEach(function (r) { if (r.u.alive) r.u.hp = Math.min(r.u.max, Math.round(r.u.max * r.pct / 100)); });  // Blood Chalice
+          const place = function (a) { a.t = a.t0.slice(); a.hp = a.hpPct ? Math.round(a.max * a.hpPct / 100) : a.max; a.alive = true; a.acted = false; a.spent = a.noMove ? 99 : 0; if (a.replaces) a.replaces.alive = false; };
+          (m.adds || []).forEach(function (a) { if (!a.seq) place(a); });  // what the action summoned (decoys, neophytes ...); the sequential ones come one by one below
           const now = (m.also || []).filter(function (a) { return a.alive && a !== m.u; }).map(function (a) { a.acted = false; a.spent = 0; return a; }).concat((m.adds || []).filter(function (a) { return a.immediate && !a.decoy; }));
-          m.autoNow = now.map(function (a) { return playSummon(a, m.force); }).filter(Boolean);
+          m.autoNow = now.map(function (a) { if (a.seq) { if (!m.force || !m.force.alive) return null; place(a); } return playSummon(a, m.force); }).filter(Boolean);
+          m.autoNow.forEach(function (r) { if (r.u.grotTaunt && r.tgt && r.tgt.alive) r.tgt.fx.taunt = { id: "taunt", taunt: r.u, until: stunUntil(r.tgt), v: {} }; });  // the enemies a Grot hit are taunted for a round
           m.react = (m.moves || []).some(function (x) { return x.u === m.u; }) && m.u.alive ? owReact(m.u) : [];  // a charge or a dash ends next to someone who watches  // they take their turn at once (the summoned ones, and the others the ability orders to play)
         } else {  // end of turn: the other side plays
           field.forEach(function (x) { if (x.side === active) { x.ds = false; x.lastSpent = x.spent; } });
           field.forEach(function (x) {  // Sentinelle: a unit that did not attack this turn (Re'vas: when she says so; Sekhetar: next to a psyker) watches the enemy turn
             if (x.side !== active) return;
-            x.ow = x.alive && ((x.tset.Overwatch && !x.acted) || x.owForce || (!!abOf(x, "PropheticSentinel") && live().some(function (y) { return y.side === x.side && y !== x && y.tset.Psyker && RULES.dist(y.t, x.t) === 1; })));
+            x.smasha = x.alive && !!abOf(x, "SmashaEad") && x.spent >= 2;
+            x.ow = x.alive && ((x.tset.Overwatch && !x.acted) || x.owForce || (!!abOf(x, "CalibaniteGreatsword") && !x.stance) || (!!abOf(x, "PropheticSentinel") && live().some(function (y) { return y.side === x.side && y !== x && y.tset.Psyker && RULES.dist(y.t, x.t) === 1; })));
           });
+          field.forEach(function (x) {  // Daemonic Patrons: at the end of his next turn Hascule loses 30 % of his health unless he killed a taunted enemy
+            const ob = x.alive && x.side === active ? fxOn(x, "observed") : null;
+            if (ob && ob.until === round && !ob.kill) { curAtk++; hurt(x, Math.round(x.hp * (ob.v.hpPct || 30) / 100), null); }
+          });
+          field.forEach(function (x) { if (x.alive && x.aug && x.side === active) { curAtk++; hurt(x, Math.round(x.max * (x.aug.pct || 20) / 100), null); } });  // augmented: it loses 20 % of its maximum health at the end of each of its turns
           endRegen();  // the regenerations that wait for the end of a turn when the unit has not moved
           turnNo++;  // a unit in Deep Strike mode can be hit again once its side's turn is over
           if (active === 0) active = 1; else { active = 0; round++; }
@@ -569,7 +731,8 @@
           startRegen();  // Tough to Kill, Time Flux
           m.auto = tileTurn().concat(resolveMarks(), resolvePending(), summonsPlay(), betray());  // what acts by itself at the start of this turn: the summons first, then the characters that do
         }
-        m.regen = regenLog; m.booms = boomLog;  // the heals, the revivals and the mine blasts this step caused
+        field.forEach(function (x) { if (x.ghost && live().some(function (y) { return y !== x && y.t[0] === x.ghost[0] && y.t[1] === x.ghost[1]; })) x.ghost = null; });  // Toth's time ghost vanishes when another unit stands on it
+        m.deaths = deadLog.filter(function (x, k, a) { return a.indexOf(x) === k; }); m.regen = regenLog; m.booms = boomLog;  // the heals, the revivals and the mine blasts this step caused
       }
     };
     const turnText = function (r, side) { return "Round " + r + " · " + (side === 0 ? "votre tour" : "tour de l'adversaire"); };
@@ -594,7 +757,8 @@
     // the game's own rule (UI/WeaponProfile_Damage): a hit deals its damage minus the target's armour, but always at least the pierce ratio of that damage
     const armorDamage = function (raw, profile, arm, add) { return Math.max(raw - arm, raw * ((PIERCE[profile] || 1) + (add || 0)) / 100, 1); };
     const cellAt2 = function (u) { return RULES.cell(u.t[0], u.t[1]) || {}; };
-    const nextTo = function (u) { return live().some(function (o) { return o.side !== u.side && RULES.dist(u.t, o.t) === 1; }); };
+    const deadAllies = function (u) { return field.filter(function (x) { return x.side === u.side && !x.alive && x.hp <= 0 && !x.decoy; }).length; };
+    const nextTo = function (u) { return live().some(function (o) { return o.side !== u.side && footOf(o).some(function (h) { return RULES.dist(u.t, h) === 1; }); }); };
     // ---- the auras: passives that help the allies around (or hurt the enemies around) their holder; the radius is the one the ability's text gives ("adjacent", "distantes de 2 hexagones", the growing
     // aura of Contagion of Nurgle ...). r: the radius, who: which allies they help, self: the holder too. The numbers are those of the ability at this rarity. ----
     const contagionRange = function () { return 1 + Math.min(2, Math.floor((round - 1) / 2)); };  // rounds 1-2: 1, 3-4: 2, 5 and more: 3
@@ -660,13 +824,13 @@
       return { flat: flat || 0, pct: pct, hit: hit, ign: ign };
     }
     function armorOf(t) {  // its armour with the auras of its allies, then Contagion of Nurgle (-20 % in one enemy aura, -40 % in two)
-      let arm = t.arm;
+      let arm = Math.max(0, t.arm - (t.armCut || 0));
       aurasOn(t, t.t).forEach(function (a) {
         if (a.id === "KustomForceFieldReworked") arm += t.rules.fa === "Orks" ? a.v.extraArmor_2 : a.v.extraArmor;
         else if (a.id === "PropheticSentinel" || a.id === "StandVigil") arm += a.v.extraArmor || 0;
       });
       if (hexKind(t.t) === "contam" && !t.tset.Mechanical && !t.tset.ContagionsOfNurgle) arm *= 1 - (TV.contaminatedArmorReductionPct || 30) / 100;  // contaminated hex: -30 % armour (mechanical units and Nurgle's are spared)
-      const n = live().filter(function (e) { return e.side !== t.side && e.tset.ContagionsOfNurgle && RULES.dist(e.t, t.t) <= contagionRange(); }).length;
+      const n = t.tset.ContagionsOfNurgle ? 0 : live().filter(function (e) { return e.side !== t.side && e.tset.ContagionsOfNurgle && RULES.dist(e.t, t.t) <= contagionRange(); }).length;
       if (n) arm *= 1 + (n >= 2 ? TV.contagionsOfNurgleArmorTwoOrMoreAuras : TV.contagionsOfNurgleArmorOneAura) / 100;
       return Math.max(0, arm);
     }
@@ -680,17 +844,22 @@
     }
     // how far a unit walks in a turn: its movement, Rapid Assault until it attacks, what the auras gave it at the start of the turn
     const mvOf = function (u) { if (fxOn(u, "stun")) return 1;  // stunned: 1 movement
-      const wg = fxOn(u, "waaagh"), pn = fxOn(u, "pin") ? 1 : 0;  // pinned: 1 movement less
-      return Math.max(0, (u.rules.mv || 0) + (u.rules.ra ? 1 : 0) + (u.moveBonus || 0) + (wg ? parseInt(wg.v && wg.v.extraMovement, 10) || 1 : 0) - pn); };
+      const wg = fxOn(u, "waaagh"), mu = fxOn(u, "mvup"), rg = (u.rage ? 1 : 0) + (u.aug ? u.aug.mv || 0 : 0), pn = fxOn(u, "pin") ? 1 : 0;  // pinned: 1 movement less
+      return Math.max(0, (u.rules.mv || 0) + (u.rules.ra ? 1 : 0) + (u.moveBonus || 0) + (wg ? parseInt(wg.v && wg.v.extraMovement, 10) || 1 : 0) + (mu ? mu.mv || 0 : 0) + rg - pn); };
     // spec: {ab: the ability} or {w: the weapon [reach, damage profile, hits]}; dd: the distance
     function damageOf(u, t, spec, dd) {
       const ab = spec.ab, cu = cellAt2(u), ct = cellAt2(t), tr = u.tset, tt = t.tset;
       const profile = ab ? (ab[5] || (u.rules.wp && u.rules.wp.length ? u.rules.wp[u.rules.wp.length - 1][1] : "Physical")) : spec.w[1];
       const ranged = ab ? ab[4] !== "Melee" : spec.w[0] > 1, indirect = !!u.rules.id;
-      let hits = ab ? (ab[6] || 1) : spec.w[2], raw = ab ? ab[3][rar] : u.atk, ign = 0;
+      let hits = ab ? (ab[6] || 1) : spec.w[2], raw = ab ? ab[3][rar] : u.atk, ign = 0, xp = 0;
+      if (ab && ab[0] === "TacticalPrecision" && !(u.moves >= 1 && !u.advStart)) { const tv = ab[8][rar] || {}; raw = avgOf(tv, "_2") || raw; hits = parseInt(tv.nrOfHits_2, 10) || hits; }  // Titus: the second set of figures when he did not charge
       if (ab && ab[0] === "BrazierOfHolyFire" && tt.Daemon) hits = parseInt(ab[8][rar].nrOfHits_2, 10) || hits;  // against a Daemon: more hits
       if (fxOn(u, "stun")) raw *= 0.5;  // stunned: -50 % damage
       if (fxOn(u, "pin")) raw *= 0.7;  // pinned: -30 % damage
+      if (u.tset.Psyker) { const hh = live().filter(function (e) { return e.side !== u.side && abOf(e, "HuntersBeyondDeath") && RULES.dist(e.t, u.t) === 2; })[0]; if (hh) raw = Math.max(1, raw - (abOf(hh, "HuntersBeyondDeath").dmgReduction || 0)); }  // Hunters Beyond Death
+      const wk = fxOn(u, "weak");  // Light of Sanguinius: the enemies around Dante deal less (twice as much less against units at 50 % health or less)
+      if (wk) raw *= 1 - Math.min(100, wk.pct * (t.hp <= t.max * (wk.half || 50) / 100 ? 2 : 1)) / 100;
+      if (profile === "Psychic" && u.tset.Psyker && u.rules.fa !== "Tyranids" && live().some(function (e) { return e.side !== u.side && e.tset.ShadowInTheWarp && RULES.dist(e.t, u.t) <= 2; })) raw *= 1 + (TV.shadowInTheWarpDmgModifier || -25) / 100;  // Shadow in the Warp
       const mindA = fxOn(u, "mind");
       if (mindA) raw = Math.max(1, raw - ((mindA.v && mindA.v.dmgReduction) || 0));  // Mind Control: it deals less
       const big = !!tt.BigTarget, inGrass = ct.tile === "DryBush" && !big, inTrench = ct.tile === "Trench" && !big;
@@ -704,8 +873,48 @@
         if (tr.RapidAssault && u.nAtk === 0) bonus += TV.rapidAssaultExtraDmgPct || 0;
         if (tr.CloseCombatWeakness && nextTo(u)) bonus += ranged ? TV.closeCombatWeaknessRangeDmgPctReduction || 0 : TV.closeCombatWeaknessMeleeDmgPctReduction || 0;
         if (!ranged && (tr.BeastSlayer || tr.BeastSnagga) && (tt.BigTarget || tt.Vehicle)) bonus += tr.BeastSlayer ? TV.beastSlayerExtraDmgPct || 0 : TV.beastSnaggaDmgBonus || 0;
+        if (u.tset.BlessingsOfKhorne) bonus += Math.min(TV.blessingsOfKhorneMaxDefeatedUnits || 8, meleeDead) * (TV.blessingsOfKhorneExtraDmgPct || 3);  // World Eaters: more damage per unit defeated in melee
+        const ob = fxOn(u, "observed");
+        if (ob) raw += (ob.v.extraDmg || 0) * live().filter(function (e) { return e.side !== u.side && RULES.dist(e.t, u.t) === 1 && fxOn(e, "taunt") && fxOn(e, "taunt").taunt === u; }).length;  // Hascule observed: more damage per taunted enemy next to him
         const au = auraAtk(u, t, null, ranged, profile), wg = fxOn(u, "waaagh");  // Waaagh!: +dmg and one more hit on the normal melee attacks
         if (wg && !ranged) { au.flat += (wg.v && wg.v.extraDmg) || 0; au.hit += 1; }
+        if (!ranged && u.moves >= 1 && !u.advStart) {  // a charge: a melee attack after a move, when the unit did not start the turn in melee
+          const ac = abOf(u, "AvalancheOfMuscle"), ft = abOf(u, "FeederTendrils"), rg = live().filter(function (x) { return x.side === u.side && abOf(x, "SagaOfTheWarriorBorn"); })[0];
+          const sg = abOf(u, "SagaOfTheWarriorBorn") || (rg && u.rules.fa === "SpaceWolves" && rg.kills > 0 ? abOf(rg, "SagaOfTheWarriorBorn") : null);  // Ragnar's allies share it once he has killed
+          if (ac) au.flat += ac.extraDmg || 0;
+          if (ft) au.flat += ft.extraDmg || 0;
+          if (u.rage) au.flat += (abOf(u, "BlackRage") || {}).extraDmg || 0;  // Lucien in his rage
+          if (sg) au.hit += parseInt(sg.extraHits, 10) || 0;
+        }
+        const adjN = live().filter(function (x) { return x !== u && RULES.dist(x.t, u.t) === 1; }).length, adjDA = live().filter(function (x) { return x !== u && x.side === u.side && x.rules.fa === "DarkAngels" && RULES.dist(x.t, u.t) === 1; }).length;
+        const mo = fxOn(u, "montka"), hw = fxOn(u, "howl"), cr = fxOn(u, "crusade"), ch = fxOn(u, "chalice"), hd = fxOn(t, "hated"), cn = fxOn(t, "chrono");
+        if (mo) au.flat += tt.BigTarget ? mo.v.extraDmg_2 || 0 : mo.v.extraDmg || 0;  // Exemplar of the Mont'ka
+        if (hw && !ranged) au.flat += hw.v.extraDmg || 0;  // War Howl
+        if (cr && !ranged) { au.flat += cr.v.extraDmg || 0; xp += cr.v.extraPierceRatio || 0; }  // Crusade of Wrath
+        if (ch && !ranged) xp += ch.v.extraPierceRatio || 0;  // Blood Chalice
+        if (hd && (!ranged || spec.sentinel)) au.flat += hd.extra || 0;  // Exemplar of Hate
+        if (cn) au.flat += u.tset.Mechanical ? cn.extra2 || 0 : cn.extra || 0;  // Chronometron: the next attack against it
+        if (u.aug) au.flat += u.aug.dmg || 0;  // Prime Test Subject
+        if (u.dutyDmg) au.flat += u.dutyDmg;  // Unbreakable Duty
+        let a2;
+        if ((a2 = abOf(u, "CondemnorStake")) && tt.Psyker) au.flat += a2.extraDmg || 0;
+        if ((a2 = abOf(u, "HuntersBeyondDeath")) && tt.Psyker) au.flat += a2.extraDmg || 0;
+        if ((a2 = abOf(u, "TrophyTaker")) && t.hp <= t.max * (parseInt(a2.hpPct, 10) || 50) / 100) au.flat += a2.extraDmg || 0;
+        if ((a2 = abOf(u, "Skullsmasher"))) au.flat += Math.floor((1 - u.hp / u.max) * 100 / (parseInt(a2.hpPct, 10) || 10)) * (a2.extraDmg || 0);
+        if ((a2 = abOf(u, "FearedInterrogator"))) {
+          const aff = fxOn(t, "stun") || fxOn(t, "pin") || live().some(function (x) { return x !== u && x.side === u.side && x.rules.fa === "DarkAngels" && RULES.dist(x.t, t.t) === 1; });
+          if (aff) au.flat += a2.extraDmg || 0;
+          if (t.rules.al === "Chaos") au.hit += a2.extraHits || 0;
+        }
+        if ((a2 = abOf(u, "EnmityForTheUnworthy"))) { bonus += (a2.extraDmgPct || 0) * adjN; au.flat += (a2.extraDmg || 0) * adjDA; }
+        if ((a2 = abOf(u, "CrucibleOfBattle"))) { if (RULES.dist(u.t, t.t) === 1) au.flat += a2.extraDmg || 0; if (tt.BigTarget) au.flat += a2.extraDmg_2 || 0; if (fxOn(t, "stun") || hexKind(t.t) === "fire") au.flat += a2.extraDmg_3 || 0; }
+        if ((a2 = abOf(u, "HeadClaimer"))) { au.flat += (a2.extraDmg || 0) * u.kills; au.hit += (parseInt(a2.extraHit, 10) || 1) * u.charKills; }
+        if ((a2 = abOf(u, "FuelledByFury"))) au.flat += (a2.extraDmg || 0) * (activeUses[u.side] || 0);
+        if ((a2 = abOf(u, "SmashaEad")) && u.spent >= 2) au.flat += a2.extraDmg || 0;
+        if (ranged && (a2 = abOf(u, "HeavyGravCannon")) && (tt.MkXGravis || tt.TerminatorArmour || tt.Mechanical)) { au.flat += a2.extraDmg || 0; xp += a2.extraPierceRatio || 0; }
+        if ((a2 = abOf(u, "PowerTrip"))) { ign += a2.armorIgnored || 0; if (u.hp >= u.max) au.hit += parseInt(a2.extraHit, 10) || 1; }
+        const km = tr.PrioritisedEfficiency && u.spent >= 3 ? live().filter(function (k) { return k.side === u.side && k.chargedTurn === turnNo && abOf(k, "ModifiedExoarmour"); })[0] : null;
+        if (km) bonus += parseInt(abOf(km, "ModifiedExoarmour").extraDmgPct, 10) || 25;  // Kîmm charged: the units with Prioritised Efficiency that went 3 hexes or more hit harder
         const cf = fxOn(u, "conflag");
         if (cf && ranged && hexKind(t.t) === "fire") au.pct += (cf.v && cf.v.extraDmgPct) || 0;  // Thrice Blessed Conflagration: more damage at range on burning hexes
         raw = (raw + au.flat + (spec.extra || 0) + (u.twisted && u.rules.fa === "Genestealers" ? u.twistDmg : 0)) * (1 + bonus / 100) * (1 + au.pct / 100);  // the allies' auras add flat damage per hit, and a percentage
@@ -722,11 +931,23 @@
       hits = Math.max(1, hits - cut);
       if (ab) raw *= 1 + auraAtk(u, t, ab, ranged, profile).pct / 100;
       const arm = Math.max(0, armorOf(t) - ign), cutA = auraCut(t, profile);
-      let per = armorDamage(raw, profile, arm, spec.pierce);  // spec.pierce: extra pierce ratio (Hailstrike)
+      let pierceAdd = (spec.pierce || 0) + xp;  // spec.pierce: extra pierce ratio (Hailstrike)
+      if (ab && ab[0] === "Supercharge") pierceAdd += (ab[8][rar] || {}).extraPierceRatio || 0;
+      if (ab && ab[0] === "LeadingTheCharge") pierceAdd += ((ab[8][rar] || {}).extraPierceRatio || 0) * deadAllies(u);  // +10 % per allied unit defeated in the battle
+      let per = armorDamage(raw, profile, arm, pierceAdd);
       if (tt.MkXGravis) per = armorDamage(per, profile, arm);  // the damage goes through the armour a second time
       let mod = 1;  // the target's own modifiers
       const mindT = fxOn(t, "mind");
       if (mindT) mod *= 1 + ((mindT.v && mindT.v.extraDmgPct) || 0) / 100;  // Mind Control: it takes more
+      if (tt.BlessingsOfKhorne && profile === "Psychic") mod *= 1 - Math.min(TV.blessingsOfKhorneMaxDefeatedUnits || 8, meleeDead) * (TV.blessingsOfKhorneDmgPctReduction || 8) / 100;
+      const obT = fxOn(t, "observed");
+      if (obT) mod *= 1 - Math.min(100, (obT.v.dmgReductionPct || 0) * live().filter(function (e) { return e.side !== t.side && RULES.dist(e.t, t.t) === 1 && fxOn(e, "taunt") && fxOn(e, "taunt").taunt === t; }).length) / 100;  // observed: less damage per taunted enemy next to him
+      if (fxOn(t, "wrath") && ranged) mod *= 1 - (fxOn(t, "wrath").red || 0) / 100;  // Overwhelming Wrath: less damage from ranged attacks
+      if (profile === "Psychic" && live().some(function (x) { return x !== t && x.side === t.side && (x.rules.pa || []).indexOf("WatchedOver") >= 0 && RULES.dist(x.t, t.t) === 1; })) mod *= 0.8;  // Watched Over: -20 % psychic damage for the units next to a Watcher
+      const dtr = fxOn(t, "dr");
+      if (dtr) mod *= 1 - (dtr.pct || 0) / 100;  // Unbreakable Duty: less damage taken
+      if (t.smasha || (abOf(t, "SmashaEad") && t.spent >= 2)) mod *= 1 - ((abOf(t, "SmashaEad") || {}).dmgReductionPct || 33) / 100;  // Tankrazeur after a run
+      if (tt.Terrifying && !ranged) mod *= 0.7;  // Terrifying: -30 % damage from melee attacks
       const bz = fxOn(t, "brazier");
       if (bz) mod *= 1 + (bz.pct || 0) / 100;  // Brazier of Holy Fire: the Daemons around the target take more
       if (t.marked && ranged && u.rules.fa === "Tau") mod *= 1.15;  // markerlight: +15 % from the ranged attacks of T'au units
@@ -742,6 +963,10 @@
       if (tt.TwoManTeam) per = Math.min(per, t.max / 2);  // a single hit takes at most half of its health
       let total = per * hits;
       if (!ab && t.annBy && t.annBy.alive && t.annBy.side === u.side && profile !== "Psychic") { const x = Math.min(per, (t.annBy.rules.ab.filter(function (a) { return a[0] === "MasterAnnihilator"; })[0][8][rar] || {}).maxDmg || per); total += x; hits += 1; }  // Master Annihilator: one more hit, at most its cap
+      if (!ab && tr.GetStuckIn && dd === 2 && hits >= 2) {  // Get Stuck In: for every 2 hits at range 2, 30 % of one more (100 % when the target has 2 Orks or 4 units of the attacker's next to it)
+        const near = live().filter(function (x) { return x.side === u.side && x !== u && RULES.dist(x.t, t.t) === 1; }), sure = near.filter(function (x) { return x.rules.fa === "Orks"; }).length >= 2 || near.length >= 4, pairs = Math.floor(hits / 2);
+        total += per * pairs * (sure ? (TV.getStuckInChance_2 || 100) : (TV.getStuckInChance || 30)) / 100;
+      }
       return { tot: total, per: total / hits, hits: hits };  // the damage of one hit, the number of hits, the total
     }
     // the health left after a hit: Resilient survives with 1 unless the hit overkills it
@@ -764,7 +989,20 @@
       LashOfTorment: { disp: "pull", taunt: true }, GrapnelLauncher: { disp: "pull", swapIn: true }, MortisRound: { disp: "push" },
       SupremeCommander: { self: true, summon: true, also: "astraSmnGuardsman", r: 2 }, EarlyWarningOverride: { self: true, summon: true }, SendInTheNextWave: { noDmg: true, summon: true, wave: true, reach: 2 },
       Waaagh: { summon: true, charge: true, also: "orksOrkBoys" },
-      Stormcaller: { ice: true, hitAll: true }, GreatFrostAxe: { ice: true }, BrazierOfHolyFire: { fire: true }, TotalObliteration: { fire: true }, HolyDuel: { duel: true } };
+      Stormcaller: { ice: true, hitAll: true }, GreatFrostAxe: { ice: true }, BrazierOfHolyFire: { fire: true }, TotalObliteration: { fire: true }, HolyDuel: { duel: true },
+      TitanhammerSquad: { mark: true, keep: true }, BasiliskBarrage: { noDmg: true, anywhere: true, reach: 99, unmoved: true, barrage: true },
+      IronkinSteeljack: { self: true, always: true, summon: true }, GrotTank: { self: true, always: true, summon: true }, Poxwalkers: { self: true, always: true, summon: true }, MasterOfTheTutelaries: { self: true, always: true, summon: true },
+      ScarabHive: { noDmg: true, summon: true, forceT: true }, Incursion: { noDmg: true, summon: true, forceT: true, reach: 2 }, DeathFromAbove: { noDmg: true, summon: true, forceT: true, anywhere: true, reach: 99 },
+      ResurrectionOrb: { self: true, always: true, revive: "orb" }, RitesOfRestoration: { self: true, always: true, revive: "rites", healAdj: { key: "hpToHeal", mechNo: true } },
+      ExemplarOfTheMontka: { self: true, always: true, keep: true, buffs: "montka" }, WarHowl: { self: true, always: true, keep: true, buffs: "howl", unmoved: true }, CrusadeOfWrath: { self: true, always: true, buffs: "crusade" },
+      UnbreakableDuty: { self: true, always: true, buffs: "duty" }, Chronometron: { self: true, always: true, buffs: "chrono" }, FoulInfusion: { self: true, always: true, buffs: "infusion" }, BloodChalice: { self: true, always: true, buffs: "chalice" },
+      InspiredToGreatness: { allyAdj: true, buffs: "inspire" }, PrimeTestSubject: { allyAdj: true, buffs: "prime" }, ExemplarOfHate: { noDmg: true, anywhere: true, reach: 99, buffs: "hate" },
+      AlphaWarrior: { self: true, always: true, summon: true, alpha: true, unmoved: true }, UnstoppableMomentumReworked: { nob: true }, BlackRage: { chargeAb: true, normal: true, moveRange: true, rage: true }, MultiThreatEliminator: { redist: "multi" }, Doombolt: { redist: "doom" },
+      LightOfSanguinius: { chargeAb: true }, LeadingTheCharge: { chargeAb: true }, HammerOfWrath: { chargeAb: true }, MassDriverAccelerator: { chargeAb: true, moveRange: true },
+      GauntletsOfUltramar: { self: true, always: true, needDist: 2 }, RadBombardment: { line: true, reach: 99 }, PowerVomit: { line: true, reach: 99 }, ExcruciatingFrequencies: { line: true, reach: 99 },
+      DefendTheDivineWork: { self: true, always: true, healAdj: { key: "hpToRepair", mech: true } }, CombatRestoratives: { self: true, always: true, healAdj: { key: "hpToHeal", key2: "hpToHeal_2" } },
+      SanctorumMissile: {}, FragBomb: {}, FrenziedFiring: {}, HarvesterOfSouls: {}, DoomSiren: {}, Supercharge: {}, HeraldOfTheApocalypse: {}, HellfyreMissileRack: {}, MurderousSwing: {}, ProclivityForMurder: {}, CalibaniteGreatsword: { self: true, always: true, stance: true },
+      CrushingClaws: { claws: true }, ItItches: { itches: true, noDmg: true, adjOnly: true }, OverwhelmingWrath: { self: true, always: true, wrath: true }, DaemonicPatrons: { patrons: true, noDmg: true, adjOnly: true }, GetEmRuntz: { self: true, summon: true, grot: true, always: true } };
     function spawn(id, side, parent, t, stats, noMove) {  // a new unit (stats: [health, damage, armour], none for a decoy) not yet on the board: the step that summons it puts it there
       const sm = (UNITS._summons || {})[id] || {}, rules = Object.assign({}, sm);
       rules.st = stats ? (function () { const o = {}; o[rar] = stats; return o; })() : null;
@@ -775,7 +1013,7 @@
     }
     function freeAround(u) {  // the free hexes next to a unit (those without a decoy first)
       const taken = {}, dec = {};
-      live().forEach(function (x) { taken[x.t[0] + "," + x.t[1]] = 1; });
+      live().forEach(function (x) { footOf(x).forEach(function (h) { taken[h[0] + "," + h[1]] = 1; }); });
       decoys().forEach(function (x) { dec[x.t[0] + "," + x.t[1]] = x; });
       return prio(u, RULES.around(u.t[0], u.t[1]).filter(function (h) { const c = RULES.cell(h[0], h[1]); return c && c.kind === 0 && !taken[h[0] + "," + h[1]]; }), u.t)
         .sort(function (a, b2) { return (dec[a[0] + "," + a[1]] ? 1 : 0) - (dec[b2[0] + "," + b2[1]] ? 1 : 0); });
@@ -812,17 +1050,37 @@
       } else if (id === "SendInTheNextWave") {  // Yarrick: 2 Guardsmen + 1 per ally lost (5 at most) on free hexes within 2 of the target; they shoot it at once, without moving
         const lost = field.filter(function (x) { return x.side === u.side && !x.alive && x.hp <= 0 && !x.decoy && !x.mow; }).length;  // "unité": characters and summons
         const n = Math.min(parseInt(vals.maxSummons, 10) || 5, (parseInt(vals.nrOfSummons, 10) || 2) + lost), taken = {};
-        live().forEach(function (x) { taken[x.t[0] + "," + x.t[1]] = 1; });
+        live().forEach(function (x) { footOf(x).forEach(function (h) { taken[h[0] + "," + h[1]] = 1; }); });
         d.cells.filter(function (c) { const k = c[0] + "," + c[1], dd = RULES.dist(t.t, [c[0], c[1]]); return c[4] === 0 && dd >= 1 && dd <= 2 && !taken[k] && (dd <= 1 || RULES.sight([c[0], c[1]], t.t)); })
           .sort(function (a, b2) { const da = RULES.dist(t.t, [a[0], a[1]]), db = RULES.dist(t.t, [b2[0], b2[1]]); return (db === 2) - (da === 2) || b2[3] - a[3] || (b2[2] === "DryBush") - (a[2] === "DryBush") || a[0] - b2[0] || a[1] - b2[1]; })  // a hex to shoot from (not next to the target), the highest, tall grass
           .slice(0, n).forEach(function (c) { put("astraSmnGuardsman", [c[0], c[1]], stat(""), true); });
       } else if (id === "Waaagh") {  // Gulgortz, if he has not moved: 2 Ork Boyz on free hexes next to him (toward the target)
         waaaghSpots(u, t, vals).forEach(function (h) { put("orksOrkBoys", h, stat(""), false); });
+      } else if (id === "IronkinSteeljack") {
+        prio(u, freeAround(u), u.t).slice(0, 1).forEach(function (h) { put("votanSmnSteeljack", h, stat(""), true); });
+      } else if (id === "GrotTank") {  // more health for each round started
+        prio(u, freeAround(u), u.t).slice(0, 1).forEach(function (h) { put("orksGrotTank", h, [(vals.summonHp || 1) + (vals.extraHp || 0) * round, vals.summonDmg || 1, vals.summonArmor || 0], true); });
+      } else if (id === "Poxwalkers") {  // on a share of the free hexes in Corrodius' Contagion aura, they hit at once but cannot move
+        const free = d.cells.filter(function (c) { return c[4] === 0 && RULES.dist(u.t, [c[0], c[1]]) >= 1 && RULES.dist(u.t, [c[0], c[1]]) <= contagionRange() && !live().some(function (x) { return x.t[0] === c[0] && x.t[1] === c[1]; }); }).map(function (c) { return [c[0], c[1]]; });
+        prio(u, free, u.t).slice(0, Math.ceil(free.length * (((vals.chance || 20) + (vals.chance_2 || 45)) / 2) / 100)).forEach(function (h) { put("deathPoxwalker", h, stat(""), true); });
+      } else if (id === "MasterOfTheTutelaries") {
+        prio(u, freeAround(u), u.t).slice(0, 1).forEach(function (h) { put("thousSmnPinkHorror", h, stat(""), false); });
+      } else if (id === "ScarabHive") {
+        prio(u, freeAdj(t), t.t).slice(0, 2).forEach(function (h) { put("necroSmnSwarm", h, stat(""), false); });
+      } else if (id === "Incursion") {  // Bloodletters next to the target, one after the other while it stands and a hex is free (6 at most)
+        prio(u, freeAdj(t), t.t).slice(0, parseInt(vals.maxSummons, 10) || 6).forEach(function (h) { put("blackSmnBloodletter", h, stat(""), false).seq = true; });  // one after the other: they stop when the target falls
+      } else if (id === "DeathFromAbove") {  // one Inceptor per round started, next to the target, attacking it at once
+        prio(u, freeAdj(t), t.t).slice(0, round).forEach(function (h) { put("ultraSmnInceptor", h, stat(""), false); });
+      } else if (id === "AlphaWarrior") {  // Winged Prime: a Tyranid Warrior on a free hex in his Synapse range (2), it cannot move this turn but attacks at once
+        const near = d.cells.filter(function (c) { return c[4] === 0 && RULES.dist(u.t, [c[0], c[1]]) >= 1 && RULES.dist(u.t, [c[0], c[1]]) <= 2 && !live().some(function (x) { return x.t[0] === c[0] && x.t[1] === c[1]; }); }).map(function (c) { return [c[0], c[1]]; });
+        prio(u, near, u.t).slice(0, 1).forEach(function (h) { put("tyranSmnWarrior", h, stat(""), true); });
+      } else if (id === "GetEmRuntz") {  // Runtherd: a Grot on every free hex next to him that also touches an enemy; each attacks at once without moving and taunts what it hits
+        freeAround(u).filter(function (h) { return foes(u).some(function (e) { return RULES.dist(e.t, h) === 1; }); }).forEach(function (h) { put("orksGrot", h, [vals.summonHp || 1, vals.summonDmg || 1, vals.summonArmor || 0], true).grotTaunt = true; });
       } else if (id === "MightFromBelow") {  // a Purestrain Genestealer on every decoy of its side next to the Patriarch
         decoys().filter(function (x) { return x.side === u.side && RULES.dist(u.t, x.t) === 1; }).forEach(function (x) { put("genesSmnGenestealer", x.t, stat(""), true); });
       } else if (id === "CultDemagogue") {  // up to 8 decoys on free hexes within 2 of the target, then a Neophyte on half of the allied decoys of the area
         const near = function (h) { return RULES.dist(t.t, h) <= 2; }, taken = {};
-        live().forEach(function (x) { taken[x.t[0] + "," + x.t[1]] = 1; });
+        live().forEach(function (x) { footOf(x).forEach(function (h) { taken[h[0] + "," + h[1]] = 1; }); });
         const spots = d.cells.filter(function (c) { const k = c[0] + "," + c[1]; return c[4] === 0 && near([c[0], c[1]]) && !taken[k] && !decAt[k]; })
           .sort(function (a, b2) { return RULES.dist(t.t, [a[0], a[1]]) - RULES.dist(t.t, [b2[0], b2[1]]) || a[0] - b2[0] || a[1] - b2[1]; }).slice(0, vals.nrOfSummons || 8);
         const made = spots.map(function (c) { return put("genesSmnDecoy", [c[0], c[1]], null, false); });
@@ -856,13 +1114,13 @@
     const withPos = function (x, cell, fn) { const old = x.t; x.t = cell; try { return fn(); } finally { x.t = old; } };
     const freeAdj = function (t, but) {  // the free hexes around a unit
       const taken = {};
-      live().forEach(function (x) { if (x !== but) taken[x.t[0] + "," + x.t[1]] = 1; });
+      live().forEach(function (x) { if (x !== but) footOf(x).forEach(function (h) { taken[h[0] + "," + h[1]] = 1; }); });
       return RULES.around(t.t[0], t.t[1]).filter(function (h) { const c = RULES.cell(h[0], h[1]); return c && c.kind === 0 && !taken[h[0] + "," + h[1]]; });
     };
     const mainWeapon = function (u, melee) { const wp = u.rules.wp || []; return (wp.filter(function (w) { return melee ? w[0] === 1 : w[0] > 1; })[0]) || wp[0] || [1, "Physical", 1]; };
     function stepsOf(u, mov) {  // the hexes a unit can reach within `mov` steps (an enemy blocks, an ally can be crossed but not stopped on): key -> steps
       const occ = {}, out = {};
-      live().forEach(function (x) { if (x !== u) occ[x.t[0] + "," + x.t[1]] = x; });
+      live().forEach(function (x) { if (x !== u) footOf(x).forEach(function (h) { occ[h[0] + "," + h[1]] = x; }); });
       RULES.reach({ from: u.t, mov: mov, fly: !!u.rules.fl, free: !!u.rules.us, enemy: function (c, r) { const x = occ[c + "," + r]; return !!x && x.side !== u.side; }, any: function (c, r) { return !!occ[c + "," + r]; }, stop: tileStop })
         .forEach(function (p) { out[p.c + "," + p.r] = p.k; });
       return out;
@@ -880,9 +1138,10 @@
     function hexesOf(u, o) {
       if (u.mow) return mowHexes(u, o);
       const sp = o && o.ab && CULT[o.ab[0]];
+      if (sp && sp.mark && o.ok && !u.acted && abReady(u, o.ab)) return playable().filter(function (h) { return freeHex(h) && !foes(u).some(function (e) { return RULES.dist(e.t, h) === 1; }); });  // Titanhammer: a free hex not next to an enemy
       if (!sp || !(sp.hex || sp.leap) || !o.ok || u.acted || !abReady(u, o.ab)) return [];
       const reach = stepsOf(u, 2), occ = {};
-      live().forEach(function (x) { if (x !== u) occ[x.t[0] + "," + x.t[1]] = x; });
+      live().forEach(function (x) { if (x !== u) footOf(x).forEach(function (h) { occ[h[0] + "," + h[1]] = x; }); });
       return Object.keys(reach).filter(function (k) {
         const h = k.split(",").map(Number), x = occ[k];
         if (sp.hex) return reach[k] > 0 && !(x && (x.side !== u.side || x.ds));  // L'Accélération: any hex within 2 steps (an ally there swaps places)
@@ -916,15 +1175,19 @@
     function targetsOf(u, o) {  // [{u: target, dmg}] the hostile characters the action can hit now
       if (u.mow) return mowTargets(u, o);
       const out = [];
-      if (!o || !o.ok || u.acted || (o.ab && (fxOn(u, "stun") || !abReady(u, o.ab)))) return out;  // a stunned unit cannot use its active abilities
+      const toggle = !!(o && o.ab && o.ab[0] === "CalibaniteGreatsword");  // Forcas' stance can be switched even after he attacked
+      if (!o || !o.ok || (u.acted && !toggle) || (o.ab && (fxOn(u, "stun") || !abReady(u, o.ab)))) return out;  // a stunned unit cannot use its active abilities
       const wp = u.rules.wp && u.rules.wp.length ? u.rules.wp : [[1, "Physical", 1]], adj = nextTo(u), sp = o.ab && CULT[o.ab[0]];
-      if (sp && sp.self) return sp.heal || freeAround(u).length ? [{ u: u, dmg: 0 }] : out;  // a summon or a heal around the caster: it casts on itself
+      if (sp && sp.needDist && !foes(u).some(function (e) { return RULES.dist(u.t, e.t) === sp.needDist; })) return out;
+      if (sp && sp.unmoved && u.moves > 0) return out;  // the Winged Prime summons only if he has not moved
+      if (sp && sp.allyAdj) return live().filter(function (x) { return x.side === u.side && x !== u && !x.decoy && RULES.dist(u.t, x.t) === 1 && (!sp.pickAny && (sp.buffs !== "prime" || !x.aug)); }).map(function (x) { return { u: x, dmg: 0, hits: 0, per: 0 }; });  // an adjacent ally
+      if (sp && sp.self) return sp.heal || sp.always || freeAround(u).length ? [{ u: u, dmg: 0 }] : out;  // a summon or a heal around the caster: it casts on itself
       live().forEach(function (t) {
         if (t.side === u.side || t.ds) return;
-        const dd = RULES.dist(u.t, t.t), clear = dd <= 1 || u.rules.id || RULES.sight(u.t, t.t);
+        const th = footOf(t).sort(function (a, b2) { return RULES.dist(u.t, a) - RULES.dist(u.t, b2); })[0], dd = RULES.dist(u.t, th), clear = dd <= 1 || u.rules.id || RULES.sight(u.t, th);  // a big unit is reached through its nearest hex
         let best = null;
         const keep = function (r, p) { if (!best || r.tot > best.tot) { best = r; best.prof = p; } };  // p: the damage profile of the hit
-        if (sp && sp.hex) return;
+        if (sp && (sp.hex || sp.mark)) return;
         if (sp && sp.debuff) {  // Mind Control: an enemy within 3 next to one of its own allies... of the caster; it deals less, takes more, and is taunted by the sturdiest of them
           const near = live().filter(function (x) { return x.side === u.side && x !== u && RULES.dist(x.t, t.t) === 1; });
           if (dd <= abilityReach(u, o.ab) && clear && near.length) {
@@ -960,6 +1223,24 @@
           out.push({ u: t, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), plan: { moves: [], more: [], fx: [{ u: t, id: "taunt", taunt: u, until: 9999, v: {} }, { u: u, id: "taunt", taunt: t, until: 9999, reduce: v.dmgReduction || 0, v: {} }] } });
           return;
         }
+        if (sp && sp.nob) {  // Unstoppable Momentum: pick an enemy on one of the 6 lines
+          const p = nobPlan(u, o, t);
+          if (!p) return;
+          out.push({ u: t, dmg: p.main.dmg, hits: p.main.hits, per: p.main.per, prof: o.ab[5], plan: p });
+          return;
+        }
+        if (sp && sp.chargeAb) {  // a charge ability (Dante, Dreir, Mataneo, Kîmm): if the unit has not moved, it runs to a free hex next to an enemy within its range and hits it
+          if (u.moves > 0 || u.acted) return;
+          const v = (o.ab[8] && o.ab[8][rar]) || {}, reach = stepsOf(u, sp.moveRange ? mvOf(u) + (parseInt(v.extraMovement, 10) || 0) : parseInt(v.range, 10) || 4);
+          const hs = freeAdj(t, u).filter(function (h) { return reach[h[0] + "," + h[1]] !== undefined; }).sort(function (a, b2) {
+            const ca = RULES.cell(a[0], a[1]), cb = RULES.cell(b2[0], b2[1]);
+            return cb.el - ca.el || (cb.tile === "DryBush") - (ca.tile === "DryBush") || reach[a[0] + "," + a[1]] - reach[b2[0] + "," + b2[1]] || clockRank(u, t.t, a) - clockRank(u, t.t, b2);
+          });
+          if (!hs.length) return;
+          const stay = sameHex(hs[0], u.t), r = withPos(u, hs[0], function () { return sp.normal ? damageOf(u, t, { w: mainWeapon(u, true), extra: (v.extraDmg || 0) }, 1) : damageOf(u, t, { ab: o.ab }, 1); });
+          out.push({ u: t, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), prof: o.ab[5], plan: { moves: stay ? [] : [{ u: u, to: hs[0].slice() }], more: [], fx: [] } });
+          return;
+        }
         if (sp && sp.charge) {  // Waaagh!: Boyz around Gulgortz (if he has not moved), his adjacent allies get +1 movement and +dmg until the end of his turn, then he charges an enemy within his movement: a normal melee attack
           const v = (o.ab[8] && o.ab[8][rar]) || {}, reach = stepsOf(u, budget(u)), spots = waaaghSpots(u, t, v).map(function (h) { return h[0] + "," + h[1]; });
           const hs = freeAdj(t, u).filter(function (h) { const k = h[0] + "," + h[1]; return reach[k] !== undefined && spots.indexOf(k) < 0; }).sort(function (a, b2) {
@@ -972,7 +1253,8 @@
           out.push({ u: t, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), plan: { moves: stay ? [] : [{ u: u, to: hs[0].slice() }], more: [], fx: buff } });
           return;
         }
-        if (sp && sp.noDmg) { if (dd <= abilityReach(u, o.ab) && clear) out.push({ u: t, dmg: 0, hits: 0, per: 0 }); return; }  // no damage of its own: the target only places the decoys
+        if (sp && sp.noDmg) { if (sp.adjOnly ? dd === 1 : dd <= abilityReach(u, o.ab) && (clear || sp.anywhere)) out.push({ u: t, dmg: 0, hits: 0, per: 0 }); return; }  // no damage of its own: the target only places the decoys
+        if (sp && sp.line && lineDir(u.t, t.t, LINE[o.ab[0]].len((o.ab[8] && o.ab[8][rar]) || {})) < 0) return;  // the target must be on one of the 6 lines
         if (o.ab) { if (dd <= abilityReach(u, o.ab) && clear && !(u.noRanged && o.ab[4] === "Ranged" && dd > 1)) keep(damageOf(u, t, { ab: o.ab }, dd), o.ab[5] || (wp[wp.length - 1] || [])[1]); }
         else wp.forEach(function (w) { if (w[0] === 1 ? dd === 1 : !adj && !u.noRanged && dd <= w[0] && clear) keep(damageOf(u, t, { w: w }, dd), w[1]); });  // a ranged weapon cannot be used next to an enemy
         if (best && best.tot > 0) out.push({ u: t, dmg: Math.round(best.tot), hits: best.hits, per: Math.round(best.per), prof: best.prof });
@@ -980,8 +1262,8 @@
       if (!o.ab && (u.tset.Healer || u.tset.Mechanic)) {  // a Healer heals a living ally, a Mechanic repairs a mechanical one: the number of hits times its damage
         const hitsMax = Math.max.apply(null, wp.map(function (w) { return w[2]; })), reachW = Math.max.apply(null, wp.map(function (w) { return w[0]; }));
         live().forEach(function (a) {
-          const twist = (u.rules.ab || []).some(function (x) { return x[0] === "TwistedScience"; }) && !a.twisted;  // Hollan can heal an unaffected ally even at full health
-          if (a.side !== u.side || a === u || a.decoy || !a.max || (a.hp >= a.max && !twist)) return;
+          const twist = (u.rules.ab || []).some(function (x) { return x[0] === "TwistedScience"; }) && !a.twisted && a !== u;  // Hollan can heal an unaffected ally even at full health (not himself)
+          if (a.side !== u.side || a.decoy || !a.max || (a.hp >= a.max && !twist)) return;  // a healer can heal itself if it is not mechanical, a mechanic repair itself only if it is mechanical (checked below)
           const mech = !!(a.tset.Mechanical || a.tset.LivingMetal), dd = RULES.dist(u.t, a.t);
           if (mech ? !u.tset.Mechanic : !u.tset.Healer) return;
           if (dd <= reachW && (dd <= 1 || RULES.sight(u.t, a.t))) out.push({ u: a, dmg: 0, hits: hitsMax, per: u.atk, heal: Math.round(Math.min(a.max - a.hp, u.atk * hitsMax)) });
@@ -1000,8 +1282,13 @@
       return r;
     };
     // what the chosen character can still do this turn
-    const mine = function () { return sel && !sel.summon && sel.alive && sel.side === active; };  // a summon plays by itself
-    const budget = function (u) { return u.acted ? 0 : Math.max(0, mvOf(u) - u.spent); };  // Rapid Assault: +1 movement until the unit attacks
+    const mine = function () { return sel && !sel.summon && !sel.auto && sel.alive && sel.side === active; };  // a summon plays by itself
+    // one move per turn (the whole movement, in one go), and no move after an attack, unless the active ability that was just used says the unit can move again
+    const MOVE_AGAIN = { ItItches: 1, StrikeFromTheShadows: 1, ProclivityForMurder: 1, FireAndReposition: 1, FightingRetreat: 1 };
+    const budget = function (u) {
+      if (u.moves >= 1 + (u.moveExtra || 0) || (u.acted && !u.moveAfter)) return 0;
+      return Math.max(0, mvOf(u) - u.spent);
+    };  // Rapid Assault: +1 movement until the unit attacks
 
     function unitPanel() {  // the chosen character: rarity, level, rank, stars, relic, stats, traits, the actions
       if (!sel) return ['<h3>Attaques</h3><p class="rp-none">Cliquez sur un personnage pour choisir son attaque, voir où il peut aller et où l\'adversaire peut le toucher.</p>', '<h3>Stats</h3><p class="rp-none">Les stats du personnage choisi s\'affichent ici.</p>'];
@@ -1020,7 +1307,8 @@
       const can = mine() && sel.alive;
       const opts = options(sel);
       const btns = '<div class="sb-acts">' + opts.map(function (o) {
-        return '<button type="button" class="sb-act' + (act && act.id === o.id ? " is-on" : "") + (o.ab && !o.ok ? " is-info" : "") + '" data-act="' + o.id + '" title="' + esc(o.name) + '">' +
+        const spent = o.ab && o.ok && o.ab[2] === "a" && !abReady(sel, o.ab) && !(sel.mow && sel.acted);  // used (once only) or still recharging: greyed
+        return '<button type="button" class="sb-act' + (act && act.id === o.id ? " is-on" : "") + (o.ab && !o.ok ? " is-info" : "") + (spent ? " is-spent" : "") + '" data-act="' + o.id + '" title="' + esc(o.name + (spent ? " — " + abWait(sel, o.ab) : "")) + '">' +
           (o.icon ? '<img src="' + o.icon + '" alt="" onerror="this.style.display=\'none\'">' : '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M19 3l2 2-9.6 9.6-1.4-1.4zM8 13l3 3-2 2-1-1-2.5 2.5L4 18.5 6.5 16l-1-1z"/></svg>') + "<span>" + esc(o.name) + "</span></button>";
       }).join("") + "</div>";
       const tr = (ru.tr || []).map(function (t) { return '<span class="sb-trait" title="' + esc(t[1]) + '"><img src="' + assets + "traits/" + esc(t[0]) + '.webp" alt="" onerror="this.style.display=\'none\'">' + esc(t[1]) + "</span>"; }).join("");
@@ -1074,9 +1362,20 @@
       fx.innerHTML = "";
       units.forEach(function (u) { if (u.g) u.g.classList.remove("tk-hit", "tk-act"); });
       clearTimeout(flashTimer);
+      const gl = !m ? [] : (m.guards || []).concat(((m.auto || []).concat(m.autoNow || []).concat(m.trig || [])).reduce(function (a, r) { return a.concat(r.guards || []); }, []));
+      if (gl.length) {  // a guard that appeared and fell in the same hit is still shown for a moment, with the damage it took
+        let h = "";
+        gl.forEach(function (x) {
+          if (!x.g.g) return;
+          x.g.g.classList.remove("gone"); x.g.g.classList.add("tk-hit"); pos(x.g.g, home(x.g));
+          if (x.dmg) h += '<text class="rp-fig" x="' + cx(x.g.t[0]).toFixed(1) + '" y="' + (cy(x.g.t[0], x.g.t[1]) - R * 0.55).toFixed(1) + '" text-anchor="middle">−' + num(x.dmg) + "</text>";
+        });
+        fx.innerHTML = h;
+        flashTimer = setTimeout(function () { fx.innerHTML = ""; units.forEach(function (u) { if (u.g) { u.g.classList.remove("tk-hit", "tk-act"); u.g.classList.toggle("gone", !u.alive); } }); }, 1500);
+      }
       if (!m || m.k !== "atk" || !(m.dmg > 0)) return;
       const a = home(m.u), t = [cx(m.tgt.t[0]), cy(m.tgt.t[0], m.tgt.t[1])];
-      fx.innerHTML = '<line class="rp-beam" x1="' + a[0].toFixed(1) + '" y1="' + a[1].toFixed(1) + '" x2="' + t[0].toFixed(1) + '" y2="' + t[1].toFixed(1) + '"/>' +
+      fx.innerHTML += '<line class="rp-beam" x1="' + a[0].toFixed(1) + '" y1="' + a[1].toFixed(1) + '" x2="' + t[0].toFixed(1) + '" y2="' + t[1].toFixed(1) + '"/>' +
         '<text class="rp-fig" x="' + t[0].toFixed(1) + '" y="' + (t[1] - R * 0.55).toFixed(1) + '" text-anchor="middle" style="animation-delay:0.12s">−' + num(m.dmg) + "</text>";
       m.tgt.g.classList.add("tk-hit"); m.u.g.classList.add("tk-act");
       flashTimer = setTimeout(function () { fx.innerHTML = ""; units.forEach(function (u) { if (u.g) u.g.classList.remove("tk-hit", "tk-act"); }); }, 1500);
@@ -1087,6 +1386,10 @@
       const out = [];
       if (!u.alive || u.mow || u.decoy || !u.t) return out;
       const T = u.tset, add = function (id, icon, title) { out.push({ id: id, icon: icon, title: title }); };
+      if (!u.summon && !u.auto) (u.rules.ab || []).forEach(function (a) {  // an active ability that can be used only once: its icon stays on the character until it is used (like the replays)
+        if (a[2] !== "a" || ((a[11] || [0, null])[1] !== null) || (u.used && u.used[a[0]] !== undefined) || !((a[3] && a[3][rar]) || CULT[a[0]]) || a[0] === "CalibaniteGreatsword") return;
+        out.push({ id: "ab-" + a[0], icon: assets + "abilities/" + a[0] + ".webp", title: a[1] + " : capacité active utilisable une seule fois par bataille." + (abReady(u, a) ? "" : " " + abWait(u, a)) });
+      });
       if (T.TerminatorArmour && !u.hitNow) add("term", trIcon("TerminatorArmour"), "Armure Terminator : la première attaque reçue ce tour est réduite de " + Math.abs(TV.terminatorArmourDmgReduction || 75) + " %.");
       if (T.Resilient && u.hp > 1) add("resil", trIcon("Resilient"), "Résilience : ne tombe pas à 0 PV tant qu'il lui en reste plus de 1.");
       if (u.ambush && !u.decoy) add("ambush", trIcon("Ambush"), "Embuscade : laisse un leurre la première fois qu'il tombe et peut revenir sur un leurre.");
@@ -1106,6 +1409,14 @@
       else if (hk === "ice") add("hice", fxIcon("ice"), "Glace : un déplacement qui y arrive s'arrête.");
       else if (hk === "contam") add("hcontam", fxIcon("poisoned"), "Hexagone contaminé : −30 % d'armure (sauf mécaniques et Nurgle).");
       else if (hk === "despoiled") add("hdesp", fxIcon("possessed"), "Terrain souillé : 6 à 9 % de la santé initiale en dégâts au début de son tour.");
+      if (fxOn(u, "wrath")) add("wrath", fxIcon("taunted"), "Courroux écrasant : provoque les ennemis adjacents, −" + (fxOn(u, "wrath").red || 0) + " % des attaques à distance, frappe les adjacents au début de son tour.");
+      const obs = fxOn(u, "observed");
+      if (obs) add("observed", fxIcon("reveal"), "Observé : +" + num(obs.v.extraDmg || 0) + " dégâts et −" + (obs.v.dmgReductionPct || 0) + " % de dégâts subis par ennemi provoqué adjacent (jusqu'à la fin de son prochain tour).");
+      if (fxOn(u, "reanim")) add("reanim", fxIcon("healing_powerup"), "Faisceau réanimateur : la première fois qu'il devrait être vaincu avant le prochain tour du Réanimateur, il est réanimé.");
+      const wkf = fxOn(u, "weak");
+      if (wkf) add("weak", fxIcon("debuffed"), "Lumière de Sanguinius : −" + wkf.pct + " % de dégâts infligés (le double contre les unités à " + (wkf.half || 50) + " % de santé ou moins).");
+      if (fxOn(u, "mvup") && !(u.shun && u.shun.kind === 2)) add("mvup", fxIcon("buffed"), "+" + (fxOn(u, "mvup").mv || 1) + " déplacement jusqu'à la fin du tour.");
+      if (abOf(u, "CalibaniteGreatsword")) add("stance", fxIcon("martial_superiority"), u.stance ? "Posture de balayage : ses attaques normales frappent aussi les ennemis adjacents à lui et à la cible." : "Posture de frappe : Sentinelle à la fin de son tour, même s'il a attaqué.");
       const bzf = fxOn(u, "brazier");
       if (bzf) add("brazier", fxIcon("debuffed"), "Brasier du feu sacré : +" + bzf.pct + " % de dégâts subis (jusqu'au round " + bzf.until + ").");
       if (fxOn(u, "pin")) add("pin", fxIcon("supressed"), "Neutralisé : −30 % de dégâts, −1 déplacement, pas de Sentinelle (1 manche).");
@@ -1130,7 +1441,7 @@
         out.push({ id: "aura-" + a.id + "-" + a.e.i, icon: fxIcon("buffed"), title: nm + " : aura d'une capacité qui l'aide.", label: nm });
       });
       if (u.moveBonus > 0 && !(u.shun && u.shun.kind === 2)) add("move", fxIcon("buffed"), "+" + u.moveBonus + " déplacement ce tour.");
-      if (live().some(function (e) { return e.side !== u.side && e.tset.ContagionsOfNurgle && RULES.dist(e.t, u.t) <= contagionRange(); })) add("conta", trIcon("ContagionsOfNurgle"), "Contagion de Nurgle : l'armure est réduite dans l'aura d'un ennemi.");
+      if (!T.ContagionsOfNurgle && live().some(function (e) { return e.side !== u.side && e.tset.ContagionsOfNurgle && RULES.dist(e.t, u.t) <= contagionRange(); })) add("conta", trIcon("ContagionsOfNurgle"), "Contagion de Nurgle : l'armure est réduite dans l'aura d'un ennemi.");
       const cell = RULES.cell(u.t[0], u.t[1]) || {};
       if (cell.tile === "Swamp" && !u.rules.fl && !u.rules.us) add("wire", fxIcon("debuffed"), "Fils barbelés : +" + (TV.swampBonus || 50) + " % de dégâts reçus.");
       if (cell.tile === "DryBush" && !T.BigTarget) add("grass", fxIcon("light_cover"), "Hautes herbes : −" + (TV.lightCoverHitReduction || 2) + " coups à distance reçus.");
@@ -1162,11 +1473,19 @@
         });
       });
     }
+    const deathText = function (list, m) {  // every unit defeated in the step (a guard already said to be defeated is not repeated)
+      const said = (m.guards || []).concat(((m.auto || []).concat(m.autoNow || [])).reduce(function (a, r) { return a.concat(r.guards || []); }, [])).filter(function (g) { return g.died; }).map(function (g) { return g.g; });
+      return (list || []).filter(function (u) { return said.indexOf(u) < 0 && !u.decoy; }).map(function (u) { return " · <b>" + esc(u.name) + " est vaincu</b>"; }).join("");
+    };
     const boomText = function (list) {
-      return (list || []).map(function (x) { return " · " + esc(x.from.name) + " explose → " + esc(x.tgt.name) + " <b>−" + num(x.dmg) + "</b>"; }).join("");
+      return (list || []).map(function (x) { return " · " + esc(x.from.name) + " " + esc(x.label || "explose") + " → " + esc(x.tgt.name) + " <b>−" + num(x.dmg) + "</b>"; }).join("");
     };
     const regenText = function (list) {
-      return (list || []).map(function (x) { return " · " + esc(x.u.name) + (x.revive ? " est réanimé (" + esc(x.label.replace("réanimé par ", "par ")) + ", " + num(x.amt) + " PV)" : " régénère +" + num(x.amt) + " (" + esc(x.label) + ")"); }).join("");
+      return (list || []).map(function (x) {
+        if (x.flee) return " · " + esc(x.u.name) + " " + esc(x.label);
+        if (x.revive) return " · " + esc(x.u.name) + " " + (x.label.indexOf("réanimé") === 0 ? "est " : "") + esc(x.label) + " (" + num(x.amt) + " PV)";
+        return " · " + esc(x.u.name) + " régénère +" + num(x.amt) + " (" + esc(x.label) + ")";
+      }).join("");
     };
     const hxText = function (list) {  // the hexes an action covers
       const names = { fire: "embrase", ice: "recouvre de glace", contam: "contamine", despoiled: "souille" }, n = {};
@@ -1174,16 +1493,23 @@
       return Object.keys(n).map(function (k) { return " · " + names[k] + " " + n[k] + " hexagone" + (n[k] > 1 ? "s" : ""); }).join("");
     };
     const guardText = function (list) {  // who took a hit in the place of its owner
-      return (list || []).map(function (x) { return " · " + (x.fresh ? esc(x.g.name) + " apparaît et " : "") + esc(x.g.name) + " encaisse à la place de " + esc(x.from.name); }).join("");
+      return (list || []).map(function (x) { return x.hit === false ? " · " + esc(x.g.name) + " apparaît près de " + esc(x.from.name) : " · " + (x.fresh ? esc(x.g.name) + " apparaît et " : "") + esc(x.g.name) + " encaisse " + (x.dmg ? "<b>−" + num(x.dmg) + "</b> " : "") + "à la place de " + esc(x.from.name) + (x.died ? " et est vaincue" : ""); }).join("");
     };
     const autoText = function (list) {  // what acted by itself: the summons, Khârn's Betrayer
       return (list || []).map(function (x) { if (x.env) return " · " + esc(x.label) + (x.tgt ? " → " + esc(x.tgt.name) + " −" + num(x.dmg) : ""); return " · " + esc(x.u.name) + (x.label !== "Attaque" ? " (" + esc(x.label) + ")" : "") + (x.to ? " se déplace" : "") + (x.tgt ? " → " + esc(x.tgt.name) + " −" + num(x.dmg) + (x.hits > 1 ? " (" + x.hits + " coups)" : "") : "") + (x.more || []).map(function (y) { return " · " + esc(y.tgt.name) + " −" + num(y.dmg); }).join("") + guardText(x.guards) + autoText(x.trig); }).join("");
+    };
+    const isDone = function (u) {  // a unit of the side that plays that has moved or acted and has nothing left it can do (no move, no attack, no ability)
+      if (!u.alive || u.side !== active || u.summon || u.auto || u.decoy) return false;
+      if (!u.mow && budget(u) > 0) return false;
+      return !options(u).some(function (o) { return o.ok && (targetsOf(u, o).length || hexesOf(u, o).length); });
     };
     function render() {
       units.forEach(function (u) {
         if (!u.g) return;
         u.g.classList.toggle("tk-sel", u === sel);
         u.g.classList.toggle("gone", !u.alive);
+        u.g.classList.toggle("tk-done", isDone(u));  // nothing left to do this turn: greyed
+        u.g.classList.toggle("tk-target", !!(act && sel && tgtSet[u.i]));  // (a machine of war that casts on itself lights up too)
         if (u.mow) return;
         pos(u.g, home(u));
         u.g.classList.toggle("sb-drag", u.side === active && u.alive);  // only the side whose turn it is can be moved
@@ -1193,16 +1519,20 @@
       const TILE = { fire: ["#ff7a1a", "fire"], ice: ["#7dd3fc", "ice"], contam: ["#7bd34a", "poisoned"], despoiled: ["#a855f7", "possessed"] };
       $("sb-tiles").innerHTML = Object.keys(hexfx).filter(function (k) { return hexKind(k.split(",").map(Number)); }).map(function (k) {  // the hex effects on the map: a tint and the effect's icon
         const f = hexfx[k], h = f.h, col = TILE[f.kind], x = cx(h[0]), y = cy(h[0], h[1]), z = R * 0.5;
-        return '<polygon class="sb-tile" fill="' + col[0] + '" fill-opacity="0.32" stroke="' + col[0] + '" stroke-width="1.4" points="' + hexAt(x, y, 0.94) + '"/><image href="' + fxIcon(col[1]) + '" x="' + (x - z / 2).toFixed(1) + '" y="' + (y - R * 0.86).toFixed(1) + '" width="' + z.toFixed(1) + '" height="' + z.toFixed(1) + '" pointer-events="none"/>';
+        return '<polygon class="sb-tile" fill="' + col[0] + '" fill-opacity="0.32" stroke="' + col[0] + '" stroke-width="1.4"' + maskAttr(h[0], h[1]) + ' points="' + hexAt(x, y, 0.94) + '"/><image href="' + fxIcon(col[1]) + '" x="' + (x - z / 2).toFixed(1) + '" y="' + (y - R * 0.86).toFixed(1) + '" width="' + z.toFixed(1) + '" height="' + z.toFixed(1) + '" pointer-events="none"/>';
+      }).join("");
+      $("sb-tiles").innerHTML += field.filter(function (u) { return u.alive && u.ghost && u.img; }).map(function (u) {  // Toth's time ghost: his portrait, blurred
+        const x = cx(u.ghost[0]), y = cy(u.ghost[0], u.ghost[1]), r = R * 0.62;
+        return '<g class="sb-ghost" opacity="0.55" style="filter: blur(1.6px)"><circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="' + r.toFixed(1) + '" fill="#10151c" stroke="#a78bfa" stroke-width="2"/><image href="' + esc(u.img) + '" x="' + (x - r).toFixed(1) + '" y="' + (y - r).toFixed(1) + '" width="' + (2 * r).toFixed(1) + '" height="' + (2 * r).toFixed(1) + '" preserveAspectRatio="xMidYMid slice"/><title>Fantôme temporel de ' + esc(u.name) + '</title></g>';
       }).join("");
       $("sb-tiles").innerHTML += field.filter(function (u) { return u.alive && u.foot; }).map(function (u) {  // the other two hexes of a big stationary unit
-        return u.foot.map(function (h) { return '<polygon class="sb-zmark" fill="' + (u.side === 0 ? "#4ad1c0" : "#f06b6b") + '" fill-opacity="0.18" stroke="' + (u.side === 0 ? "#4ad1c0" : "#f06b6b") + '" stroke-width="1.4" points="' + hexAt(cx(h[0]), cy(h[0], h[1]), 0.94) + '"/>'; }).join("");
+        return u.foot.map(function (h) { return '<polygon class="sb-zmark" fill="' + (u.side === 0 ? "#4ad1c0" : "#f06b6b") + '" fill-opacity="0.18" stroke="' + (u.side === 0 ? "#4ad1c0" : "#f06b6b") + '" stroke-width="1.4"' + maskAttr(h[0], h[1]) + ' points="' + hexAt(cx(h[0]), cy(h[0], h[1]), 0.94) + '"/>'; }).join("");
       }).join("");
       $("sb-tiles").innerHTML += zmarks.map(function (mk) {  // the zones marked for later: dashed outline with the ability's name
-        return mk.hexes.map(function (h) { return '<polygon class="sb-zmark" fill="' + (mk.kind === "mine" ? "#ef4444" : mk.kind === "zone" ? "#a855f7" : "#f59e0b") + '" fill-opacity="0.16" stroke="' + (mk.kind === "mine" ? "#ef4444" : "#f59e0b") + '" stroke-width="1.6" stroke-dasharray="4 3" points="' + hexAt(cx(h[0]), cy(h[0], h[1]), 0.94) + '"><title>' + esc(mk.ab[1]) + " (" + esc(mk.by.name) + ')</title></polygon>'; }).join("");
+        return mk.hexes.map(function (h) { return '<polygon class="sb-zmark" fill="' + (mk.kind === "mine" ? "#ef4444" : mk.kind === "zone" ? "#a855f7" : "#f59e0b") + '" fill-opacity="0.16" stroke="' + (mk.kind === "mine" ? "#ef4444" : "#f59e0b") + '" stroke-width="1.6" stroke-dasharray="4 3"' + maskAttr(h[0], h[1]) + ' points="' + hexAt(cx(h[0]), cy(h[0], h[1]), 0.94) + '"><title>' + esc(mk.ab[1]) + " (" + esc(mk.by.name) + ')</title></polygon>'; }).join("");
       }).join("");
       zones();
-      $("sb-hexes").innerHTML = Object.keys(hexSet).map(function (k) { const h = k.split(",").map(Number); return '<polygon class="rp-z rp-z-act" data-c="' + h[0] + '" data-r="' + h[1] + '" points="' + hexAt(cx(h[0]), cy(h[0], h[1]), 0.94) + '"/>'; }).join("");
+      $("sb-hexes").innerHTML = Object.keys(hexSet).map(function (k) { const h = k.split(",").map(Number); return '<polygon class="rp-z rp-z-act" data-c="' + h[0] + '" data-r="' + h[1] + '"' + maskAttr(h[0], h[1]) + ' points="' + hexAt(cx(h[0]), cy(h[0], h[1]), 0.94) + '"/>'; }).join("");
       syncStatuses();
       const panels = unitPanel();
       $("sb-unit").innerHTML = panels[0];
@@ -1211,7 +1541,9 @@
       $("sb-tip").hidden = !o;
       if (o) $("sb-tip").innerHTML = tipHtml(o);
       $("sb-turnlab").textContent = turnText(round, active);
-      svgBox.classList.toggle("turn-us", active === 0); svgBox.classList.toggle("turn-them", active === 1);  // the band along the map: green at the bottom on our turn, red at the top on theirs
+      const bh = vb[3] * 0.075, bl = vb[3] * 0.007, bx = vb[0].toFixed(1), bw = vb[2].toFixed(1);  // the band along the map: green along its bottom edge on our turn, red along its top edge on theirs (drawn in the picture's own frame)
+      $("sb-turnband").innerHTML = active === 0 ? '<rect x="' + bx + '" y="' + (vb[1] + vb[3] - bh).toFixed(1) + '" width="' + bw + '" height="' + bh.toFixed(1) + '" fill="url(#sbBandG)"/><rect x="' + bx + '" y="' + (vb[1] + vb[3] - bl).toFixed(1) + '" width="' + bw + '" height="' + bl.toFixed(1) + '" fill="#34d399" fill-opacity="0.85"/>'
+        : '<rect x="' + bx + '" y="' + vb[1].toFixed(1) + '" width="' + bw + '" height="' + bh.toFixed(1) + '" fill="url(#sbBandR)"/><rect x="' + bx + '" y="' + vb[1].toFixed(1) + '" width="' + bw + '" height="' + bl.toFixed(1) + '" fill="#f06b6b" fill-opacity="0.85"/>';
       let r = 1, side = 0;
       $("sb-log").innerHTML = '<li data-k="0" class="rp-turn' + (cur === 0 ? " is-cur" : "") + '"><button type="button">' + turnText(1, 0) + "</button></li>" + steps.map(function (m, i) {
         let text;
@@ -1222,12 +1554,12 @@
         else if (m.k === "atk") {
           const made = (m.adds || []).filter(function (a) { return !a.decoy; }), deco = (m.adds || []).filter(function (a) { return a.decoy; }).length;
           const sums = made.length || deco ? "invoque " + made.map(function (a) { return esc(a.name); }).join(", ") + (deco ? (made.length ? " et " : "") + deco + " leurre" + (deco > 1 ? "s" : "") : "") : "";
-          text = esc(m.u.name) + " · " + esc(m.label) + (m.dmg > 0 ? " → " + esc(m.tgt.name) + " <b>−" + num(m.dmg) + "</b>" + (m.hits > 1 ? " (" + m.hits + " coups de " + num(m.per) + ")" : "") + (m.dead ? " · hors de combat" : "") : m.tgt !== m.u ? " → " + esc(m.tgt.name) : "") + (sums ? " · " + sums : "") +
+          text = esc(m.u.name) + " · " + esc(m.label) + (m.dmg > 0 ? " → " + esc(m.tgt.name) + " <b>−" + num(m.dmg) + "</b>" + (m.hits > 1 ? " (" + m.hits + " coups de " + num(m.per) + ")" : "") : m.tgt !== m.u ? " → " + esc(m.tgt.name) : "") + (sums ? " · " + sums : "") +
             (m.more || []).map(function (x) { return " · " + esc(x.label) + " → " + esc(x.tgt.name) + " <b>−" + num(x.dmg) + "</b>" + (x.hits > 1 ? " (" + x.hits + " coups)" : ""); }).join("") +
             (m.moves || []).map(function (x) { return " · " + esc(x.u.name) + " se déplace"; }).join("") + (m.mk && m.mk.length ? " · marque " + m.mk.reduce(function (a, x) { return a + x.hexes.length; }, 0) + " hexagone" + (m.mk.reduce(function (a, x) { return a + x.hexes.length; }, 0) > 1 ? "s" : "") : "") + (m.pend && m.tgt ? " (tir au début de son prochain tour)" : "") + hxText(m.hx) + autoText(m.react) + guardText(m.guards) + (m.heals && m.heals.length ? " · soigne " + m.heals.map(function (h) { return esc(h.u.name) + " +" + num(h.amt); }).join(", ") : "") + autoText(m.autoNow);
         }
-        else text = esc(m.u.name) + (m.tp ? " se téléporte (assaut en profondeur)" : " se déplace") + autoText(m.trig);
-        text += regenText(m.regen) + boomText(m.booms);
+        else text = esc(m.u.name) + (m.tp ? (m.tpm ? " se téléporte près de la marque" : " se téléporte (assaut en profondeur)") : " se déplace") + autoText(m.trig);
+        text += regenText(m.regen) + boomText(m.booms) + deathText(m.deaths, m);
         return '<li data-k="' + (i + 1) + '" class="' + (m.k === "end" ? "rp-turn " : "") + (cur === i + 1 ? "is-cur" : "") + (i >= cur ? " sb-later" : "") + '"><button type="button">' + text + "</button></li>";
       }).join("");
       const on = $("sb-log").querySelector("li.is-cur"), box = $("sb-log");
@@ -1257,7 +1589,7 @@
       layer.innerHTML = ""; reachNow = {};
       if (!RULES || !sel || sel.mow || !sel.alive) return;
       const occ = {};
-      live().forEach(function (u) { occ[u.t[0] + "," + u.t[1]] = u; });
+      live().forEach(function (u) { footOf(u).forEach(function (h) { occ[h[0] + "," + h[1]] = u; }); });
       const reachOf = function (u, mov) {
         const r = u.rules;
         return RULES.reach({ from: u.t, mov: mov, fly: !!r.fl, free: !!r.us,
@@ -1268,7 +1600,7 @@
         const rngA = hitReach(sel), hit = {};
         reachOf(sel, mvOf(sel)).forEach(function (p) { RULES.hits([p.c, p.r], rngA, !!sel.rules.id).forEach(function (t) { hit[t[0] + "," + t[1]] = 1; }); });
         let h = "";
-        d.cells.forEach(function (c) { if (hit[c[0] + "," + c[1]] && c[4] !== 2) h += '<polygon class="rp-z rp-z-dg" points="' + hexAt(cx(c[0]), cy(c[0], c[1]), 0.94) + '"/>'; });
+        d.cells.forEach(function (c) { if (hit[c[0] + "," + c[1]] && c[4] !== 2) h += '<polygon class="rp-z rp-z-dg"' + maskAttr(c[0], c[1]) + ' points="' + hexAt(cx(c[0]), cy(c[0], c[1]), 0.94) + '"/>'; });
         layer.innerHTML = h;
         return;
       }
@@ -1280,21 +1612,26 @@
         d.cells.forEach(function (c) {
           const k = c[0] + "," + c[1];
           if (c[4] !== 0 || occ[k] || reachNow[k] !== undefined || adjFoe(c[0], c[1])) return;
-          reachNow[k] = mvOf(sel); tpNow[k] = true;
+          reachNow[k] = mvOf(sel); tpNow[k] = "ds";
         });
       }
+      const tpm = fxOn(sel, "tpm");  // Titanhammer: the marked hex and the ones around it can be reached by the units it chose
+      if (tpm && sel.moves === 0 && sel.spent === 0) [tpm.hex].concat(RULES.around(tpm.hex[0], tpm.hex[1])).forEach(function (h) {
+        const k = h[0] + "," + h[1], c = RULES.cell(h[0], h[1]);
+        if (c && c.kind === 0 && !occ[k] && reachNow[k] === undefined) { reachNow[k] = mvOf(sel); tpNow[k] = "tpm"; }
+      });
       live().forEach(function (u) {
         if (u.side === sel.side) return;
         const rng = hitReach(u);
         reachOf(u, mvOf(u)).forEach(function (p) { RULES.hits([p.c, p.r], rng, !!u.rules.id).forEach(function (t) { danger[t[0] + "," + t[1]] = 1; }); });
       });
       let html = "", exposed = 0, n = 0;
-      d.cells.forEach(function (c) { if (danger[c[0] + "," + c[1]] && c[4] !== 2) html += '<polygon class="rp-z rp-z-dg" points="' + hexAt(cx(c[0]), cy(c[0], c[1]), 0.94) + '"/>'; });
+      d.cells.forEach(function (c) { if (danger[c[0] + "," + c[1]] && c[4] !== 2) html += '<polygon class="rp-z rp-z-dg"' + maskAttr(c[0], c[1]) + ' points="' + hexAt(cx(c[0]), cy(c[0], c[1]), 0.94) + '"/>'; });
       Object.keys(tpNow).forEach(function (k) { const h = k.split(",").map(Number); go.push({ c: h[0], r: h[1], k: reachNow[k], tp: true }); });
       go.forEach(function (p) {
         const hot = !!danger[p.c + "," + p.r], own = p.k === 0;
         if (!own) { n++; if (hot) exposed++; }
-        html += '<polygon class="rp-z rp-z-mv' + (hot ? " rp-z-hot" : "") + (own ? " rp-z-own" : "") + (p.tp ? " rp-z-tp" : "") + '" data-c="' + p.c + '" data-r="' + p.r + '" points="' + hexAt(cx(p.c), cy(p.c, p.r), 0.94) + '"/>';
+        html += '<polygon class="rp-z rp-z-mv' + (hot ? " rp-z-hot" : "") + (own ? " rp-z-own" : "") + (p.tp ? " rp-z-tp" : "") + '" data-c="' + p.c + '" data-r="' + p.r + '"' + maskAttr(p.c, p.r) + ' points="' + hexAt(cx(p.c), cy(p.c, p.r), 0.94) + '"/>';
       });
       layer.innerHTML = html;
     }
@@ -1302,12 +1639,12 @@
     const moveTo = function (u, c, r) {
       const cost = reachNow[c + "," + r];
       if (!cost || !mine() || u !== sel) return false;
-      push({ k: "mv", u: u, from: u.t.slice(), to: [c, r], cost: cost, tp: !!tpNow[c + "," + r] });
+      push({ k: "mv", u: u, from: u.t.slice(), to: [c, r], cost: cost, tp: !!tpNow[c + "," + r], tpm: tpNow[c + "," + r] === "tpm" });
       return true;
     };
     // one ability-style hit series (an average figure of the game's configuration: it ignores the attacker's bonuses): {tot, per, hits}
-    const abilityHit = function (u, t, avg, profile, hits) {
-      return damageOf(u, t, { ab: ["", "", "a", (function () { const o = {}; o[rar] = avg; return o; })(), "Ranged", profile, hits] }, u.mow ? 3 : RULES.dist(u.t, t.t));
+    const abilityHit = function (u, t, avg, profile, hits, pierce) {
+      return damageOf(u, t, { ab: ["", "", "a", (function () { const o = {}; o[rar] = avg; return o; })(), "Ranged", profile, hits], pierce: pierce || 0 }, u.mow ? 3 : RULES.dist(u.t, t.t));
     };
     const avgOf = function (vals, suf) { return ((vals["minDmg" + suf] || 0) + (vals["maxDmg" + suf] || 0)) / 2; };
     const foes = function (u) { return live().filter(function (x) { return x.side !== u.side && !x.ds; }); };  // a unit in Deep Strike mode cannot be targeted
@@ -1315,6 +1652,7 @@
     // (Light Im Up: the same enemy, the hits left when it falls go to another within 3; The Betrayer: an adjacent enemy), the heal of Revitalizing Malignancy
     function extras(u, o, t, main) {
       const more = [], vals = (o.ab && o.ab[8] && o.ab[8][rar]) || {};
+      if (o.ab && AOE[o.ab[0]]) AOE[o.ab[0]](u, o, t, vals).forEach(function (x) { more.push(x); });  // the area of the ability
       if (o.ab && CULT[o.ab[0]] && CULT[o.ab[0]].adj) {  // up to N units next to the target take the same hit
         const nMax = parseInt(vals.maxAdjacentTargets, 10) || 0;
         foes(u).filter(function (e) { return e !== t && RULES.dist(t.t, e.t) === 1; }).sort(function (x, y) { return RULES.dist(u.t, x.t) - RULES.dist(u.t, y.t); }).slice(0, nMax).forEach(function (e) {
@@ -1347,6 +1685,7 @@
           g[0].forEach(function (e) { const r = abilityHit(u, e, avgOf(vals, g[1]), o.ab[5], 1); more.push({ tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), label: o.name }); });
         });
       }
+      if (!o.ab && RULES.dist(u.t, t.t) === 1 && fxOn(u, "infusion")) { const fi = fxOn(u, "infusion").v, r = abilityHit(u, t, fi.dmg || 0, "Toxic", parseInt(fi.nrOfHits, 10) || 1); more.push({ tgt: t, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), label: "Infusion impie" }); }  // Foul Infusion: extra toxic hits on melee attacks
       if (!o.ab) {  // a normal attack: the extra hits the allies' auras and its own passives add
         const ranged = RULES.dist(u.t, t.t) > 1;
         aurasOn(u, u.t).forEach(function (a) {
@@ -1365,6 +1704,10 @@
           if (a[0] !== "CyclicIonBlaster") return;  // Re'vas: every attack adds 3 hits, more against a marked or mechanical target
           const v = (a[8] && a[8][rar]) || {}, bonus = t.marked || t.tset.Mechanical ? v.extraDmg || 0 : 0, r = abilityHit(u, t, avgOf(v, "") + bonus, a[5], parseInt(v.nrOfHits, 10) || 3);
           more.push({ tgt: t, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), label: a[1] });
+        });
+        const fg = abOf(u, "CalibaniteGreatsword");
+        if (fg && u.stance === 1) foes(u).filter(function (e) { return e !== t && RULES.dist(e.t, u.t) === 1 && RULES.dist(e.t, t.t) === 1; }).forEach(function (e) {  // sweeping stance: every enemy next to both Forcas and his target takes intensity hits
+          const r = abilityHit(u, e, avgOf(fg, ""), "Power", parseInt(fg.nrOfHits_2, 10) || 3); more.push({ tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), label: "Posture de balayage" });
         });
         (u.rules.ab || []).forEach(function (a) {
           const v = (a[8] && a[8][rar]) || {}, n = parseInt(v.nrOfHits, 10) || a[6] || 1;
@@ -1395,7 +1738,7 @@
       const dd = RULES.dist(u.t, t.t);
       if (kind === "pull" && dd <= 1) return { to: null, hurt: 0 };  // already adjacent: it stays
       const taken = {};
-      live().forEach(function (x) { taken[x.t[0] + "," + x.t[1]] = 1; });
+      live().forEach(function (x) { footOf(x).forEach(function (h) { taken[h[0] + "," + h[1]] = 1; }); });
       const free = RULES.around(t.t[0], t.t[1]).filter(function (h) { const c = RULES.cell(h[0], h[1]); return c && c.kind === 0 && !taken[h[0] + "," + h[1]]; });
       const ok = free.filter(function (h) { return RULES.dist(u.t, h) === (kind === "pull" ? dd - 1 : dd + 1); });
       if (ok.length) return { to: ok[0], hurt: 0 };
@@ -1406,7 +1749,53 @@
     const vals_ = function (o) { return (o.ab[8] && o.ab[8][rar]) || {}; };
     const nI = function (x, dflt) { return parseInt(x, 10) || dflt; };
     const vOf = function (o) { return (o.ab[8] && o.ab[8][rar]) || {}; };
-    const mh = function (u, e, raw, prof, n, label) { const r = abilityHit(u, e, raw, prof, n); return { tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), label: label }; };
+    const mh = function (u, e, raw, prof, n, label, pierce) { const r = abilityHit(u, e, raw, prof, n, pierce); return { tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), label: label }; };
+    // ---- the area of the abilities of characters: what a hit adds around its target (the hits come as `more` entries of the step). Friendly fire only where the text says "toutes les unités". ----
+    const adjUnits = function (c, but, enemyOf) { return live().filter(function (x) { return x !== but && !x.ds && RULES.dist(x.t, c) === 1 && (enemyOf === undefined || x.side !== enemyOf); }); };
+    const AOE = {
+      SanctorumMissile: function (u, o, t, v) { return adjUnits(t.t, u).filter(function (e) { return e !== t; }).map(function (e) { return mh(u, e, avgOf(v, ""), o.ab[5], nI(v.nrOfHits_2, 1), o.name); }); },  // every unit next to the target but her
+      FragBomb: function (u, o, t, v) { return adjUnits(t.t, u).filter(function (e) { return e !== t; }).map(function (e) { return mh(u, e, avgOf(v, ""), o.ab[5], nI(v.nrOfHits_2, 3), o.name); }); },  // every unit next to the target but him
+      FrenziedFiring: function (u, o, t, v) {  // the target's enemies around it; one more hit on the target per free hex around it (10 hits at most)
+        const free = RULES.around(t.t[0], t.t[1]).filter(function (h) { const c = RULES.cell(h[0], h[1]); return c && c.kind === 0 && !live().some(function (x) { return sameHex(x.t, h); }); }).length;
+        const out = adjUnits(t.t, u, u.side).filter(function (e) { return e !== t; }).map(function (e) { return mh(u, e, avgOf(v, ""), o.ab[5], nI(v.nrOfHits, 1), o.name); });
+        const extra = Math.min(nI(v.maxNrOfHits, 10), nI(v.nrOfHits, 1) + free) - nI(v.nrOfHits, 1);
+        if (extra > 0) out.push(mh(u, t, avgOf(v, ""), o.ab[5], extra, o.name));
+        return out;
+      },
+      HarvesterOfSouls: function (u, o, t, v) {  // the target's neighbours within range of Maugan Ra; one more hit each if he has not moved
+        const n = nI(v.nrOfHits, 2) + (u.spent === 0 ? 1 : 0), out = adjUnits(t.t, u, u.side).filter(function (e) { return e !== t && RULES.dist(u.t, e.t) <= nI(v.range, 3); }).map(function (e) { return mh(u, e, avgOf(v, ""), o.ab[5] || "HeavyRound", n, o.name); });
+        if (u.spent === 0) out.push(mh(u, t, avgOf(v, ""), o.ab[5] || "HeavyRound", 1, o.name));
+        return out;
+      },
+      DoomSiren: function (u, o, t, v) { return adjUnits(t.t, u, u.side).filter(function (e) { return e !== t; }).sort(function (a, b2) { return RULES.dist(u.t, a.t) - RULES.dist(u.t, b2.t); }).slice(0, nI(v.nrOfUnits, 2)).map(function (e) { return mh(u, e, avgOf(v, ""), o.ab[5], nI(v.nrOfHits, 3), o.name); }); },
+      Supercharge: function (u, o, t, v) {  // up to two enemies next to the target and farther from Sarquael, with more pierce
+        return adjUnits(t.t, u, u.side).filter(function (e) { return e !== t && RULES.dist(u.t, e.t) > RULES.dist(u.t, t.t); }).sort(function (a, b2) { return a.hp - b2.hp; }).slice(0, 2).map(function (e) { return mh(u, e, avgOf(v, "_2"), o.ab[5], nI(v.nrOfHits_2, 1), o.name, v.extraPierceRatio || 0); });
+      },
+      HeraldOfTheApocalypse: function (u, o, t, v) {  // the enemy right behind the target
+        const dir = RULES.around(u.t[0], u.t[1]).findIndex(function (h) { return sameHex(h, t.t); });
+        if (dir < 0) return [];
+        const back = RULES.around(t.t[0], t.t[1])[dir];
+        return foes(u).filter(function (e) { return sameHex(e.t, back); }).map(function (e) { return mh(u, e, avgOf(v, ""), o.ab[5], nI(v.nrOfHits, 2), o.name); });
+      },
+      HellfyreMissileRack: function (u, o, t, v) { return foes(u).filter(function (e) { return e !== t && e.psyTurn === turnNo; }).map(function (e) { return mh(u, e, avgOf(v, ""), o.ab[5], nI(v.nrOfHits, 1), o.name); }); },  // every enemy that took psychic damage this turn
+      MurderousSwing: function (u, o, t, v) {  // every adjacent enemy; with a single one the hit is stronger
+        const adj = foes(u).filter(function (e) { return RULES.dist(u.t, e.t) === 1; }), out = adj.filter(function (e) { return e !== t; }).map(function (e) { return mh(u, e, avgOf(v, ""), o.ab[5], nI(v.nrOfHits, 1), o.name); });
+        if (adj.length === 1) { const a = mh(u, t, avgOf(v, "") + (v.extraDmg || 0), o.ab[5], nI(v.nrOfHits, 1), o.name), b2 = mh(u, t, avgOf(v, ""), o.ab[5], nI(v.nrOfHits, 1), o.name); out.push({ tgt: t, dmg: a.dmg - b2.dmg, hits: 0, per: 0, label: o.name }); }
+        return out;
+      },
+      ProclivityForMurder: function (u, o, t, v) { return foes(u).filter(function (e) { return e !== t && RULES.dist(u.t, e.t) === 1; }).map(function (e) { return mh(u, e, avgOf(v, ""), o.ab[5], nI(v.nrOfHits, 3), o.name); }); },
+      GauntletsOfUltramar: function (u, o, t, v) { return foes(u).filter(function (e) { return RULES.dist(u.t, e.t) === 2; }).map(function (e) { return mh(u, e, avgOf(v, ""), o.ab[5], nI(v.nrOfHits_2, 1), o.name); }); },  // everyone at distance 2
+    };
+    // abilities that hit along a straight line in one of the 6 directions: its length, and whether it hits allies too
+    const LINE = {
+      RadBombardment: { len: function () { return 2 + Math.max(0, round - 1); }, all: true, hx: "contam", pin: true },
+      PowerVomit: { len: function () { return 3; }, all: true },
+      ExcruciatingFrequencies: { len: function (v) { return nI(v.nrOfTiles, 3); }, pin: true },
+    };
+    const lineDir = function (from, to, n) {
+      for (let dir = 0; dir < 6; dir++) if (dirLine(from, dir, n + 1).slice(1).some(function (h) { return sameHex(h, to); })) return dir;
+      return -1;
+    };
     const dirLine = function (h, dir, n) {  // up to n hexes in a straight line from h (h included) in a direction
       const out = [h.slice()];
       let c = h;
@@ -1480,7 +1869,7 @@
         g.immediate = true;
         return { main: null, adds: [g] };
       } },
-      NanoscarabRepairProtocols: { ally: true, plan: function (u, o, t, v) { return t.tset.Mechanical && !t.nano ? { main: null, buff: [{ u: t, hp: v.hp || 0 }] } : null; } },
+      NanoscarabRepairProtocols: { ally: true, plan: function (u, o, t, v) { return t.tset.Mechanical && !t.nano ? { main: null, buff: [{ u: t, hp: v.hp || 0, rep: v.hpToRepair || 0 }] } : null; } },
       ThriceBlessedConflagration: { ally: true, plan: function (u, o, t, v) {  // the ally hits harder at range on burning hexes; the Exorcist burns the line from it that holds the most enemies
         const b = bestLine(u, o, t.t, 99, true, avgOf(v, ""), o.ab[5], nI(v.nrOfHits, 1));
         return { main: null, more: b.hs, hx: b.hs.map(function (x) { return hexCover(x.tgt.t, "fire"); }), fx: [{ u: t, id: "conflag", until: round + nI(v.nrOfRounds, 5) - 1, v: v }] };
@@ -1509,6 +1898,11 @@
         const hs = prio(u, freeAdj(t), t.t).slice(0, nI(v.nrOfSummons_2, 3));
         if (!hs.length) return null;
         return { main: null, force: t, adds: hs.map(function (h) { const a = mineAt(u, h, v); a.immediate = true; return a; }) };
+      } },
+      ReanimationBeam: { self: true, plan: function (u, o, t, v) {  // the units with the Nanoscarab protocols are repaired; the summons play at once; the first time such a unit would fall before the Reanimator's next turn it comes back
+        const nano = live().filter(function (x) { return x.side === u.side && x.nano; });
+        return { main: null, heals: nano.map(function (x) { return { u: x, amt: Math.min(x.max - x.hp, v.hpToRepair || 0) }; }).filter(function (h) { return h.amt > 0; }),
+          fx: nano.map(function (x) { return { u: x, id: "reanim", hp: v.hp || 1, until: u.side === 0 ? round : round + 1 }; }), also: live().filter(function (x) { return x.side === u.side && x.summon; }) };
       } },
       Hailstrike: { ally: true, plan: function (u, o, t, v) {  // the ally's ranged Sentinelle shots get more pierce this round, and the Storm Speeder shoots the same target
         return { main: null, fx: [{ u: t, id: "hail", by: u, v: v, until: (t.side === 0 ? round : round + 1) + nI(v.nrOfRounds, 1) - 1 }] };
@@ -1540,6 +1934,7 @@
       const out = [], M = o && o.ab && MOW[o.ab[0]];
       if (!M || M.hex || !o.ok || u.acted || !abReady(u, o.ab)) return out;
       const v = vOf(o);
+      if (M.self) { const p0 = M.plan(u, o, u, v); return p0 ? [{ u: u, dmg: 0, hits: 0, per: 0, plan: p0 }] : out; }  // no target: click the machine itself
       (M.ally ? live().filter(function (x) { return x.side === u.side; }) : foes(u)).forEach(function (t) {
         const p = M.plan(u, o, t, v);
         if (p) out.push({ u: t, dmg: p.main ? p.main.dmg : 0, hits: p.main ? p.main.hits : 0, per: p.main ? p.main.per : 0, plan: p });
@@ -1558,11 +1953,73 @@
       push({ k: "atk", u: u, tgt: t || u, dmg: main ? main.dmg : 0, hits: main ? main.hits : 0, per: main ? main.per : 0, abId: o.ab[0], label: o.name, dead: !!main && healthAfter(t, main.dmg) <= 0 && !guardOf(t),
         more: p.more || [], hx: p.hx || [], fx: p.fx || null, adds: p.adds || null, heals: p.heals || null, mk: p.mk || null, pend: p.pend || null, mark: !!p.mark, buff: p.buff || null, deploy: !!p.deploy, also: p.also || null, force: p.force || null });
     }
+    // Unstoppable Momentum (Nob): he runs in a straight line, pushing every unit on his way to a random free hex next to it (allies too, without harm); each enemy takes the hits (+130 per hex run) and is pinned
+    // (a big target is stunned instead and stops him); he stops at a wall, a step of more than one level or a unit that cannot be pushed
+    function nobPlan(u, o, t) {
+      const v = (o.ab[8] && o.ab[8][rar]) || {}, dir = lineDir(u.t, t.t, 99);
+      if (dir < 0) return null;
+      const rnd = mulberry(((cur + 1) * 40503) ^ 0x2545f491), at = {}, taken = {}, moves = [], hits = [], fx = [];
+      live().forEach(function (x) { if (x !== u) at[x.t[0] + "," + x.t[1]] = x; });
+      let pos = u.t.slice(), run = 0;
+      for (let step = 0; step < 30; step++) {
+        const nx = RULES.around(pos[0], pos[1])[dir], c = RULES.cell(nx[0], nx[1]), here = RULES.cell(pos[0], pos[1]);
+        if (!c || c.kind !== 0 || Math.abs(c.el - here.el) > 1 || taken[nx[0] + "," + nx[1]]) break;
+        const x = at[nx[0] + "," + nx[1]];
+        if (x) {
+          const enemy = x.side !== u.side;
+          if (enemy) { const r = abilityHit(u, x, avgOf(v, "") + (v.extraDmg || 0) * (run + 1), o.ab[5] || "DirectDamage", nI(v.nrOfHits, 1)); hits.push({ tgt: x, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), label: o.name }); }
+          if (x.tset.BigTarget || x.tset.Immune) { if (enemy) fx.push({ u: x, id: "stun", until: stunUntil(x) }); break; }  // it stays: the Nob stops in front of it
+          const free = RULES.around(nx[0], nx[1]).filter(function (h) { const k = RULES.cell(h[0], h[1]); return k && k.kind === 0 && !at[h[0] + "," + h[1]] && !taken[h[0] + "," + h[1]] && !sameHex(h, pos) && !sameHex(h, u.t); });
+          if (!free.length) break;
+          const pick = free[Math.floor(rnd() * free.length)];
+          moves.push({ u: x, to: pick.slice() }); taken[pick[0] + "," + pick[1]] = 1; delete at[nx[0] + "," + nx[1]];
+          if (enemy) fx.push({ u: x, id: "pin", until: stunUntil(x) });
+        }
+        pos = nx; run++;
+      }
+      const main = hits.filter(function (h) { return h.tgt === t; })[0];
+      if (!main) return null;
+      if (run) moves.push({ u: u, to: pos });
+      return { moves: moves, more: hits.filter(function (h) { return h !== main; }), fx: fx, main: main };
+    }
+    // Multi-Threat Eliminator / Doombolt: the hits go to the target until it falls, then to the next enemy (those next to it for the Eliminator, +1 hit per kill); Doombolt shares its hits equally between
+    // the enemies in range (+1 hit per burning hex, 9 at most) and a fallen enemy's share goes to the others
+    function redistSim(u, o, t, v, kind) {
+      const prof = o.ab[5] || "Psychic", hp = {}, res = {}, per = {};
+      const hit1 = function (e) { if (per[e.i] === undefined) per[e.i] = abilityHit(u, e, avgOf(v, ""), prof, 1).per; return per[e.i]; };
+      const apply = function (e) { const r = res[e.i] = res[e.i] || { e: e, dmg: 0, hits: 0 }, d1 = hit1(e); r.dmg += d1; r.hits++; hp[e.i] = (hp[e.i] === undefined ? e.hp : hp[e.i]) - d1; return hp[e.i] <= 0; };
+      const alive = function (e) { return (hp[e.i] === undefined ? e.hp : hp[e.i]) > 0; };
+      if (kind === "multi") {
+        let left = 6, cur2 = t, lastDead = null;
+        while (left > 0 && cur2) {
+          left--;
+          if (apply(cur2)) {
+            left += parseInt(v.extraHit, 10) || 1; lastDead = cur2;
+            cur2 = foes(u).filter(function (e) { return alive(e) && e !== lastDead && RULES.dist(u.t, e.t) <= (parseInt(v.range, 10) || 2) && RULES.dist(e.t, lastDead.t) === 1; })
+              .sort(function (a, b2) { return ((hit1(b2) >= (hp[b2.i] === undefined ? b2.hp : hp[b2.i])) - (hit1(a) >= (hp[a.i] === undefined ? a.hp : hp[a.i]))) || a.hp - b2.hp; })[0];
+          }
+        }
+      } else {
+        const fires = Object.keys(hexfx).filter(function (k) { return hexKind(k.split(",").map(Number)) === "fire"; }).length;
+        let n = Math.min(9, (parseInt(v.nrOfHits, 10) || 3) + fires), pool = foes(u).filter(function (e) { return RULES.dist(u.t, e.t) <= (parseInt(v.range, 10) || 2); });
+        pool.sort(function (a, b2) { return (b2 === t) - (a === t) || RULES.dist(u.t, a.t) - RULES.dist(u.t, b2.t); });
+        for (let i = 0; n > 0 && pool.length; i++) { const e = pool[i % pool.length]; apply(e); n--; if (!alive(e)) { pool.splice(pool.indexOf(e), 1); i--; } }
+      }
+      const mk = function (r) { return { tgt: r.e, dmg: Math.round(r.dmg), hits: r.hits, per: Math.round(r.dmg / Math.max(1, r.hits)), label: o.name }; };
+      return { main: res[t.i] ? mk(res[t.i]) : null, more: Object.keys(res).map(function (k) { return res[k]; }).filter(function (r) { return r.e !== t; }).map(mk) };
+    }
     const strike = function (u, o, t) {
       if (u.mow) return strikeMow(u, o, t);
-      const ts = targetsOf(u, o).filter(function (x) { return x.u === t; })[0];
-      if (!ts) return;
-      const sp = o.ab && CULT[o.ab[0]];
+      const ts0 = targetsOf(u, o).filter(function (x) { return x.u === t; })[0];
+      if (!ts0) return;
+      if (o.ab && o.ab[0] === "CalibaniteGreatsword") { push({ k: "atk", u: u, tgt: u, dmg: 0, hits: 0, per: 0, abId: o.ab[0], label: o.name + " (posture " + (u.stance ? "de frappe" : "de balayage") + ")", dead: false, stance: true, more: [] }); return; }
+      const ts = Object.assign({}, ts0), sp = o.ab && CULT[o.ab[0]], lgbHx = [];
+      let redistMore = [], reviveL = null, reuseL = null, setHpL = null;
+      if (sp && sp.redist) { const sim = redistSim(u, o, t, vals_(o), sp.redist); if (sim.main) { ts.dmg = sim.main.dmg; ts.hits = sim.main.hits; ts.per = sim.main.per; } redistMore = sim.more; }
+      if (u.tset.LetTheGalaxyBurn && ts.dmg > 0 && ts.per) {  // Let the Galaxy Burn: 33 % of an extra hit and despoiled ground under the target; if its hex already has an effect the extra hit is certain and nothing is added
+        const r0 = mulberry(((cur + 1) * 40503) ^ 0x7f4a7c15)(), has = !!hexKind(t.t), ch = TV.LetTheGalaxyBurnChancePct || 33;
+        if (has || r0 * 100 < ch) { ts.dmg += ts.per; ts.hits += 1; if (!has) lgbHx.push(hexCover(t.t, "despoiled")); }
+      }
       let adds = sp && sp.summon ? cultAdds(u, o, t) : null, gone = null, mark = false;
       const also = sp && sp.also ? live().filter(function (x) { return x.summon && x.id === sp.also && x.side === u.side && (!sp.r || RULES.dist(u.t, x.t) <= sp.r); }) : null;  // the summons the ability orders to play at once
       const drone = !o.ab && ts.heal === undefined && ts.dmg > 0 && RULES.dist(u.t, t.t) > 1 ? (u.rules.ab || []).filter(function (a) { return a[0] === "MV71SniperDroneSquad"; })[0] : null;
@@ -1574,11 +2031,16 @@
           adds = [spawn("tauSmnDroneSniper", u.side, u, hs[0], [v.summonHp || 1, v.summonDmg || 1, v.summonArmor || 0], false)];
         }
       }
-      let heals = sp && sp.heal ? healsOf(u, o) : null;
+      let heals = sp && sp.heal ? healsOf(u, o) : null, buff = null;
+      if (sp && sp.healAdj) {  // Defend the Divine Work / Combat Restoratives: the caster and the allies next to him
+        const hv = vals_(o);
+        heals = live().filter(function (x) { return x.side === u.side && (x === u || RULES.dist(u.t, x.t) === 1) && !x.decoy && (sp.healAdj.mech ? mech(x) : !mech(x)); })
+          .map(function (x) { return { u: x, amt: Math.min(x.max - x.hp, (sp.healAdj.key2 && x.rules.al === "Imperial" ? hv[sp.healAdj.key2] : hv[sp.healAdj.key]) || 0) }; }).filter(function (h) { return h.amt > 0; });
+      }
       if (ts.heal !== undefined) heals = [{ u: t, amt: ts.heal }];  // the attack heals an ally
       const pend = sp && sp.pend ? { by: u, tgt: t, ab: o.ab } : null, plan = ts.plan || {};
-      let moves = plan.moves || null, fx = plan.fx || null, more = (plan.more || []).concat(extras(u, o, t, ts.dmg));
-      const rnd = mulberry(((cur + 1) * 40503) ^ 0x2545f491), hx = [];  // the chances of this action, drawn once and kept in the step
+      let moves = plan.moves || null, fx = plan.fx || null, more = (plan.more || []).concat(extras(u, o, t, ts.dmg), redistMore);
+      const rnd = mulberry(((cur + 1) * 40503) ^ 0x2545f491), hx = lgbHx.slice();  // the chances of this action, drawn once and kept in the step
       if (ts.prof === "Flame" || (sp && sp.fire)) hx.push(hexCover(t.t, "fire"));  // a flame hit sets the target's hex on fire
       if (ts.prof === "Toxic" && rnd() < 0.25) hx.push(hexCover(t.t, "contam"));  // toxic: 25 % to contaminate it
       if (sp && sp.ice) [t.t].concat(RULES.around(t.t[0], t.t[1])).forEach(function (h) { const c = RULES.cell(h[0], h[1]); if (c && c.kind === 0) hx.push(hexCover(h, "ice")); });
@@ -1590,6 +2052,128 @@
       }
       if (o.ab && o.ab[0] === "EarlyWarningOverride") fx = (fx || []).concat([{ u: u, id: "sentinel", until: u.side === 0 ? round : round + 1, extra: vals_(o).extraDmg, cut: vals_(o).hitsReduction }]);  // Re'vas also watches until her next turn, with more damage
       if (sp && sp.charge && adds) fx = (fx || []).concat(adds.map(function (a) { return { u: a, id: "waaagh", until: round, v: (o.ab[8] && o.ab[8][rar]) || {} }; }));  // the new Boyz are next to Gulgortz too
+      let linch = false;
+      if (!o.ab && ts.dmg > 0 && u.tset.Synapse && healthAfter(t, ts.dmg) > 0) {  // Synaptic Linchpin: a normal attack by the Winged Prime or another Synapse unit that does not kill brings a Hormagaunt next to the target, which attacks it at once
+        const wp = live().filter(function (x) { return x.side === u.side && abOf(x, "SynapticLinchpin"); })[0], lv = wp ? abOf(wp, "SynapticLinchpin") : null;
+        if (lv && field.filter(function (x) { return x.parent === wp && x.id === "tyranSmnHormagaunt" && x.alive; }).length < (parseInt(lv.maxSummons, 10) || 4)) {
+          const hs = prio(u, freeAdj(t), t.t);
+          if (hs.length) { const a = spawn("tyranSmnHormagaunt", u.side, wp, hs[0], [lv.summonHp || 1, lv.summonDmg || 1, lv.summonArmor || 0], false); a.immediate = true; adds = (adds || []).concat([a]); linch = true; }
+        }
+      }
+      if (sp && sp.revive) {  // Resurrection Orb / Rites of Restoration: the fallen come back on free hexes next to the caster (they cannot act this turn)
+        const v = vals_(o), spots = prio(u, freeAround(u), u.t).slice();
+        reviveL = [];
+        if (sp.revive === "orb") {
+          const deadMech = field.filter(function (x) { return x.side === u.side && !x.alive && x.hp <= 0 && !x.summon && !x.decoy && mech(x); });
+          if (deadMech.length && spots.length) reviveL.push({ u: deadMech[0], hex: spots.shift(), pct: v.hpPct || 80 });
+          const n = Math.min(parseInt(v.maxSummons, 10) || 5, round + deadMech.length);
+          adds = (adds || []).concat(spots.splice(0, n).map(function (h) { const a = spawn("necroSmnWarrior", u.side, u, h, [v.summonHp || 1, v.summonDmg || 1, v.summonArmor || 0], false); a.hpPct = v.hpPct || 80; return a; }));
+        } else {
+          const chars = field.filter(function (x) { return x.side === u.side && !x.alive && x.hp <= 0 && !x.summon && !x.decoy && !mech(x) && x.rules.al === "Imperial"; });
+          const sums = field.filter(function (x) { return x.side === u.side && !x.alive && x.hp <= 0 && x.summon && !x.decoy && !mech(x) && x.rules.al === "Imperial" && x.t0; });
+          chars.slice(0, parseInt(v.nrOfHeroes, 10) || 1).concat(sums.slice(0, parseInt(v.nrOfSummons, 10) || 2)).forEach(function (x) { if (spots.length) reviveL.push({ u: x, hex: spots.shift(), pct: Math.min(100, (v.hp || 1) / x.max * 100) }); });
+        }
+      }
+      if (sp && sp.buffs) {  // buffs and debuffs that need no damage: who gets what, until when
+        const v = vals_(o), b = sp.buffs, mine3 = live().filter(function (x) { return x.side === u.side; }), til = u.side === 0 ? round : round + 1, rg = nI(v.range, 2);
+        fx = fx || [];
+        const melee1 = function (e) { return withPos(u, u.t, function () { return damageOf(u, e, { w: mainWeapon(u, true) }, 1); }); };
+        const adjFoes = foes(u).filter(function (e) { return RULES.dist(u.t, e.t) === 1; }).sort(function (a, b2) { return a.hp - b2.hp; });
+        const attack = function (label) { if (!adjFoes.length) return; const e = adjFoes[Math.floor(rnd() * adjFoes.length)], r = melee1(e); more.push({ tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), label: label }); };
+        if (b === "montka") mine3.filter(function (x) { return (x.rules.wp || []).some(function (w) { return w[0] > 1; }); }).forEach(function (x) { fx.push({ u: x, id: "montka", until: round, v: v }); });
+        else if (b === "howl") mine3.filter(function (x) { return !x.summon && !(x.rules.wp || []).some(function (w) { return w[0] > 1; }); }).forEach(function (x) { fx.push({ u: x, id: "howl", until: round, v: v }); });
+        else if (b === "crusade") { mine3.filter(function (x) { return x !== u && RULES.dist(u.t, x.t) <= rg; }).forEach(function (x) { fx.push({ u: x, id: "crusade", until: round + 1, v: v }); }); attack(o.name); }
+        else if (b === "duty") {
+          mine3.filter(function (x) { return x === u || RULES.dist(u.t, x.t) <= rg; }).forEach(function (x) { fx.push({ u: x, id: "dr", pct: v.dmgReductionPct || 33, until: til }); });
+          if (field.filter(function (x) { return x.side === u.side && !x.alive && x.hp <= 0 && !x.summon && x.rules.al === "Imperial"; }).length >= 2) { buff = [{ u: u, hp: v.extraHp || 0, rep: 0, dutyDmg: v.extraDmg || 0 }]; attack(o.name); }
+        }
+        else if (b === "chrono") foes(u).filter(function (e) { return RULES.dist(u.t, e.t) <= rg; }).forEach(function (e) { fx.push({ u: e, id: e.summon ? "stun" : "pin", until: stunUntil(e) + nI(v.nrOfRounds, 1) - 1 }); fx.push({ u: e, id: "chrono", until: 999, extra: v.extraDmg || 0, extra2: v.extraDmg_2 || 0 }); });
+        else if (b === "infusion") { mine3.filter(function (x) { return x === u || (x.rules.al === "Chaos" && RULES.dist(u.t, x.t) <= contagionRange()); }).forEach(function (x) { fx.push({ u: x, id: "infusion", until: round + 1, v: v }); }); attack(o.name); }
+        else if (b === "chalice") { const al = mine3.filter(function (x) { return x !== u && RULES.dist(u.t, x.t) === 1 && !mech(x); }); setHpL = al.map(function (x) { return { u: x, pct: parseInt(v.healthPct, 10) || 50 }; }); al.forEach(function (x) { fx.push({ u: x, id: "chalice", until: round, v: v }); }); }
+        else if (b === "inspire") { reuseL = [{ u: t }]; heals = [{ u: t, amt: Math.min(t.max - t.hp, Object.keys(t.used || {}).length ? v.hpToHeal || 0 : v.hpToHeal_2 || 0) }].filter(function (h) { return h.amt > 0; }); }
+        else if (b === "prime") { heals = [{ u: t, amt: Math.min(t.max - t.hp, v.hpToHeal || 0) }].filter(function (h) { return h.amt > 0; }); buff = [{ u: t, hp: v.hp || 0, rep: 0, aug: { dmg: v.extraDmg || 0, pct: v.hpPct || 20, mv: t.rules.al === "Chaos" ? parseInt(v.extraMovement, 10) || 1 : 0, by: u } }]; }
+        else if (b === "hate") { fx.push({ u: t, id: "hated", until: round + 1, extra: v.extraDmg || 0 }); if (t.rules.al === "Chaos") { fx.push({ u: t, id: "pin", until: stunUntil(t) }); } }
+      }
+      if (sp && sp.chargeAb) {  // what each charge adds, seen from where the unit lands
+        const v = vals_(o), id = o.ab[0], dest = moves && moves.length ? moves[0].to : u.t;
+        fx = fx || [];
+        if (id === "MassDriverAccelerator") live().filter(function (x) { return x.side === u.side && (x === u || RULES.dist(x.t, u.t) === 1); }).forEach(function (x) { fx.push({ u: x, id: "mvup", until: round, mv: parseInt(v.extraMovement, 10) || 1 }); });  // before she moves: she and the allies around her
+        withPos(u, dest, function () {
+          if (id === "LightOfSanguinius") foes(u).filter(function (e) { return e === t || RULES.dist(e.t, t.t) === 1; }).forEach(function (e) { fx.push({ u: e, id: "weak", pct: v.dmgReductionPct || 30, half: parseInt(v.healthPct, 10) || 50, until: stunUntil(e) + (parseInt(v.nrOfRounds, 10) || 1) - 1 }); });
+          if (id === "HammerOfWrath") {
+            const dbl = u.hp <= u.max * (parseInt(v.healthPct, 10) || 50) / 100 ? 2 : 1;
+            if (dbl === 2) more.push({ tgt: t, dmg: ts.dmg, hits: 0, per: 0, label: o.name });  // doubled
+            foes(u).filter(function (e) { return RULES.dist(e.t, u.t) === 1; }).forEach(function (e) { const r = abilityHit(u, e, avgOf(v, "_2") * dbl, "Physical", nI(v.nrOfHits_2, 1)); more.push({ tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), label: o.name }); });
+            const jet = abOf(u, "AggressiveOnslaught") || {};
+            adds = (adds || []).concat(prio(u, freeAdj(t), t.t).slice(0, nI(jet.nrOfSummons, 2)).map(function (h) { const a = spawn("bloodSmnIntercessor", u.side, u, h, [jet.summonHp || 1, jet.summonDmg || 1, jet.summonArmor || 0], false); a.immediate = true; a.jetFor = u; return a; }));  // they leave at the start of his next turn
+          }
+          if (id === "LeadingTheCharge") adds = (adds || []).concat(freeAround(u).slice(0, nI(v.nrOfSummons, 4)).map(function (h) { const a = spawn("astraSmnDeathRider", u.side, u, h, [v.summonHp || 1, v.summonDmg || 1, v.summonArmor || 0], false); a.immediate = true; return a; }));
+          if (id === "MassDriverAccelerator") foes(u).filter(function (e) { return e !== t && RULES.dist(e.t, t.t) === 1; }).forEach(function (e) { const r = abilityHit(u, e, avgOf(v, "_2"), "Physical", nI(v.nrOfHits_2, 1)); more.push({ tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), label: o.name }); });
+        });
+      }
+      if (!o.ab && ts.dmg > 0 && abOf(u, "FeederTendrils") && u.moves >= 1 && !u.advStart && RULES.dist(u.t, t.t) === 1) {  // Deathleaper charges: she heals and pins the target
+        const ft = abOf(u, "FeederTendrils");
+        heals = [{ u: u, amt: Math.min(u.max - u.hp, ft.hpToHeal || 0) }].filter(function (h) { return h.amt > 0; });
+        fx = (fx || []).concat([{ u: t, id: "pin", until: stunUntil(t) }]);
+      }
+      if (sp && sp.barrage) {  // Basilisk Barrage: 5 shells on a target; 3 land at random on its hex or the ring around it, the other 2 around those; each finished round moves one more shell onto the target hex (outer ones first); every unit on a hit hex takes the hits
+        const v = vals_(o), center = t.t, ring = RULES.around(center[0], center[1]).filter(function (h) { const c = RULES.cell(h[0], h[1]); return c && c.kind !== 2; });
+        const first = [], second = [], nTot = nI(v.nrOfProjectiles, 5), n1 = Math.min(nTot, nI(v.nrOfProjectiles_2, 3)), pool = [center].concat(ring);
+        for (let i = 0; i < n1; i++) first.push(pool[Math.floor(rnd() * pool.length)]);
+        const around2 = []; first.forEach(function (h) { RULES.around(h[0], h[1]).forEach(function (x) { if (RULES.cell(x[0], x[1])) around2.push(x); }); });
+        for (let i = n1; i < nTot; i++) second.push(around2[Math.floor(rnd() * around2.length)] || center);
+        const shells = first.map(function (h) { return { h: h, rank: sameHex(h, center) ? 0 : 1 }; }).concat(second.map(function (h) { return { h: h, rank: 2 }; }));
+        shells.sort(function (a, b2) { return b2.rank - a.rank; });  // the outermost first
+        for (let i = 0; i < Math.min(shells.length, Math.max(0, round - 1)); i++) shells[i].h = center;
+        const count = {};
+        shells.forEach(function (sh) { const k = sh.h[0] + "," + sh.h[1]; count[k] = (count[k] || 0) + 1; });
+        Object.keys(count).forEach(function (k) {
+          const hx2 = k.split(",").map(Number);
+          live().filter(function (x) { return !x.ds && sameHex(x.t, hx2) && x !== u; }).forEach(function (e) {  // allies too
+            const r = abilityHit(u, e, avgOf(v, ""), o.ab[5] || "Blast", nI(v.nrOfHits, 2) * count[k]);
+            more.push({ tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), label: o.name });
+            if (u.tset.SuppressiveFire) fx = (fx || []).concat([{ u: e, id: "pin", until: stunUntil(e) }]);
+          });
+        });
+      }
+      if (sp && sp.line) {  // a line: every unit on it takes the hits (allies too when the text says "units"), pinned for some, the hexes contaminated for Rad Bombardment
+        const L = LINE[o.ab[0]], v = vals_(o), len = L.len(v), line = dirLine(u.t, lineDir(u.t, t.t, len), len + 1).slice(1);
+        const vic = live().filter(function (x) { return x !== u && !x.ds && line.some(function (h) { return sameHex(h, x.t); }) && (L.all || x.side !== u.side); });
+        vic.filter(function (e) { return e !== t; }).forEach(function (e) { more.push(mh(u, e, avgOf(v, ""), o.ab[5], nI(v.nrOfHits, 1), o.name)); });
+        if (L.pin) fx = (fx || []).concat(vic.map(function (e) { return { u: e, id: "pin", until: stunUntil(e) }; }));
+        if (L.hx) line.forEach(function (h) { const c = RULES.cell(h[0], h[1]); if (c && c.kind === 0) hx.push(hexCover(h, L.hx)); });
+      }
+      if (!o.ab && ts.dmg > 0 && RULES.dist(u.t, t.t) === 1 && fxOn(u, "chalice")) heals = [{ u: u, amt: Math.min(u.max - u.hp, fxOn(u, "chalice").v.hpToHeal || 0) }].filter(function (h) { return h.amt > 0; });  // Blood Chalice: a melee attack heals
+      if (!o.ab && ts.dmg > 0 && u.tset.SuppressiveFire && RULES.dist(u.t, t.t) > 1) fx = (fx || []).concat([{ u: t, id: "pin", until: stunUntil(t) }]);  // Suppressive Fire: a ranged hit pins its target
+      let mkS = null;
+      if (sp && sp.claws) {  // Crushing Claws: the target is taunted and pinned for a round; the enemies next to the Tyrant Guard or the target take a physical hit, are pushed back a hex and pinned
+        const v = vals_(o);
+        moves = moves ? moves.slice() : [];
+        fx = (fx || []).concat([{ u: t, id: "taunt", taunt: u, until: stunUntil(t), v: {} }, { u: t, id: "pin", until: stunUntil(t) }]);
+        foes(u).filter(function (e) { return e !== t && (RULES.dist(e.t, u.t) === 1 || RULES.dist(e.t, t.t) === 1); }).forEach(function (e) {
+          const r = abilityHit(u, e, avgOf(v, "_2"), "Physical", nI(v.nrOfHits_2, 1)), dp = displaceOf(u, e, "push");
+          more.push({ tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), label: o.name });
+          if (dp && dp.to) moves.push({ u: e, to: dp.to.slice() });
+          fx.push({ u: e, id: "pin", until: stunUntil(e) });
+        });
+      }
+      if (sp && sp.itches) {  // It Itches: an adjacent enemy and the enemies touching both it and the Parasite are pinned and pushed back a hex; a Ripper Swarm appears on each hex they leave and may attack at once; the Parasite can move again
+        const v = vals_(o), hit = [t].concat(foes(u).filter(function (e) { return e !== t && RULES.dist(e.t, t.t) === 1 && RULES.dist(e.t, u.t) === 1; }));
+        moves = moves ? moves.slice() : []; adds = adds || [];
+        hit.forEach(function (e) {
+          const dp = displaceOf(u, e, "push");
+          fx = (fx || []).concat([{ u: e, id: "pin", until: stunUntil(e) }]);
+          if (dp && dp.to) { moves.push({ u: e, to: dp.to.slice() }); const a = spawn("tyranSmnRipperSwarm", u.side, u, e.t, [v.summonHp || 1, v.summonDmg || 1, v.summonArmor || 0], false); a.immediate = true; adds.push(a); }
+        });
+      }
+      if (sp && sp.wrath) {  // Overwhelming Wrath: every adjacent enemy is taunted until Azkor's next turn, he takes less from ranged attacks, and at the start of that turn the enemies around him are hit
+        const v = vals_(o), til = u.side === 0 ? round : round + 1;
+        fx = (fx || []).concat(foes(u).filter(function (e) { return RULES.dist(e.t, u.t) === 1; }).map(function (e) { return { u: e, id: "taunt", taunt: u, until: til, v: {} }; })).concat([{ u: u, id: "wrath", until: til, red: v.dmgReductionPct }]);
+        mkS = [{ kind: "bomb", hexes: [u.t.slice()], ab: o.ab, adj: true }];
+      }
+      if (sp && sp.patrons) {  // Daemonic Patrons: the adjacent enemy is taunted, Hascule is observed until the end of his next turn
+        fx = (fx || []).concat([{ u: t, id: "taunt", taunt: u, until: round + 1, v: {} }, { u: u, id: "observed", until: round + 1, v: vals_(o), kill: false }]);
+      }
       if (sp && sp.disp && !(ts.dmg > 0 && healthAfter(t, ts.dmg) <= 0)) {  // the target is pulled or pushed, and may be taunted, and the caster may take its place
         const dp = displaceOf(u, t, sp.disp), v = (o.ab[8] && o.ab[8][rar]) || {}, at = dp && dp.to ? dp.to : t.t;
         moves = moves ? moves.slice() : [];
@@ -1605,10 +2189,17 @@
         }
       }
       push({ k: "atk", u: u, tgt: t, pend: pend, dmg: ts.dmg, hits: ts.hits, per: ts.per, abId: o.ab ? o.ab[0] : null, label: ts.heal !== undefined ? (u.tset.Healer ? "Soin" : "Réparation") : o.ab ? o.name : "Attaque",
-        dead: ts.dmg > 0 && healthAfter(t, ts.dmg) <= 0 && !guardOf(t), adds: adds, heals: heals, moves: moves, fx: fx, more: more, also: also, force: sp && sp.wave ? t : null, gone: gone, mark: mark, hx: hx });
+        dead: ts.dmg > 0 && healthAfter(t, ts.dmg) <= 0 && !guardOf(t), adds: adds, heals: heals, moves: moves, fx: fx, more: more, buff: buff, also: also, force: (sp && (sp.wave || sp.forceT)) || linch ? t : null, keep: !!(sp && sp.keep), revive: reviveL, reuse: reuseL, setHp: setHpL, gone: gone, mark: mark, hx: hx, mk: mkS, prof: ts.prof || (o.ab ? o.ab[5] : null) });
     };
     const strikeHex = function (u, o, h) {  // an ability that targets a hex: L'Accélération, Fusillade héroïque
       if (u.mow) return strikeMow(u, o, null, h);
+      if (CULT[o.ab[0]].mark) {  // Titanhammer Squad: Lysander and the Terminator-armour allies within 2 are healed; those that have not moved may then be moved by the player onto or next to the marked hex
+        const v = (o.ab[8] && o.ab[8][rar]) || {}, el = live().filter(function (x) { return x.side === u.side && (x === u || x.tset.TerminatorArmour) && RULES.dist(u.t, x.t) <= (parseInt(v.range, 10) || 2); });
+        push({ k: "atk", u: u, tgt: u, dmg: 0, hits: 0, per: 0, abId: o.ab[0], label: o.name, dead: false, keep: true, more: [],
+          heals: el.map(function (x) { return { u: x, amt: Math.min(x.max - x.hp, v.hpToHeal || 0) }; }).filter(function (x) { return x.amt > 0; }),
+          fx: el.filter(function (x) { return x.moves === 0 && x.spent === 0; }).map(function (x) { return { u: x, id: "tpm", hex: h.slice(), until: round }; }), hx: [] });
+        return;
+      }
       if (CULT[o.ab[0]].leap) {
         const r = planFusillade(u, o, h);
         if (!r) return;

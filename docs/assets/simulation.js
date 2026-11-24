@@ -109,7 +109,7 @@
         }).join("");
       };
       box.innerHTML = '<div class="sim-pv-head"><b>' + esc(D.p[r[11]]) + "</b><small>" + esc(D.g[r[12]]) + " \u00b7 " + esc(D.w[r[8]]) + '</small><span class="sim-score ' + "is-win" + '">' + r[7] + "</span></div>" +
-        '<div class="pl-board" tabindex="0" role="link" title="Ouvrir la simulation (d\u00e9placer les persos)" data-sb="' + esc(boardUrl(r)) + '"><img class="pl-map" src="' + esc(img) + '" alt="" draggable="false">' + (slot ? place(r[10], "e", "pl-def") + place(r[4], "o", "pl-att") : "") + "</div>";
+        '<div class="pl-board" tabindex="0" role="link" title="Ouvrir la simulation (d\u00e9placer les persos)" data-sb="' + esc(boardUrl(r)) + '"><img class="pl-map" src="' + esc(img) + '" alt="" draggable="false"><span class="sim-play" aria-hidden="true"><svg viewBox="0 0 24 24" width="34" height="34" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg></span>' + (slot ? place(r[10], "e", "pl-def") + place(r[4], "o", "pl-att") : "") + "</div>";
     });
   }
   let cands = [], noteHtml = "";

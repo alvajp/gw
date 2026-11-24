@@ -92,7 +92,7 @@ def main():
         rec["al"] = u.get("GrandAllianceId") or ""  # Imperial / Chaos / Xenos
         rec["fa"] = u.get("FactionId") or ""  # DarkAngels, Orks, Tau ...
         return rec
-    out["_summons"] = {sid: {**record(su), "name": fr.get("Units/" + sid + "_Name") or su.get("name") or sid} for sid, su in units["summons"].items()}  # the units abilities summon
+    out["_summons"] = {sid: {**record(su), "pa": su.get("passiveAbilities") or [], "name": fr.get("Units/" + sid + "_Name") or su.get("name") or sid} for sid, su in units["summons"].items()}  # the units abilities summon
     for uid, u in lineup.items():
         tr = set(u.get("traits") or [])
         ranges = sorted({w.get("Range") or 1 for w in u.get("weapons") or []}) or [1]
