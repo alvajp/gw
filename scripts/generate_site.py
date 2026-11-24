@@ -2612,6 +2612,13 @@ def render_strategy_index(all_wars):
 
 ZONE_TIER_KEY = {label: key for key, (_name, _caps, labels) in ZONE_TIERS.items() for label in labels}  # zone label -> "hero" / "elite" / "veteran"
 SIM_TIERS = [("hero", "Héros", "m"), ("elite", "Élite", "l"), ("veteran", "Vétéran", "e")]  # key, name, badge of the zone's higher rarity
+SIM_ARCHETYPES = [  # the defenses' archetypes of the Simulation page: a line belongs to one when it holds all of its three core units (a machine of war counts)
+    ("Crimj", ["adeptCelestine", "genesKelermorph", "genesPrimus"]),  # Celestine, Judh, Isaak
+    ("Psybomb", ["deathTyphus", "thousTerminator", "thousDaemonPrince"]),  # Typhus, Toth, Z'Kar
+    ("Termis", ["astarLysander", "bloodTerminator", "blackForgefiend"]),  # Lysander, Cezare, Forgefiend
+    ("Méchas", ["necroChronomancer", "orksWarboss", "necroReanimator"]),  # Thothmek, Boss G (Gulgortz), Reanimator
+    ("DG", ["deathBlightlord", "deathRotbone", "blackAbaddon"]),  # Maladus, Rotbone, Abaddon
+]
 
 
 def build_simulation_data(all_wars):
@@ -2650,10 +2657,12 @@ def build_simulation_data(all_wars):
                 [idx(units, u) for u in e["units"]],
                 idx(players, result["players"].get(e["uid"], {}).get("displayName", e["uid"])), idx(guilds, guild),
             ])
+    arch = [[name, [idx(units, u) for u in core]] for name, core in SIM_ARCHETYPES]  # (before the units table is read, so that their ids are in it)
     return {
         "u": [[UNITS_DB[u]["name"], UNITS_DB[u]["image"]] if u in UNITS_DB else [u, ""] for u in units],
         "m": [[b, MAPS_DB[b]["name"], MAPS_DB[b]["image"]] for b in maps],
         "w": list(wars), "p": list(players), "g": list(guilds), "t": [[k, name, badge] for k, name, badge in SIM_TIERS], "r": rows,
+        "a": arch,
     }
 
 

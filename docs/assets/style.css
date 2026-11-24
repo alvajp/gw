@@ -3106,3 +3106,10 @@ button.sim-row[aria-pressed="true"] { border-color: var(--accent); background: c
   .sim-atk-grid { grid-template-columns: minmax(0, 1fr); }
   .sim-preview { position: static; order: -1; }
 }
+
+/* Simulation, step 3: the defenses by archetype (core units, a separator, the other characters) */
+.sim-group { display: flex; align-items: center; gap: 0.6rem; margin: 1.1rem 0 0.2rem; font-size: 0.95rem; }
+.sim-group small { color: var(--text-muted); font-weight: 500; font-size: 0.75rem; }
+.sim-core { display: inline-flex; }
+.sim-core .unit { width: 1.7rem; height: 1.7rem; border-radius: 50%; margin-right: -0.35rem; border: 2px solid var(--bg); background: var(--surface-hover); object-fit: cover; }
+.sim-sep { align-self: stretch; width: 1px; min-height: 1.6rem; margin: 0 0.45rem; background: var(--border); }

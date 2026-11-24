@@ -51,15 +51,36 @@
     shown("sim-level", true);
   }
 
-  // ---- 3. the defenses met on that map at that level ----
+  // ---- 3. the defenses met on that map at that level, grouped by archetype (a line holds the 3 core units of an archetype), the others below ----
+  function defRow(x, i) {
+    const arch = x.arch, units = x.r[2], all = units.concat(x.r[3] >= 0 ? [x.r[3]] : []);
+    let body;
+    if (arch) {  // the archetype's three units first, a separator, then every other character of the line (and its machine of war)
+      const core = arch[1], rest = units.filter(function (u) { return core.indexOf(u) < 0; });
+      body = core.filter(function (u) { return u !== x.r[3]; }).map(function (u) { return unit(u, false); }).join("") + (core.indexOf(x.r[3]) >= 0 ? unit(x.r[3], true) : "") +
+        '<span class="sim-sep" aria-hidden="true"></span>' + rest.map(function (u) { return unit(u, false); }).join("") + (x.r[3] >= 0 && core.indexOf(x.r[3]) < 0 ? unit(x.r[3], true) : "");
+    } else body = comp(units, x.r[3]);
+    return '<button type="button" class="sim-row" data-def="' + esc(x.k) + '" aria-pressed="false"><span class="sim-rank">' + (i + 1) + '</span><span class="sim-comp">' + badge(topRar(x)) + body + "</span>" +
+      '<span class="sim-stats"><b>' + pl(x.n, "fois", "fois") + "</b><small>" + pl(x.w + x.f, "victoire", "victoires") + " \u00b7 " + pl(x.x, "\u00e9chec", "\u00e9checs") + "</small></span></button>";
+  }
   function defenses() {
     const list = rows.filter(function (r) { return r[0] === map && r[1] === level; });
     const g = groups(list, dkey).sort(function (a, b) { return b.n - a.n || b.last - a.last; });
-    $("sim-def").querySelector(".sim-hint").textContent = "Les défenses rencontrées le plus souvent sur " + D.m[map][1] + " (" + D.t[level][1] + "), toutes guerres confondues. Choisis celle à affronter.";
-    $("sim-def").querySelector(".sim-list").innerHTML = g.slice(0, 12).map(function (x, i) {
-      return '<button type="button" class="sim-row" data-def="' + esc(x.k) + '" aria-pressed="false"><span class="sim-rank">' + (i + 1) + '</span><span class="sim-comp">' + badge(topRar(x)) + comp(x.r[2], x.r[3]) + "</span>" +
-        '<span class="sim-stats"><b>' + pl(x.n, "fois", "fois") + "</b><small>" + pl(x.w + x.f, "victoire", "victoires") + " · " + pl(x.x, "échec", "échecs") + "</small></span></button>";
-    }).join("") || '<p class="mnone">Aucune défense vue.</p>';
+    g.forEach(function (x) {
+      const have = x.r[2].concat(x.r[3] >= 0 ? [x.r[3]] : []);
+      x.arch = D.a.filter(function (a) { return a[1].every(function (u) { return have.indexOf(u) >= 0; }); })[0] || null;
+    });
+    $("sim-def").querySelector(".sim-hint").textContent = "Les d\u00e9fenses rencontr\u00e9es sur " + D.m[map][1] + " (" + D.t[level][1] + "), toutes guerres confondues, regroup\u00e9es par arch\u00e9type : les trois persos de l'arch\u00e9type, puis les autres. Choisis celle \u00e0 affronter.";
+    let html = "";
+    D.a.forEach(function (a) {
+      const mine = g.filter(function (x) { return x.arch === a; });
+      if (!mine.length) return;
+      html += '<h3 class="sim-group"><span class="sim-core">' + a[1].map(function (u) { return unit(u, false); }).join("") + "</span>" + esc(a[0]) + "<small>" + pl(mine.reduce(function (t, x) { return t + x.n; }, 0), "fois", "fois") + " \u00b7 " + pl(mine.length, "ligne", "lignes") + "</small></h3>" +
+        mine.slice(0, 10).map(defRow).join("");
+    });
+    const others = g.filter(function (x) { return !x.arch; });
+    if (others.length) html += (html ? '<h3 class="sim-group">Autres d\u00e9fenses</h3>' : "") + others.slice(0, 12).map(defRow).join("");
+    $("sim-def").querySelector(".sim-list").innerHTML = html || '<p class="mnone">Aucune d\u00e9fense vue.</p>';
     shown("sim-def", true);
     shown("sim-atk", false);
   }
