@@ -132,7 +132,7 @@
       const o = OUTCOME[a[1]] || OUTCOME.u;
       const comp = a[3].map(function (u) { return portrait(u, false); }).join("") + (a[4] ? portrait(a[4], true) : "");
       const line = d.l[a[5] - 1];
-      return '<div class="dm-row" data-line="' + a[5] + '"' + plAttrs(d.i, a[3], line ? line[0] : []) + '>' +
+      return '<div class="dm-row' + (d.h && a[0] === d.h ? " dm-hl" : "") + '" data-line="' + a[5] + '"' + plAttrs(d.i, a[3], line ? line[0] : []) + '>' +
         '<span class="dm-player">' + esc(names[a[0]] || a[0]) + '</span>' +
         '<span class="dm-comp" data-rar="' + esc(line && line[5] || "") + '">' + comp + '</span>' +
         '<span class="dm-result ' + o[1] + '">' + o[0] + '</span>' +

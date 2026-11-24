@@ -32,7 +32,8 @@
     }
 
     // Strategy page: the guild chips above the maps choose which opponents' attacks count (see opp-filter.js).
-    function chosenGuilds() {
+    function chosenGuilds(block) {
+      if (block && block.dataset.guild) return [block.dataset.guild];  // one section per opponent guild
       return Array.prototype.map.call(document.querySelectorAll("#opp-map-wrap .opp-filter .chip.active"), function (c) { return c.dataset.g; });
     }
 
@@ -43,7 +44,7 @@
 
       // Exactly one player is shown at a time; rows are built only for that player.
       function show(p) {
-        const chosen = byGuild ? chosenGuilds() : null;
+        const chosen = byGuild ? chosenGuilds(block) : null;
         tbody.innerHTML = rows.filter(function (r) {
           return String(r[0]) === p && (!byGuild || chosen.indexOf(d.g[r[9]]) >= 0);
         }).map(function (r) {
@@ -64,7 +65,7 @@
 
       // With guild chips: only the players who met a chosen guild get a pill; the first visible one is selected.
       function refresh() {
-        const chosen = chosenGuilds();
+        const chosen = chosenGuilds(block);
         const chips = block.querySelectorAll(".attacks-chips .chip");
         chips.forEach(function (c) {
           c.hidden = !(c.dataset.gs || "").split("|").some(function (g) { return chosen.indexOf(g) >= 0; });

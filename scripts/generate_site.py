@@ -1724,13 +1724,10 @@ def _is_combined_opponent(name):
 
 
 def render_opponent_map(all_wars, prefix=""):
-    """Top of the index, "Contre les meilleurs": like the bottom of a war page
-    but combined over every war against the COMBINED_OPPONENTS -- our
-    defenses (and their attacks on them) on the left, their defenses (and our
-    attacks on them) on the right, one 15-tile grid per side. Tiles are
-    grouped by board, since a map moves between zones from war to war.
-    Clicking a defender opens the modal (its lineups + every attack against
-    it). Returns (html, events for the modal, players for the modal)."""
+    """The Stratégie page, "Contre les meilleurs": our defenses and what the opponents' attackers did against them, combined over every war against the COMBINED_OPPONENTS.
+    One section per opponent guild (anchors at the side jump to them, like the boss anchors of the Saisons page), each with the grid of our maps: under a map, one button per
+    attacker ("<guild> · <attacker>", then "VS <our defender>"), and under the grid the attacks of that guild's players. Tiles are grouped by board, since a map moves between
+    zones from war to war. Clicking a button opens the defender's dialog (its lineups + every attack against it). Returns (html, events for the modal, players for the modal)."""
     tiles_by_board = {"us": defaultdict(list), "them": defaultdict(list)}
     events_all, players_all, guild_names = [], {}, []
     atk = {"u": {}, "p": {}, "z": {}, "m": {}, "g": {}}  # lookup tables of the attacks data blob (value -> index)
@@ -1783,32 +1780,41 @@ def render_opponent_map(all_wars, prefix=""):
     uniq = list(dict.fromkeys(guild_names))
     default_guild = "Bloody Rose" if "Bloody Rose" in uniq else uniq[0]
 
-    def chip(side, opp_name, war_tag, zone, d, players, m):
-        name = players.get(d["uid"], {}).get("displayName", d["uid"])
+    def chips_of(opp_name, war_tag, zone, d, players, m):
+        """One button per attacker who played against this defender: "<guild> · <attacker>" and under it "VS <our defender>"; it opens the defender's dialog
+        (its lines and every attack against it, this attacker's rows highlighted)."""
         zlabel = ZONE_LABELS.get(zone, zone)
-        context = f"vs {opp_name}" if side == "us" else opp_name
-        payload = {
-            "p": d["uid"], "z": f"{zlabel} · {context} {war_tag}", "m": m["name"], "i": prefix + m["image"],
-            "l": [[ln["units"], ln["mow"], ln["n"], ln["fails"], round(ln["score"] / ln["n"]), ln["rar"]] for ln in d["lines"]],
-            "a": [[e["uid"], TIER_CODE.get(e["tier"], "u"), round(e["adj"]), e["att_units"], e["att_mow"],
-                   e["_line"]] for e in d["events"]],
-        }
-        attr = html_escape(json.dumps(payload, separators=(",", ":"), ensure_ascii=False)).replace(chr(34), "&quot;")
-        fails = sum(1 for e in d["events"] if e["fail"])
-        hidden = "" if opp_name == default_guild else " hidden"
-        return (
-            f'<button type="button" class="map-def" data-g="{html_escape(opp_name)}"{hidden} data-def="{attr}">'
-            f'<span class="map-def-name">{html_escape(name)}</span>'
-            f'<small>{html_escape(context)} · {zlabel}</small>'
-            f'<small>{len(d["events"])} att. · {fails} échec{"s" if fails > 1 else ""}</small></button>'
-        )
+        defender = players.get(d["uid"], {}).get("displayName", d["uid"])
+        out = []
+        for uid in dict.fromkeys(e["uid"] for e in d["events"]):
+            evs = [e for e in d["events"] if e["uid"] == uid]
+            payload = {
+                "p": d["uid"], "z": f"{zlabel} · vs {opp_name} {war_tag}", "m": m["name"], "i": prefix + m["image"], "h": uid,
+                "l": [[ln["units"], ln["mow"], ln["n"], ln["fails"], round(ln["score"] / ln["n"]), ln["rar"]] for ln in d["lines"]],
+                "a": [[e["uid"], TIER_CODE.get(e["tier"], "u"), round(e["adj"]), e["att_units"], e["att_mow"],
+                       e["_line"]] for e in d["events"]],
+            }
+            attr = html_escape(json.dumps(payload, separators=(",", ":"), ensure_ascii=False)).replace(chr(34), "&quot;")
+            fails = sum(1 for e in evs if e["fail"])
+            attacker = players.get(uid, {}).get("displayName", uid)
+            out.append(
+                f'<button type="button" class="map-def" data-def="{attr}">'
+                f'<span class="map-def-name">{html_escape(opp_name)} · {html_escape(attacker)}</span>'
+                f'<small>VS {html_escape(defender)}</small>'
+                f'<small>{war_tag} · {zlabel} · {len(evs)} att. · {fails} échec{"s" if fails > 1 else ""}</small></button>'
+            )
+        return "".join(out)
 
-    sides = []
-    for side, heading in (("us", OUR_GUILD_LABEL), ("them", default_guild)):
+    ordered = sorted(uniq, key=lambda g: (guild_number(g) or 99, uniq.index(g)))
+    slugs = {g: f"opp-{i}-" + re.sub(r"[^a-z0-9]+", "-", g.lower()).strip("-") for i, g in enumerate(ordered)}
+    sections = []
+    for g in ordered:
         tiles = []
         for board, m in MAPS_DB.items():
-            entries = sorted(tiles_by_board[side].get(board, []), key=lambda x: -len(x[3]["events"]))
-            chips = "".join(chip(side, *x, m) for x in entries)
+            entries = sorted((x for x in tiles_by_board["us"].get(board, []) if x[0] == g), key=lambda x: -len(x[3]["events"]))
+            chips = "".join(chips_of(*x, m) for x in entries)
+            if not chips:
+                continue
             tiles.append(
                 f'<div class="map-tile"><div class="map-tile-head"><b>{html_escape(m["name"])}</b></div>'
                 f'<img src="{prefix}{m["image"]}" alt="{html_escape(m["name"])}" loading="lazy">'
@@ -1817,32 +1823,29 @@ def render_opponent_map(all_wars, prefix=""):
         pills = "".join(
             f'<button type="button" class="chip" data-p="{atk["p"][uid]}" data-gs="{html_escape("|".join(sorted(gs)))}">'
             f'{html_escape(players_all.get(uid, {}).get("displayName", uid))}</button>'
-            for uid, gs in sorted(atk_guilds[side].items(), key=lambda kv: players_all.get(kv[0], {}).get("displayName", kv[0]).lower())
+            for uid, gs in sorted(atk_guilds["us"].items(), key=lambda kv: players_all.get(kv[0], {}).get("displayName", kv[0]).lower()) if g in gs
         )
-        under = (f'<div class="attacks-block" data-team="{len(sides)}" data-filter="g"><div class="chips attacks-chips timeline-player-chips">{pills}</div>'
+        under = (f'<div class="attacks-block" data-team="0" data-filter="g" data-guild="{html_escape(g)}"><div class="chips attacks-chips timeline-player-chips">{pills}</div>'
                  '<div class="attacks-scroll"><table class="attacks-table"><thead><tr><th class="a-comp">Attaque</th><th class="a-def">Contre</th>'
                  '<th class="a-score">Score</th><th class="a-map">Map</th></tr></thead><tbody></tbody></table></div></div>') if pills else ""
-        sides.append(
-            f'<div class="battlefield-side side-{len(sides)}"><h3{" id=opp-heading" if side == "them" else ""}>{html_escape(heading)}</h3><div class="battlefield-grid">{"".join(tiles)}</div>{under}</div>'
+        sections.append(
+            f'<section class="ns-boss opp-section" id="{slugs[g]}" data-boss="{slugs[g]}"><h2 class="opp-title">{guild_badge(g, prefix)}{html_escape(g)}</h2>'
+            f'<div class="battlefield opp-one"><div class="battlefield-side side-0"><div class="battlefield-grid">{"".join(tiles)}</div>{under}</div></div></section>'
         )
-    ordered = sorted(uniq, key=lambda g: (guild_number(g) or 99, uniq.index(g)))
-    picker = (
-        '<div class="opp-filter"><span class="opp-filter-label">Se comparer à</span><div class="chips">'
-        + "".join(
-            f'<button type="button" class="chip guild-chip{" active" if g == default_guild else ""}" data-g="{html_escape(g)}">'
-            f'{guild_badge(g, prefix)}<span class="gc-name">{html_escape(g)}</span></button>'
-            for g in ordered
-        )
-        + "</div></div>"
-    )
+    nav = ('<nav class="map-filter ns-filter opp-nav" aria-label="Aller à une guilde adverse">'
+           + "".join(
+               f'<a class="map-chip ns-chip opp-chip" data-boss="{slugs[g]}" href="#{slugs[g]}" title="{html_escape(g)}">{guild_badge(g, prefix)}<span class="oc-name">{html_escape(g)}</span></a>'
+               for g in ordered)
+           + "</nav>")
     data = {
         "u": list(atk["u"]), "p": list(atk["p"]), "z": list(atk["z"]), "g": list(atk["g"]),
         "m": [[MAPS_DB[b]["name"], prefix + MAPS_DB[b]["image"]] for b in atk["m"]],
-        "t": [atk_rows["us"], atk_rows["them"]],
+        "t": [atk_rows["us"]],
     }
     script = ('<script type="application/json" id="attacks-data">'
               + json.dumps(data, separators=(",", ":"), ensure_ascii=False).replace("</", "<\\/") + "</script>")
-    html = f'<div id="opp-map-wrap">{picker}<div class="battlefield">{"".join(sides)}</div>{script}</div>'
+    html = (f'<div id="opp-map-wrap"><div class="ns-view" data-view="cur">{nav}{"".join(sections)}</div>{script}'
+            f'<script src="{prefix}assets/saison-prochaine.js?v={ASSETS_VERSION}"></script></div>')
     return html, events_all, players_all
 
 
