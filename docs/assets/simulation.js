@@ -122,9 +122,9 @@
     shownRows = (exact.length ? exact : near).slice().sort(best).slice(0, 20);
     const note = !exact.length && near.length ? '<p class="sim-note">Cette d\u00e9fense n\'a jamais \u00e9t\u00e9 battue telle quelle : voici des victoires contre des d\u00e9fenses proches (au moins 4 unit\u00e9s en commun).</p>' : "";
     $("sim-atk").querySelector(".sim-list").innerHTML = shownRows.length
-      ? note + '<table class="attacks-table sim-table"><thead><tr><th class="a-who">Joueur</th><th class="a-comp">Attaque</th><th class="a-score">Score</th></tr></thead><tbody>' + shownRows.map(function (r, i) {
+      ? note + '<table class="attacks-table sim-table"><thead><tr><th class="a-who">Joueur</th><th class="a-comp">Attaque</th><th class="a-def">D\u00e9fense</th></tr></thead><tbody>' + shownRows.map(function (r, i) {
         return '<tr data-i="' + i + '" tabindex="0"><td class="a-who"><b>' + esc(D.p[r[11]]) + "</b><small>" + esc(D.g[r[12]]) + " \u00b7 " + esc(D.w[r[8]]) + '</small></td><td class="a-comp">' + comp(r[4], r[5]) +
-          '</td><td class="a-score ' + "is-win" + '">' + r[7] + "</td></tr>";
+          '</td><td class="a-def">' + badge(r[9]) + comp(r[10], r[3]) + "</td></tr>";
       }).join("") + "</tbody></table>"
       : '<p class="mnone">Aucune victoire contre cette d\u00e9fense.</p>';
     $("sim-atk").querySelector(".sim-preview").innerHTML = "";
