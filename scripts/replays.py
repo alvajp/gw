@@ -473,6 +473,7 @@ def main():
     files = args or sorted(glob.glob(os.path.join(folder, "*.replay.txt")))
     os.makedirs(OUT_DIR, exist_ok=True)
     index = json.load(open(INDEX, encoding="utf-8")) if os.path.exists(INDEX) else {}
+    made = []  # the replays written by this run: their link-preview card is drawn at the end
     raid = raid_index()
     for f in files:
         rp = load(f)
@@ -517,9 +518,15 @@ def main():
             json.dump(data, out, ensure_ascii=False, separators=(",", ":"))
         if at:
             index[f"{md['UserId']}|{at}"] = rid
+        made.append(rid)
         print(os.path.basename(f), "->", rid, f"{os.path.getsize(os.path.join(OUT_DIR, rid + '.json')) // 1024} Ko", "relié à l'attaque" if at else "(attaque non retrouvée)")
     with open(INDEX, "w", encoding="utf-8") as out:
         json.dump(dict(sorted(index.items())), out, indent=0)
+    try:  # the picture Discord & co show under a replay link (docs/assets/replay-cards/<id>.jpg): drawn here so that a new replay never lacks it (its text depends on the raid match above)
+        import replay_cards
+        replay_cards.main(set(made))
+    except Exception as e:  # Pillow missing ...: say so, the page then has no picture
+        print("  cartes d'aperçu non générées :", e, "(python3 scripts/replay_cards.py)")
 
 
 if __name__ == "__main__":

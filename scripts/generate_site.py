@@ -3432,6 +3432,8 @@ def render_replay_pages():
         title, desc, _lines = replay_cards.summary(d, names.get(d.get("user"), "Joueur"), bosses.get(d.get("key"), "Raid"), medals_mod.map_label(d.get("map")))
         url, img = f"{SITE_URL}r/{rid}.html", f"{SITE_URL}assets/replay-cards/{rid}.jpg"
         has_img = os.path.exists(os.path.join(DOCS_DIR, "assets", "replay-cards", rid + ".jpg"))
+        if not has_img:
+            print(f"  ATTENTION : pas de carte d'aperçu pour le replay {rid} (python3 scripts/replay_cards.py {rid})")
         meta = [("og:type", "website"), ("og:site_name", "Les Joyeux Psychos"), ("og:title", title), ("og:description", desc), ("og:url", url)]
         if has_img:
             meta += [("og:image", img), ("og:image:width", "1200"), ("og:image:height", "630")]

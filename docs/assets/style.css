@@ -3427,3 +3427,5 @@ details.adv-expand > :not(summary):first-of-type { margin-top: 0.4rem; }
 .sb-overkill { font-size: 14px; font-weight: 800; letter-spacing: 0.04em; fill: #ff4d4d; paint-order: stroke; stroke: #10151c; stroke-width: 3px; opacity: 0; pointer-events: none; animation: sb-overkill 1.3s ease-out forwards; }
 @keyframes sb-overkill { 0% { opacity: 0; transform: translateY(6px) scale(0.8); } 15% { opacity: 1; transform: translateY(0) scale(1.12); } 100% { opacity: 0; transform: translateY(-28px) scale(1); } }
 @media (prefers-reduced-motion: reduce) { .sb-overkill { animation-duration: 0.01s; opacity: 1; } }
+
+.rp-log .sb-sub { display: block; margin-left: 0.9rem; }  /* one line per hit of a guarded attack */

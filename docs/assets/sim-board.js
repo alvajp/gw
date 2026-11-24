@@ -416,6 +416,13 @@
       list.forEach(function (x) { if (x === m || x.alive) explode(x); });
     };
     let guardLog = [];
+    // an attack on a character that has guards (Celestine's Geminae, Kell): the WHOLE attack goes to the guard that stands (or appears) for it, and if the guard falls the attack is spent: what is left of it is lost.
+    // The next attack meets the next guard; when none is left it is the owner's. Each attack leaves its line in guardLog (the guard that took it, or the owner).
+    const hurtHits = function (t, dmg, by, per, prof) {
+      const before = guardLog.length;
+      hurt(t, dmg, by, per, prof);
+      if (t.pool && by && by.side !== t.side && dmg > 0 && guardLog.length === before) guardLog.push({ from: t, g: t, own: true, hit: true, n: 1, dmg: dmg });  // no guard took it: it is the owner's
+    };
     function guardOf(t) {
       if (!t.pool || !t.alive) return null;
       const near = t.pool.filter(function (g) { return g.alive && RULES.dist(g.t, t.t) === 1; })[0];
@@ -517,7 +524,7 @@
         const g = gp.g;
         if (gp.hex) { g.t = gp.hex.slice(); g.alive = true; g.came = true; g.hp = g.max; g.acted = false; g.spent = 0; }
         if (t.guardSwap) { const a = g.t; g.t = t.t; t.t = a; }  // Kell takes Creed's hex and Creed his
-        ge = { from: t, g: g, fresh: !!gp.hex, hit: true, dmg: dmg };
+        ge = { from: t, g: g, fresh: !!gp.hex, hit: true, dmg: dmg, n: 1 };
         guardLog.push(ge);
         t = g;
       }
@@ -782,12 +789,12 @@
         if (!w) return;
         const id = abOf(x, "InescapableDeath"), sn = fxOn(x, "sentinel"), hail = fxOn(x, "hail"), cutBy = (id ? parseInt(id.hitsReduction, 10) || 1 : 0) || (sn ? parseInt(sn.cut, 10) || 1 : 0) || ((abOf(x, "FiringPosition") || null) ? parseInt(abOf(x, "FiringPosition").hitsReduction, 10) || 2 : 0);  // Havoc: it stays on Overwatch after a kill, with fewer hits
         const w2 = [w[0], w[1], Math.max(1, w[2] - x.owCut)], r = damageOf(x, mv, { w: w2, sentinel: true, extra: (id ? id.extraDmg || 0 : 0) + (sn ? sn.extra || 0 : 0), pierce: hail ? (hail.v && hail.v.extraPierceRatio) || 0 : 0 }, dd);
-        curAtk++; hurt(mv, Math.round(r.tot), x, r.per);
-        out.push({ u: x, to: null, tgt: mv, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), label: "Sentinelle" });
+        curAtk++; guardLog = []; hurtHits(mv, Math.round(r.tot), x, r.per, undefined, r.hits);  // hit by hit: a guard of the one who moved (Celestine's Geminae) takes them
+        out.push({ u: x, to: null, tgt: mv, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), label: "Sentinelle", guards: guardLog });
         if (hail && hail.by) {  // the Storm Speeder fires at the same target
           const hv = hail.v || {}, r2 = abilityHit(hail.by, mv, avgOf(hv, ""), hail.by.rules.ab.filter(function (a) { return a[0] === "Hailstrike"; })[0][5], parseInt(hv.nrOfHits, 10) || 3);
-          curAtk++; hurt(mv, Math.round(r2.tot), hail.by, r2.per);
-          out.push({ u: hail.by, to: null, tgt: mv, dmg: Math.round(r2.tot), hits: r2.hits, per: Math.round(r2.per), label: "Hailstrike" });
+          curAtk++; guardLog = []; hurtHits(mv, Math.round(r2.tot), hail.by, r2.per, undefined, r2.hits);
+          out.push({ u: hail.by, to: null, tgt: mv, dmg: Math.round(r2.tot), hits: r2.hits, per: Math.round(r2.per), label: "Hailstrike", guards: guardLog });
         }
         if (!mv.alive && cutBy) x.owCut += cutBy; else x.ow = false;
       });
@@ -864,7 +871,7 @@
             const gp0 = guardOf(m.tgt);
             if (gp0 && gp0.hex) { const g0 = gp0.g; g0.t = gp0.hex.slice(); g0.alive = true; g0.came = true; g0.hp = g0.max; g0.acted = false; g0.spent = 0; guardLog.push({ from: m.tgt, g: g0, fresh: true, hit: false }); }
           }
-          if (m.dmg > 0) hurt(m.tgt, m.dmg, m.u, m.per, m.prof);
+          if (m.dmg > 0) hurtHits(m.tgt, m.dmg, m.u, m.per, m.prof, m.hits);
           if (m.bl > 0 && m.tgt && m.tgt.alive) {  // a block: Deathwing's damage bonus for a round; Anvil Shield covers the attacker's hex with ice and stuns it after a melee block
             const dwB = abOf(m.tgt, "Deathwing") || abOf(m.tgt, "DeathwingKnight"), anB = abOf(m.tgt, "AnvilShield");
             if (dwB) m.tgt.fx.dwbuff = { id: "dwbuff", until: m.tgt.side === 0 ? round + 1 : round + 1, extra: (dwB.extraDmg || 0) * (m.u.rules.al === "Chaos" || live().some(function (x) { return x !== m.tgt && x.side === m.tgt.side && x.rules.fa === "DarkAngels" && RULES.dist(x.t, m.tgt.t) === 1; }) ? 2 : 1) };
@@ -1778,7 +1785,7 @@
       if (gl.length) {  // a guard that appeared and fell in the same hit is still shown for a moment, with the damage it took
         let h = "";
         gl.forEach(function (x) {
-          if (!x.g.g) return;
+          if (!x.g.g || x.own) return;
           x.g.g.classList.remove("gone"); x.g.g.classList.add("tk-hit"); pos(x.g.g, home(x.g));
           if (x.g.ov) { x.g.ov.classList.remove("gone"); pos(x.g.ov, home(x.g)); }
           if (x.dmg) h += '<text class="rp-fig" x="' + cx(x.g.t[0]).toFixed(1) + '" y="' + (cy(x.g.t[0], x.g.t[1]) - R * 0.55).toFixed(1) + '" text-anchor="middle">−' + num(x.dmg) + "</text>";
@@ -1955,7 +1962,22 @@
       (list || []).forEach(function (x) { n[x.kind] = (n[x.kind] || 0) + 1; });
       return Object.keys(n).map(function (k) { return " · " + names[k] + " " + n[k] + " hexagone" + (n[k] > 1 ? "s" : ""); }).join("");
     };
+    // the impacts of one attack on a guarded character: the consecutive hits that land on the same one (a Gemini, then the next one, then the owner) make one impact
+    const impactsOf = function (gl, tgt) {
+      const out = [];
+      (gl || []).filter(function (e) { return e.g && (!tgt || e.from === tgt); }).forEach(function (e) {
+        const last = out[out.length - 1];
+        if (last && last.g === e.g && !e.fresh && !last.died && last.dmg !== undefined && e.dmg !== undefined) { last.dmg += e.dmg; last.hits++; if (e.died) last.died = true; }
+        else out.push({ g: e.g, from: e.from, own: !!e.own, fresh: !!e.fresh, died: !!e.died, hit: e.hit, dmg: e.dmg, hits: 1, n: e.n });
+      });
+      return out;
+    };
     const guardText = function (list) {  // who took a hit in the place of its owner
+      if ((list || []).some(function (x) { return x.n; })) return impactsOf(list).map(function (x) {  // attack by attack: one line per impact
+        const gn = x.own ? "" : esc(x.g.name) + (x.from.pool && x.from.pool.length > 1 ? " n°" + (x.from.pool.indexOf(x.g) + 1) : ""), nb = x.hits > 1 ? " (" + x.hits + " coups)" : "";
+        if (x.hit === false) return '<span class="sb-sub">↳ ' + gn + " apparaît près de " + esc(x.from.name) + "</span>";
+        return '<span class="sb-sub">↳ ' + (x.own ? esc(x.from.name) + " <b>−" + num(x.dmg) + "</b>" + nb : (x.fresh ? gn + " apparaît sur un hexagone adjacent et encaisse <b>−" : gn + " encaisse <b>−") + num(x.dmg) + "</b>" + nb + " à la place de " + esc(x.from.name) + (x.died ? " ; " + gn + " est vaincue" : "")) + "</span>";
+      }).join("");
       return (list || []).map(function (x) { return x.hit === false ? " · " + esc(x.g.name) + " apparaît près de " + esc(x.from.name) : " · " + (x.fresh ? esc(x.g.name) + " apparaît et " : "") + esc(x.g.name) + " encaisse " + (x.dmg ? "<b>−" + num(x.dmg) + "</b> " : "") + "à la place de " + esc(x.from.name) + (x.died ? " et est vaincue" : ""); }).join("");
     };
     // the states shown on a character: a debuff in red, a buff in green, the rest neutral (the colour of the icon's ring and of the chip in the panel)
@@ -1965,7 +1987,7 @@
       return "";
     };
     const autoText = function (list) {  // what acted by itself: the summons, Khârn's Betrayer
-      return (list || []).map(function (x) { if (x.env) return " · " + esc(x.label) + (x.tgt ? " → " + esc(x.tgt.name) + " −" + num(x.dmg) : ""); return " · " + esc(x.u.name) + (x.label !== "Attaque" ? " (" + esc(x.label) + ")" : "") + (x.to ? " se déplace" : "") + (x.tgt ? " → " + esc(x.tgt.name) + " −" + num(x.dmg) + (x.hits > 1 ? " (" + x.hits + " coups)" : "") : "") + (x.more || []).map(function (y) { return " · " + esc(y.tgt.name) + " −" + num(y.dmg); }).join("") + guardText(x.guards) + autoText(x.trig) + (x.leaves ? " · " + esc(x.u.name) + " quitte le champ de bataille (sa machine peut resservir)" : ""); }).join("");
+      return (list || []).map(function (x) { if (x.env) return " · " + esc(x.label) + (x.tgt ? " → " + esc(x.tgt.name) + " −" + num(x.dmg) : ""); return " · " + esc(x.u.name) + (x.label !== "Attaque" ? " (" + esc(x.label) + ")" : "") + (x.to ? " se déplace" : "") + (x.tgt ? " → " + esc(x.tgt.name) + ((x.guards || []).some(function (g) { return g.n; }) ? "" : " −" + num(x.dmg)) + (x.hits > 1 ? " (" + x.hits + " coups)" : "") : "") + (x.more || []).map(function (y) { return " · " + esc(y.tgt.name) + " −" + num(y.dmg); }).join("") + guardText(x.guards) + autoText(x.trig) + (x.leaves ? " · " + esc(x.u.name) + " quitte le champ de bataille (sa machine peut resservir)" : ""); }).join("");
     };
     const allyHex = function (u) { return !!(u.t && u !== sel && sel && u.alive && !u.decoy && !tgtSet[u.i] && hexSet[u.t[0] + "," + u.t[1]]); };  // a unit standing on a hex the chosen ability can aim at (L'Accélération swaps places with an ally; a machine of war can bombard a hex with a unit on it): clickable
     const isDone = function (u) {  // greyed: everything of the side that does not play, and the units of the side that plays that have nothing left to do (no move, no attack, no ability)
@@ -2078,7 +2100,7 @@
         else if (m.k === "atk") {
           const made = (m.adds || []).filter(function (a) { return !a.decoy; }), deco = (m.adds || []).filter(function (a) { return a.decoy; }).length;
           const sums = made.length || deco ? "invoque " + made.map(function (a) { return esc(a.name); }).join(", ") + (deco ? (made.length ? " et " : "") + deco + " leurre" + (deco > 1 ? "s" : "") : "") : "";
-          text = esc(m.u.name) + " · " + esc(m.label) + (m.dmg > 0 ? " → " + esc(m.tgt.name) + " <b>−" + num(m.dmg) + "</b>" + (m.hits > 1 ? " (" + m.hits + " coups de " + num(m.per) + ")" : "") + diceText(m) : m.tgt !== m.u ? " → " + esc(m.tgt.name) : "") + (sums ? " · " + sums : "") +
+          text = esc(m.u.name) + " · " + esc(m.label) + (m.dmg > 0 ? " → " + esc(m.tgt.name) + ((m.guards || []).some(function (x) { return x.n; }) ? "" : " <b>−" + num(m.dmg) + "</b>") + (m.hits > 1 ? " (" + m.hits + " coups de " + num(m.per) + ")" : "") + diceText(m) : m.tgt !== m.u ? " → " + esc(m.tgt.name) : "") + (sums ? " · " + sums : "") +
             (m.more || []).map(function (x) { return " · " + (x.by ? esc(x.by.name) + " (" + esc(x.label) + ")" : esc(x.label)) + " → " + esc(x.tgt.name) + " <b>−" + num(x.dmg) + "</b>" + (x.hits > 1 ? " (" + x.hits + " coups)" : ""); }).join("") +
             (m.moves || []).map(function (x) { return " · " + esc(x.u.name) + " se déplace"; }).join("") + (m.mk && m.mk.length ? " · marque " + m.mk.reduce(function (a, x) { return a + x.hexes.length; }, 0) + " hexagone" + (m.mk.reduce(function (a, x) { return a + x.hexes.length; }, 0) > 1 ? "s" : "") : "") + (m.pend && m.tgt ? " (tir au début de son prochain tour)" : "") + hxText(m.hx) + autoText(m.react) + guardText(m.guards) + (m.heals && m.heals.length ? " · soigne " + m.heals.map(function (h) { return esc(h.u.name) + " +" + num(h.amt); }).join(", ") : "") + autoText(m.autoNow);
         }
@@ -2103,7 +2125,7 @@
     const hasBeats = function (m) {
       if (!m) return false;
       const recs = (m.auto || []).concat(m.autoNow || []).concat(m.react || []).concat(m.trig || []);
-      const extra = (m.more || []).length + (m.adds || []).filter(function (a) { return !a.decoy; }).length + recs.length + (m.guards || []).length + (m.booms || []).length + (m.regen || []).filter(function (r) { return r.amt > 0; }).length + (m.heals || []).length;
+      const extra = (m.more || []).length + (m.adds || []).filter(function (a) { return !a.decoy; }).length + recs.length + (m.guards || []).length + recs.reduce(function (a, r) { return a + (r.guards || []).length; }, 0) + (m.booms || []).length + (m.regen || []).filter(function (r) { return r.amt > 0; }).length + (m.heals || []).length;
       return m.k === "atk" ? extra > 0 && (m.dmg > 0 || extra > 1) : extra > 1;
     };
     function overkillFx(list) {  // "Overkill" in red rises from the centre of the avatar of a unit that is exterminated, and fades, like the states that fly off
@@ -2142,32 +2164,35 @@
         units.forEach(function (x) { if (x.g) x.g.classList.remove("tk-hit", "tk-act"); });
         if (to.g) to.g.classList.add("tk-hit"); if (from.g && from !== to) from.g.classList.add("tk-act");
       };
-      const hit = function (from, to, dmg) {
+      const hit = function (from, to, dmg, keep) {  // keep: a guard that falls stays in view for a beat (it disappears in the next one)
         if (!from || !to || !(dmg > 0)) return;
         beam(from, to, "\u2212" + num(dmg));
         hp[to.i] = Math.max(0, (hp[to.i] || 0) - dmg); bar(to);
-        if (hp[to.i] <= 0 && !to.alive) { show(to, false); if ((m.over || []).indexOf(to) >= 0 && !to.overShown) { to.overShown = true; overkillFx([to]); } }
+        if (hp[to.i] <= 0 && !to.alive && !keep) { show(to, false); if ((m.over || []).indexOf(to) >= 0 && !to.overShown) { to.overShown = true; overkillFx([to]); } }
       };
       const healed = function (x, amt) { if (!x || !(amt > 0)) return; beam(x, x, "+" + num(amt), "rp-heal"); hp[x.i] = Math.min(x.max, (hp[x.i] || 0) + amt); bar(x); };
       const frame = window.requestAnimationFrame || function (f) { return setTimeout(f, 32); };
       frame(function () { frame(function () { svgBox.classList.remove("sb-notrans"); }); });  // two frames later the beats move and fade normally
       const beats = [];
-      const add = function (fn) { beats.push(fn); };
+      const add = function (fn, w) { beats.push({ fn: fn, w: w || 1 }); };  // w: how many beats it lasts (the guards' hits are given more time, one at a time)
       // a guard (Celestine's Geminae, Kell ...) comes in, then takes the hit in the place of its owner: one beat each, the owner only keeps what the guards did not take
-      const strikeBeat = function (by, tgt, dmg, gl) {
-        const ents = (gl || []).filter(function (e) { return e.from === tgt && e.g && e.g !== tgt; });
+      const strikeBeat = function (by, tgt, dmg, gl) {  // one attack: for each impact (a guard that comes in, takes it, falls; then the next one; then the owner) a beat or three
+        const ents = impactsOf(gl, tgt);
         let rest = dmg;
         ents.forEach(function (e) {
+          const guard = e.g !== tgt;
           if (e.fresh) add(function () {
             const g = e.g; if (g.t) place(g, g.t); show(g, true); hp[g.i] = g.max; bar(g);
             if (e.from.guardSwap && e.from.t) place(e.from, e.from.t);  // Kell and Creed swap hexes
             if (g.g) { g.g.classList.add("tk-new"); setTimeout(function () { g.g.classList.remove("tk-new"); }, 500); }
-          });
+          }, 3);
           const d = e.dmg !== undefined ? e.dmg : dmg;
-          if (e.hit && d > 0) { rest -= d; add(function () { hit(by, e.g, d); }); }
+          if (e.hit && d > 0) { rest -= d; add(function () { hit(by, e.g, d, guard && e.died); }, guard ? 3 : 2); }
+          if (guard && e.died) add(function () { fx.innerHTML = ""; show(e.g, false); }, 3);  // the guard that fell goes away
         });
         if (rest > 0) add(function () { hit(by, tgt, rest); });
       };
+      if (m.k === "mv" && m.to) add(function () { place(m.u, m.to); }, 3);  // a plain walk is the first beat: the character walks, and what watches reacts once it has arrived
       (m.moves || []).forEach(function (mv) { add(function () { place(mv.u, mv.to); }); });  // the moves of the action (a charge, a pull, a swap)
       if (m.k === "atk" && m.tgt && m.tgt !== m.u) strikeBeat(m.u, m.tgt, m.dmg > 0 ? m.dmg : 0, m.guards);
       (m.more || []).forEach(function (x) { strikeBeat(x.by || m.u, x.tgt, x.dmg, m.guards); });
@@ -2182,21 +2207,23 @@
       });
       (m.booms || []).forEach(function (x) { add(function () { hit(x.from, x.tgt, x.dmg); }); });
       (m.regen || []).filter(function (r) { return r.amt > 0 && !r.shield && !r.shielded && !r.spawn && !r.revive && !r.flee; }).forEach(function (r) { add(function () { healed(r.u, r.amt); }); });
-      beats.forEach(function (fn, i) { seqTimers.push(setTimeout(fn, 100 + i * gap)); });
+      let when = 100;
+      beats.forEach(function (b) { seqTimers.push(setTimeout(b.fn, when)); when += b.w * gap; });
       seqTimers.push(setTimeout(function () {  // the end: the settled state, everything in its place
         seqRender = true; render(); seqRender = false; seqActive = false; fx.innerHTML = "";
         units.forEach(function (x) { if (x.g) x.g.classList.remove("tk-hit", "tk-act"); });
         reviveFx(m);
-      }, 100 + beats.length * gap + 350));
+      }, when + 350));
     }
     const go = function (k) {
       const before = cur, back = Math.max(0, Math.min(steps.length, k));
       if (back < before) salts[back] = (salts[back] || 0) + 1;
       const forward = back === before + 1 && steps[back - 1] ? snapshot() : null;  // the state before the step that is played
       endSeq();
+      cur = back; settle(cur);  // the step is settled first: what reacts to it (the Sentinels, the guards, the summons) is only known once it has been played
       const seq = !!forward && hasBeats(steps[back - 1]);
       if (seq) svgBox.classList.add("sb-notrans");  // the settled state is drawn only to be replaced at once by the state before the action: no fade, no pop for that
-      cur = back; settle(cur); act = null; tgtSet = {}; hexSet = {}; render();
+      act = null; tgtSet = {}; hexSet = {}; render();
       const m = cur === before + 1 ? steps[cur - 1] : null;  // one step forward (a launch, Suiv., the player): its effects are played
       if (seq) { flash(null); playBeats(m, forward); }
       else { flash(m); reviveFx(m); if (m && m.over && m.over.length) overkillFx(m.over); }
@@ -3253,6 +3280,33 @@
       });
       if (best && -best.rank[1] < dist(u.t)) push({ k: "mv", u: u, from: u.t.slice(), to: best.h, cost: best.k0, tp: false, tpm: false });
     };
+    // An active that summons around its caster (Re'vas's Early Warning Override: two drones and the Sentinel mode) is used after a walk: to a hex that is not next to an enemy, as near as possible to the nearest
+    // one (2 hexes from it), with room around for the summons. It returns true when the character has walked (the active then waits for the walk to end).
+    const moveForActive = function (u) {
+      if (u.mow || u.acted || !u.alive || fxOn(u, "stun")) return false;
+      const o = options(u).filter(function (x) { const sp = x.ab && CULT[x.ab[0]]; return x.ok && x.ab && x.ab[2] === "a" && sp && sp.self && sp.summon && !sp.unmoved && !sp.pick && abReady(u, x.ab); })[0];
+      if (!o) return false;
+      const foesNow = foes(u);
+      if (!foesNow.length) return false;
+      const reach = stepsOf(u, budget(u)), saved = { spent: u.spent, moves: u.moves }, near = function (h) { return Math.min.apply(null, foesNow.map(function (e) { return RULES.dist(h, e.t); })); };
+      let best = null;
+      Object.keys(reach).forEach(function (key) {
+        const h = key.split(",").map(Number), c = RULES.cell(h[0], h[1]), k0 = reach[key];
+        if (!c || c.kind !== 0) return;
+        u.spent = saved.spent + k0; u.moves = k0 ? saved.moves + 1 : saved.moves;
+        let room = 0;
+        try { room = withPos(u, h, function () { return freeAround(u).length; }); } finally { u.spent = saved.spent; u.moves = saved.moves; }
+        if (!room) return;
+        const d = near(h), far = d >= 2 ? 1 : 0;
+        const rank = [far, far ? -d : d, c.tile === "Swamp" && !u.rules.us && !u.rules.fl ? 0 : 1, Math.min(room, 2), c.el || 0, c.tile === "DryBush" && !u.tset.BigTarget ? 1 : 0, -k0];
+        let better = !best;
+        if (best) for (let i = 0; i < rank.length; i++) if (rank[i] !== best.rank[i]) { better = rank[i] > best.rank[i]; break; }
+        if (better) best = { h: h, k0: k0, rank: rank };
+      });
+      if (!best || best.k0 === 0) return false;
+      push({ k: "mv", u: u, from: u.t.slice(), to: best.h, cost: best.k0, tp: false, tpm: false });
+      return true;
+    };
     const autoTurn = function () {
       if (autoRun) { autoRun = false; autoLabel(); return; }  // a second click stops it
       if (active !== 1) return;
@@ -3268,17 +3322,21 @@
         if (!u.mow && (!u.alive || u.acted)) { next(); return; }
         sel = u; choose(u);
         if (u.mow) { autoMow(u); setTimeout(next, 450 / speed); return; }  // a machine of war: its primary ability, else its secondary
-        preActives(u); useUtility(u);
-        const plan = u.acted ? null : planFor(u);
-        if (plan) {
-          if (plan.h && plan.k0 > 0) {  // the walk first, and the attack once the character has arrived (the attack's beats redraw the board without transitions: played at once they would cut the walk short)
-            push({ k: "mv", u: u, from: u.t.slice(), to: plan.h, cost: plan.k0, tp: false, tpm: false });
-            setTimeout(function () { if (!autoRun) return; strike(u, plan.o, plan.t); setTimeout(next, 450 / speed); }, 480 / speed);
-            return;
-          }
-          strike(u, plan.o, plan.t);
-        } else if (!u.acted) walkToward(u);
-        setTimeout(next, 450 / speed);
+        preActives(u);
+        const play = function () {  // the active that deals no damage (if it has one), then the walk and the attack
+          useUtility(u);
+          const plan = u.acted ? null : planFor(u);
+          if (plan) {
+            if (plan.h && plan.k0 > 0) {  // the walk first, and the attack once the character has arrived (the attack's beats redraw the board without transitions: played at once they would cut the walk short)
+              push({ k: "mv", u: u, from: u.t.slice(), to: plan.h, cost: plan.k0, tp: false, tpm: false });
+              setTimeout(function () { if (!autoRun) return; strike(u, plan.o, plan.t); setTimeout(next, 450 / speed); }, 480 / speed);
+              return;
+            }
+            strike(u, plan.o, plan.t);
+          } else if (!u.acted) walkToward(u);
+          setTimeout(next, 450 / speed);
+        };
+        if (moveForActive(u)) setTimeout(function () { if (autoRun) play(); }, 480 / speed); else play();
       };
       next();
     };
