@@ -281,7 +281,7 @@
       // effects of the step: a beam from the acting unit to what it hits, and the figures
       fx.innerHTML = "";
       // the effects on the tiles (under the tokens): a tinted cell and the game's own icon; one icon per kind and cell
-      const TFX = { fire: ["Feu", "rgba(255,110,30,.38)", "#ff8a3d"], cont: ["Contamination", "rgba(170,70,210,.36)", "#c57be6"], target: ["Frappe en approche", "rgba(255,70,70,.16)", "#ff5a5a"], mark: ["Case marquée", "rgba(255,70,70,.14)", "#ff7a7a"] };
+      const TFX = { fire: ["Feu", "rgba(255,110,30,.38)", "#ff8a3d"], cont: ["Contamination", "rgba(76,200,92,.42)", "#4cd964"], target: ["Frappe en approche", "rgba(255,70,70,.16)", "#ff5a5a"], mark: ["Case marquée", "rgba(255,70,70,.14)", "#ff7a7a"] };
       let tl = "";
       const seenFx = {};
       Object.keys(s.tfx).forEach(function (id) {
@@ -290,7 +290,7 @@
         seenFx[key] = 1;
         const x = cx(f.c[0]), y = cy(f.c[0], f.c[1]), z = R * 0.85;
         tl += '<g class="rp-tfx rp-tfx-' + f.k + '"><title>' + TFX[f.k][0] + '</title><polygon points="' + hexAt(x, y, 0.97) + '" fill="' + TFX[f.k][1] + '" stroke="' + TFX[f.k][2] + '" stroke-width="' + (f.k === "target" || f.k === "mark" ? 2 : 1.4) + '"' + (f.k === "target" || f.k === "mark" ? ' stroke-dasharray="5 4"' : "") + '/>' +
-          (f.k === "mark" ? "" : '<image href="' + assets + "tile-fx/" + f.k + '.webp" x="' + (x - z / 2).toFixed(1) + '" y="' + (y - z / 2).toFixed(1) + '" width="' + z.toFixed(1) + '" height="' + z.toFixed(1) + '" preserveAspectRatio="xMidYMid meet"/>') + "</g>";
+          (f.k === "mark" || f.k === "cont" ? "" : '<image href="' + assets + "tile-fx/" + f.k + '.webp" x="' + (x - z / 2).toFixed(1) + '" y="' + (y - z / 2).toFixed(1) + '" width="' + z.toFixed(1) + '" height="' + z.toFixed(1) + '" preserveAspectRatio="xMidYMid meet"/>') + "</g>";
       });
       $("rp-tfx").innerHTML = tl;
       const au0 = step.a !== null && step.a !== undefined ? s.units[step.a] : null;

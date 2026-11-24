@@ -50,7 +50,8 @@ def tile_fx_kind(name):
 
 
 # the boss Lion El'Jonson's Instruments of Vengeance calls Deathwing Knights (its ability names no unit in the game config)
-ABILITY_SUMMONS = {"InstrumentsOfVengeance_PendingAttack": "darkaSmnTerminator"}
+ABILITY_SUMMONS = {"InstrumentsOfVengeance_PendingAttack": "darkaSmnTerminator", "BreathOfSilence": "necroSmnDeathmark"}  # + the Silent King's Breath of Silence calls Deathmarks (the French game says "Traqueurs")
+SUMMON_NAMES = {"necroSmnDeathmark": "Traqueur"}  # names the user knows from the French game, over the English ones of the game config
 NPC_NAMES = {"GuildBoss12Npc2DarkaHellblaster": "Hellblaster", "GuildBoss12Npc4DarkaWatcher": "Guetteur des ténèbres"}
 _GAME_UNITS = None
 
@@ -452,6 +453,7 @@ def main():
         unit_names = {k: v["name"] for k, v in json.load(open(os.path.join(ROOT, "data", "units.json"), encoding="utf-8")).items()}
         unit_names.update({k: v["name"] for k, v in game_units().get("summons", {}).items() if k not in unit_names})  # the game's own names of the summons
         unit_names.update({k: v for k, v in NPC_NAMES.items() if k not in unit_names})
+        unit_names.update(SUMMON_NAMES)
         data["names"] = {i: unit_names[i] for i in sorted(ids) if i in unit_names}
         data["art"] = {i: sub + "/" + i + ".webp" for i in sorted(ids) for sub in ("units", "npcs") if os.path.exists(os.path.join(ROOT, "docs", "assets", sub, i + ".webp"))}
         missing = sorted(i for i in ids if i not in data["art"])
