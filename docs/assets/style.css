@@ -3036,3 +3036,10 @@ body[data-page="replay"]::before {
   /* like the Saisons page: a centred column, the anchors sit in the margin at its left; on a narrower window the column keeps at least the anchors' width + a gap (9rem) at its left */
   .opp-section { width: min(66rem, calc(100% - 9rem)); margin-left: max(9rem, calc((100% - 66rem) / 2)); margin-right: 0; }
 }
+
+/* a war's Attaques page: the same sections as the opponents' page, the maps keep their 3 x 5 layout */
+.opp-war .battlefield-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.oc-mark { width: 1.2rem; height: 1.2rem; flex: none; display: inline-block; background: var(--accent); border-radius: 3px; transform: rotate(45deg) scale(0.7); }
+.opp-title .oc-mark { margin: 0 0.3rem; }
+.opp-nav .opp-chip .oc-mark { margin: 0.35rem 0; }
+.oc-mark.oc-them { background: #f06b6b; }

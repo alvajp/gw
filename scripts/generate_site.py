@@ -1656,16 +1656,14 @@ def _battlefield_chip(entry, zone, board_name, board_img, players):
 
 
 def render_battlefield_section(result, our_idx, boards, prefix="../", attack_tables=None, attacks_script=""):
-    """Bottom of a war page: the full map, one 3x5 grid of tiles per guild
-    (ours on the left, theirs on the right). Each tile is the zone's map with
-    its defenders underneath; clicking a defender opens the modal. Under each
-    grid sits the table of the attacks that landed on it (attack_tables, keyed by
-    the ATTACKING team)."""
+    """Bottom of a war page: the full map, one 3x5 grid of tiles per guild, in two sections (the opponent's first, then ours) that the anchors at the side jump to, like the
+    boss anchors of the Saisons page. Each tile is the zone's map with its defenders underneath; clicking a defender opens the modal. Under each grid sits the table of the
+    attacks that landed on it (attack_tables, keyed by the ATTACKING team)."""
     field = compute_battlefield(result)
     if not field:
         return ""
-    teams = sorted(result["guilds"], key=lambda t: (t != our_idx, t))
-    grids = []
+    teams = [t for t in sorted(result["guilds"]) if t != our_idx] + [our_idx]  # the opponent first, then us
+    sections, navs = [], []
     for team in teams:
         name = OUR_GUILD_LABEL if team == our_idx else result["guilds"][team]["name"]
         tiles = []
@@ -1690,10 +1688,16 @@ def render_battlefield_section(result, our_idx, boards, prefix="../", attack_tab
             )
         attackers = next((t for t in result["guilds"] if t != team), None)
         under = (attack_tables or {}).get(attackers, "")
-        grids.append(
-            f'<div class="battlefield-side side-{len(grids)}"><h3>{html_escape(name)}</h3><div class="battlefield-grid">{"".join(tiles)}</div>{under}</div>'
+        slug = "side-us" if team == our_idx else "side-them"
+        mark = '<span class="oc-mark"></span>' if team == our_idx else (guild_badge(name, prefix) or '<span class="oc-mark oc-them"></span>')
+        navs.append(f'<a class="map-chip ns-chip opp-chip" data-boss="{slug}" href="#{slug}" title="{html_escape(name)}">{mark}<span class="oc-name">{html_escape(name)}</span></a>')
+        sections.append(
+            f'<section class="ns-boss opp-section" id="{slug}" data-boss="{slug}"><h2 class="opp-title">{mark}{html_escape(name)}</h2>'
+            f'<div class="battlefield opp-one opp-war"><div class="battlefield-side side-0"><div class="battlefield-grid">{"".join(tiles)}</div>{under}</div></div></section>'
         )
-    return '<div id="battlefield-wrap"><div class="battlefield">' + "".join(grids) + "</div>" + attacks_script + "</div>"
+    nav = '<nav class="map-filter ns-filter opp-nav" aria-label="Aller à une guilde">' + "".join(navs) + "</nav>"
+    return ('<div id="battlefield-wrap"><div class="ns-view" data-view="cur">' + nav + "".join(sections) + "</div>" + attacks_script
+            + f'<script src="{prefix}assets/saison-prochaine.js?v={ASSETS_VERSION}"></script></div>')
 
 
 COMBINED_OPPONENTS = {"Bloody Rose", "Ti'lath's Changers", "Red Corsairs"}  # + any guild with "Alpha Legion" in its name
