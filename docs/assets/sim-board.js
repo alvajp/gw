@@ -414,7 +414,7 @@
       live().filter(function (e) { return e.side !== m.side && !e.ds && RULES.dist(e.t, m.t) === 1; }).forEach(function (e) {
         const r = abilityHit(m, e, m.boom.raw, m.boom.prof, m.boom.n);
         curAtk++; hurt(e, Math.round(r.tot), m, r.per);
-        const rec = { tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), from: m }; out.push(rec); boomLog.push(rec);
+        const rec = { tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), det: r.det, from: m }; out.push(rec); boomLog.push(rec);
       });
       m.alive = false; m.hp = 0; deadLog.push(m);
       return out;
@@ -423,7 +423,8 @@
       const list = [m].concat(live().filter(function (x) { return isMine(x) && x.side === m.side && !x.exploded && RULES.dist(x.t, m.t) === 1; }));
       list.forEach(function (x) { if (x === m || x.alive) explode(x); });
     };
-    let guardLog = [];
+    let killTurn = [-1, -1];  // the turn in which each side last defeated an enemy (Adamatar's Obsessive Annunciation)
+    let guardLog = [], chainCut = null, hypCap = null;  // hypCap: what Judh's passive let through of the last hit she took, {tgt, allowed}  // chainCut: the attacker whose chain of attacks has been cut by Judh's Hypersensory Abilities in this step (its next attacks do not come)
     // an attack on a character that has guards (Celestine's Geminae, Kell): the WHOLE attack goes to the guard that stands (or appears) for it, and if the guard falls the attack is spent: what is left of it is lost.
     // The next attack meets the next guard; when none is left it is the owner's. Each attack leaves its line in guardLog (the guard that took it, or the owner).
     const hurtHits = function (t, dmg, by, per, prof) {
@@ -473,7 +474,7 @@
       const r = abilityHit(a, tg, avgOf(v, ""), prof, parseInt(v.nrOfHits, 10) || 1);
       curAtk++; hurt(tg, Math.round(r.tot), a, r.per, prof);
       if (prof === "Psychic") tg.psyTurn = turnNo;  // psychic damage this turn (Fury of the Ancients ...)
-      boomLog.push({ tgt: tg, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), from: a, label: label });
+      boomLog.push({ tgt: tg, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), det: r.det, from: a, label: label });
     };
     const riposte = function (t, by) {
       if (RULES.dist(t.t, by.t) === 1) {
@@ -538,7 +539,7 @@
       }
       if (t.cloak && by && by.side !== t.side && dmg > 0) { const cl = t.cloak; t.cloak = 0; dmg = Math.max(0, dmg - cl); if (dmg <= 0) { regenLog.push({ u: t, amt: cl, label: "son manteau d'instantanéité absorbe", shielded: true }); return; } }  // Timesplinter Mantle: the first attack against it hurts less
       let hyp = null;
-      if (by && by.side !== t.side && dmg > 0 && active !== t.side && t.hypTurn !== turnNo && abOf(t, "HypersensoryAbilities")) { hyp = abOf(t, "HypersensoryAbilities"); t.hypTurn = turnNo; dmg = Math.min(dmg, Math.max(0, t.hp - Math.ceil(t.hp * (hyp.hpPct || 50) / 100))); if (dmg <= 0) hyp = hyp; }  // Judh: the first hit of each enemy turn cannot take her below half of her current health
+      if (by && by.side !== t.side && dmg > 0 && active !== t.side && t.hypTurn !== turnNo && abOf(t, "HypersensoryAbilities")) { hyp = abOf(t, "HypersensoryAbilities"); t.hypTurn = turnNo; chainCut = by; dmg = Math.min(dmg, Math.max(0, t.hp - Math.ceil(t.hp * (hyp.hpPct || 50) / 100))); hypCap = { tgt: t, allowed: dmg }; }  // Judh: the first hit of each enemy turn cannot take her below half of her current health
       if (t.shield && round <= t.shield.until && t.shield.amt > 0 && dmg > 0) {  // a shield (Arcane Shield, Wrathful Devotion) takes the damage first
         const ab2 = Math.min(t.shield.amt, dmg); t.shield.amt -= ab2; dmg -= ab2;
         if (dmg <= 0) { regenLog.push({ u: t, amt: ab2, label: "son bouclier absorbe", shielded: true }); return; }
@@ -553,7 +554,8 @@
       });
       if (t.hp > 0 && dmg > 0 && by && by.side !== t.side) battleFocus(t);
       if (t.hp > 0 && hyp && by && by.alive) {  // she then steps to a free adjacent hex and, if the attacker is within 2, shoots it
-        const sp2 = prio(t, freeAround(t), t.t), from2 = t.t.slice();
+        const rg2 = parseInt(hyp.range, 10) || 2, all2 = freeReach(t), shoot = all2.filter(function (h) { return RULES.dist(h, by.t) <= rg2 && (RULES.dist(h, by.t) <= 1 || RULES.sight(h, by.t)); });  // a hex from which she can answer the attacker comes first; else the usual hex
+        const sp2 = prio(t, shoot.length ? shoot : all2, t.t), from2 = t.t.slice();
         if (sp2.length) { t.t = sp2[0].slice(); if (putDecoy(t, from2)) regenLog.push({ u: t, amt: 0, label: "laisse un leurre sur sa case de départ", flee: true }); }  // Judh leaves a decoy on the hex she started from
         if (RULES.dist(t.t, by.t) <= (parseInt(hyp.range, 10) || 2)) fireBack(t, by, hyp, "Projectile", "Sens hyper-aiguisés");
       }
@@ -565,7 +567,7 @@
       });
       if (t.hp > 0 && dmg > 0 && by && by.alive && by.side !== t.side && active !== t.side) riposte(t, by);
       if (t.hp <= 0) {
-        if (by && by.side !== t.side) { by.kills++; if (!t.summon) by.charKills = (by.charKills || 0) + 1; }
+        if (by && by.side !== t.side) { killTurn[by.side] = turnNo; by.kills++; if (!t.summon) by.charKills = (by.charKills || 0) + 1; }
         live().forEach(function (hx2) {  // Hascule: an enemy next to him is defeated -> he hits another adjacent enemy, which is taunted if it survives
           const es = abOf(hx2, "EcstaticSlaughter");
           if (!es || hx2.side === t.side || RULES.dist(hx2.t, t.t) !== 1 || hx2 === t || hx2.esBusy) return;
@@ -650,11 +652,11 @@
     const BOMB = {  // what a marked zone does when its turn comes: [{tgt, dmg, hits, per, pin}]
       OverwhelmingWrath: function (mk) {  // Azkor: the enemies next to him at the start of his turn
         const v = (mk.ab[8] && mk.ab[8][rar]) || {};
-        return foes(mk.by).filter(function (e) { return RULES.dist(e.t, mk.by.t) === 1; }).map(function (e) { const r = abilityHit(mk.by, e, avgOf(v, ""), mk.ab[5] || "Chain", parseInt(v.nrOfHits, 10) || 2); return { tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per) }; });
+        return foes(mk.by).filter(function (e) { return RULES.dist(e.t, mk.by.t) === 1; }).map(function (e) { const r = abilityHit(mk.by, e, avgOf(v, ""), mk.ab[5] || "Chain", parseInt(v.nrOfHits, 10) || 2); return { tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), det: r.det }; });
       },
       DevastatingRefrain: function (mk) {
         const v = (mk.ab[8] && mk.ab[8][rar]) || {};
-        return enemiesOn(mk.by.side, mk.hexes).map(function (e) { const r = abilityHit(mk.by, e, avgOf(v, ""), mk.ab[5], parseInt(v.nrOfHits, 10) || 1); return { tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per) }; });
+        return enemiesOn(mk.by.side, mk.hexes).map(function (e) { const r = abilityHit(mk.by, e, avgOf(v, ""), mk.ab[5], parseInt(v.nrOfHits, 10) || 1); return { tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), det: r.det }; });
       },
       MalleusRocketLauncher: function (mk) {  // 3 missiles on the marked hex, 9 shared around it (at most 3 impacts per unit); +dmg per impact near an Astra Militarum ally; the units hit are pinned
         const v = (mk.ab[8] && mk.ab[8][rar]) || {}, c = mk.hexes[0], ring = RULES.around(c[0], c[1]).filter(function (h) { const x = RULES.cell(h[0], h[1]); return x && x.kind !== 2; });
@@ -666,7 +668,7 @@
           if (!n) return;
           const near = e.side !== mk.by.side && live().some(function (x) { return x.side === mk.by.side && x.rules.fa === "AstraMilitarum" && RULES.dist(x.t, e.t) <= (parseInt(v.range, 10) || 2); });  // the extra damage is for the enemies
           const r = abilityHit(mk.by, e, avgOf(v, "") + (near ? v.extraDmg || 0 : 0), mk.ab[5], n);
-          out.push({ tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), pin: true });
+          out.push({ tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), det: r.det, pin: true });
         });
         return out;
       },
@@ -693,7 +695,7 @@
           enemiesOn(mk.by.side, mk.hexes).forEach(function (e) {
             const r = abilityHit(mk.by, e, mk.raw, mk.prof, mk.n);
             curAtk++; hurt(e, Math.round(r.tot), mk.by, r.per);
-            out.push({ u: mk.by, to: null, tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), label: mk.ab[1] });
+            out.push({ u: mk.by, to: null, tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), det: r.det, label: mk.ab[1] });
           });
           mk.hexes = [];
           return;
@@ -705,7 +707,7 @@
         if (u.side === mk.by.side) return;
         const r = abilityHit(mk.by, u, mk.raw, mk.prof, mk.n);
         curAtk++; hurt(u, Math.round(r.tot), mk.by);
-        out.push({ u: mk.by, to: null, tgt: u, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), label: mk.ab[1] });
+        out.push({ u: mk.by, to: null, tgt: u, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), det: r.det, label: mk.ab[1] });
         if (u.alive && u.tset.Mechanical && mk.raw2) { const r2 = abilityHit(mk.by, u, mk.raw2, mk.prof, mk.n2); curAtk++; hurt(u, Math.round(r2.tot), mk.by, r2.per); out.push({ u: mk.by, to: null, tgt: u, dmg: Math.round(r2.tot), hits: r2.hits, per: Math.round(r2.per), label: mk.ab[1] + " (mécanique)" }); }
       });
       zmarks = zmarks.filter(function (mk) { return mk.hexes.length; });
@@ -824,7 +826,7 @@
         const id = abOf(x, "InescapableDeath"), sn = fxOn(x, "sentinel"), hail = fxOn(x, "hail"), cutBy = (id ? parseInt(id.hitsReduction, 10) || 1 : 0) || (sn ? parseInt(sn.cut, 10) || 1 : 0) || ((abOf(x, "FiringPosition") || null) ? parseInt(abOf(x, "FiringPosition").hitsReduction, 10) || 2 : 0);  // Havoc: it stays on Overwatch after a kill, with fewer hits
         const w2 = [w[0], w[1], Math.max(1, w[2] - x.owCut)], r = damageOf(x, mv, { w: w2, sentinel: true, extra: (id ? id.extraDmg || 0 : 0) + (sn ? sn.extra || 0 : 0), pierce: hail ? (hail.v && hail.v.extraPierceRatio) || 0 : 0 }, dd);
         curAtk++; guardLog = []; hurtHits(mv, Math.round(r.tot), x, r.per, undefined, r.hits);  // hit by hit: a guard of the one who moved (Celestine's Geminae) takes them
-        out.push({ u: x, to: null, tgt: mv, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), label: "Sentinelle", guards: guardLog, det: r.det });
+        out.push({ u: x, to: null, tgt: mv, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), det: r.det, label: "Sentinelle", guards: guardLog, det: r.det });
         if (hail && hail.by) {  // the Storm Speeder fires at the same target
           const hv = hail.v || {}, r2 = abilityHit(hail.by, mv, avgOf(hv, ""), hail.by.rules.ab.filter(function (a) { return a[0] === "Hailstrike"; })[0][5], parseInt(hv.nrOfHits, 10) || 3);
           curAtk++; guardLog = []; hurtHits(mv, Math.round(r2.tot), hail.by, r2.per, undefined, r2.hits);
@@ -859,20 +861,20 @@
     const diceSeed = function () { const idx = settling ? rollKey : cur; return ((idx + 1) * 2654435761) ^ ((settling ? rollSalt : (salts[idx] || 0)) * 1597334677); };  // the dice of the hits (damage variation, critical hits, blocks) are seeded by the step being replayed, or by the step about to be taken
     const settle = function (k) {  // everybody on the hexes, with the health, they have after k steps, and whose turn it is
       settling = true;
-      field.forEach(function (u) { u.endDone = false; u.max = u.max0; u.fx = {}; u.twisted = false; u.twistDmg = 0; u.t = u.t0 ? u.t0.slice() : null; u.hp = u.max; u.alive = !u.summon; u.nAtk = 0; u.kills = 0; u.attacked = 0; u.lastAtk = -1; u.annBy = null; u.shun = null; u.used = {}; u.marked = false; u.markedBy = -1; u.markFresh = false; u.came = false; u.exploded = false; u.grim = 0; u.euph = null; u.neuro = 0; u.cloak = 0; u.hypTurn = -1; u.lcTurn = -1; u.miTurn = -1; u.atkTurns = 0; u.lastAtkTurn = -1; u.shield = null; u.waaaghLvl = 0; u.relocated = false; u.aug = null; u.dutyDmg = 0; u.armCut = 0; u.charKills = 0; u.smasha = false; u.auto = false; u.rage = false; u.chargedTurn = -1; u.psyTurn = -1; u.ghost = null; u.pi = {}; u.kidIdx = 0; u.born = -1; u.outr = {}; u.yexec = false; u.stillPrev = false; u.tfUsed = false; u.stance = 0; u.stTurn = -1; u.grimTurn = -1; u.ripAtk = -1; u.ow = false; u.owCut = 0; u.owForce = false; u.ds = !!u.tset.TeleportStrike && !u.summon; u.noRanged = false; u.lastSpent = 0; u.nano = false; u.moveBonus = 0; u.shroud = 0; u.ambush = !!u.tset.Ambush && !u.decoy; u.fallen = false; });
+      killTurn = [-1, -1]; field.forEach(function (u) { u.endDone = false; u.max = u.max0; u.fx = {}; u.twisted = false; u.twistDmg = 0; u.t = u.t0 ? u.t0.slice() : null; u.hp = u.max; u.alive = !u.summon; u.nAtk = 0; u.kills = 0; u.attacked = 0; u.lastAtk = -1; u.annBy = null; u.shun = null; u.used = {}; u.marked = false; u.markedBy = -1; u.markFresh = false; u.came = false; u.exploded = false; u.grim = 0; u.euph = null; u.neuro = 0; u.cloak = 0; u.hypTurn = -1; u.lcTurn = -1; u.miTurn = -1; u.atkTurns = 0; u.lastAtkTurn = -1; u.shield = null; u.waaaghLvl = 0; u.relocated = false; u.aug = null; u.dutyDmg = 0; u.armCut = 0; u.charKills = 0; u.smasha = false; u.auto = false; u.rage = false; u.chargedTurn = -1; u.psyTurn = -1; u.ghost = null; u.pi = {}; u.kidIdx = 0; u.born = -1; u.outr = {}; u.yexec = false; u.stillPrev = false; u.tfUsed = false; u.stance = 0; u.stTurn = -1; u.grimTurn = -1; u.ripAtk = -1; u.ow = false; u.owCut = 0; u.owForce = false; u.ds = !!u.tset.TeleportStrike && !u.summon; u.noRanged = false; u.lastSpent = 0; u.nano = false; u.moveBonus = 0; u.shroud = 0; u.ambush = !!u.tset.Ambush && !u.decoy; u.fallen = false; });
       round = 1; active = 0; pending = []; hexfx = {}; zmarks = []; turnNo = 0; meleeDead = 0; activeUses = [0, 0]; psyCount = [0, 0]; regenLog = []; boomLog = []; deadLog = []; overLog = [];
       units.forEach(function (u) { u.lastPer = 0; u.narthAt = -1; if (u.mow) { u.fx = {}; u.used = {}; u.acted = false; u.deployed = false; u.nAtk = 0; u.usedActive = false; } });
       turnStart();
       for (let i = 0; i < k; i++) {
         const m = steps[i];
-        curAtk++; rollKey = i; rollSalt = m.salt || 0; stepRng = mulberry(((i + 1) * 2654435761) ^ 0x51ed270b); regenLog = []; boomLog = []; deadLog = []; overLog = [];
+        chainCut = null; curAtk++; rollKey = i; rollSalt = m.salt || 0; stepRng = mulberry(((i + 1) * 2654435761) ^ 0x51ed270b); regenLog = []; boomLog = []; deadLog = []; overLog = [];
         if (m.k === "mv") {
           m.u.t = m.to.slice(); m.u.spent += m.cost; m.u.moves++; m.u.ds = false; if (abOf(m.u, "GrimEfficiency") && m.cost >= (parseInt(abOf(m.u, "GrimEfficiency").movement, 10) || 3)) m.u.grim = 1 - (m.u.grim || 0); if (abOf(m.u, "HaywireMine")) m.u.mineHex = m.from.slice(); if (abOf(m.u, "TimeFlux") && !m.u.tfUsed) m.u.ghost = m.from.slice(); if (m.tp && !m.tpm) m.u.noRanged = true;  // Deep Strike: it teleported, no ranged attack until the end of its turn  // (Deep Strike ends as soon as the unit has moved, not only at the end of the turn)
           decoys().forEach(function (x) {  // an enemy stepping on a decoy destroys it (and Decoys and Misdirection blasts it)
             if (x.side !== m.u.side && x.t[0] === m.to[0] && x.t[1] === m.to[1]) {
               const pr = live().filter(function (p) { return p.side === x.side && abOf(p, "DecoysAndMisdirection"); })[0];
               x.alive = false;
-              if (pr && m.u.alive) { const dv = abOf(pr, "DecoysAndMisdirection"), r = abilityHit(pr, m.u, avgOf(dv, ""), "Blast", nI(dv.nrOfHits, 1)); boomLog.push({ tgt: m.u, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), from: pr, label: "Leurres et détours" }); curAtk++; hurt(m.u, Math.round(r.tot), pr, Math.round(r.per)); }
+              if (pr && m.u.alive) { const dv = abOf(pr, "DecoysAndMisdirection"), r = abilityHit(pr, m.u, avgOf(dv, ""), "Blast", nI(dv.nrOfHits, 1)); boomLog.push({ tgt: m.u, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), det: r.det, from: pr, label: "Leurres et détours" }); curAtk++; hurt(m.u, Math.round(r.tot), pr, Math.round(r.per)); }
             }
           });
           if (m.u.alive) {
@@ -905,7 +907,9 @@
             const gp0 = guardOf(m.tgt);
             if (gp0 && gp0.hex) { const g0 = gp0.g; g0.t = gp0.hex.slice(); g0.alive = true; g0.came = true; g0.hp = g0.max; g0.acted = false; g0.spent = 0; guardLog.push({ from: m.tgt, g: g0, fresh: true, hit: false }); }
           }
+          hypCap = null; m.capDmg = undefined; m.detShown = null;
           if (m.dmg > 0) hurtHits(m.tgt, m.dmg, m.u, m.per, m.prof, m.hits);
+          if (hypCap && hypCap.tgt === m.tgt) { m.capDmg = hypCap.allowed; m.detShown = capHits(m.det, hypCap.allowed); }  // Judh: the damage is capped at half of her health, the hits add up to it
           if (m.bl > 0 && m.tgt && m.tgt.alive) {  // a block: Deathwing's damage bonus for a round; Anvil Shield covers the attacker's hex with ice and stuns it after a melee block
             const dwB = abOf(m.tgt, "Deathwing") || abOf(m.tgt, "DeathwingKnight"), anB = abOf(m.tgt, "AnvilShield");
             if (dwB) m.tgt.fx.dwbuff = { id: "dwbuff", until: m.tgt.side === 0 ? round + 1 : round + 1, extra: (dwB.extraDmg || 0) * (m.u.rules.al === "Chaos" || live().some(function (x) { return x !== m.tgt && x.side === m.tgt.side && x.rules.fa === "DarkAngels" && RULES.dist(x.t, m.tgt.t) === 1; }) ? 2 : 1) };
@@ -914,7 +918,7 @@
           if (!m.abId && !m.u.mow && abOf(m.u, "RefusalToBeOutdone")) m.u.outr = {};  // Laviscus: his Outrage resets after his normal attack
           if (m.drT) m.drT.drTurn = turnNo;
           if (!m.abId && !m.u.mow && m.tgt && !m.tgt.alive && m.tgt.side !== m.u.side && abOf(m.u, "EmpyricAmbush") && m.u.t && RULES.dist(m.u.t, m.tgt.t) === 1) delete m.u.used.EmpyricAmbush;  // Lhykhis killed in melee with a normal attack: Empyric Ambush is available again
-          (m.more || []).forEach(function (x) { hurt(x.tgt, x.dmg, x.by || m.u, x.per, x.prof); });  // the other hits of the action (splash, a second attack)
+          (m.more || []).forEach(function (x) { x.cut = !!chainCut && (x.by || m.u) === chainCut; x.capDmg = undefined; x.detShown = null; if (!x.cut) { hypCap = null; hurt(x.tgt, x.dmg, x.by || m.u, x.per, x.prof); if (hypCap && hypCap.tgt === x.tgt) { x.capDmg = hypCap.allowed; x.detShown = capHits(x.det, hypCap.allowed); } } });  // the other hits of the action (splash, a second attack); Judh's passive cuts the attacker's chain: no attack comes after it
           m.guards = guardLog;  // who took a hit in the place of its owner (for the log)
           field.forEach(function (x) { if (x !== m.u && x.alive && abOf(x, "WaaaghEnergy") && RULES.dist(x.t, m.u.t) <= 2) x.waaaghLvl = (x.waaaghLvl || 0) + 1; });  // Zapspitta feeds on the attacks around him
           if (abOf(m.u, "WaaaghEnergy")) m.u.waaaghLvl = Math.floor((m.u.waaaghLvl || 0) * (1 - (parseInt(abOf(m.u, "WaaaghEnergy").effectLevelPct, 10) || 50) / 100));  // and loses half of it when he attacks
@@ -1293,10 +1297,24 @@
       let total = per * hits, crits = 0, blocks = 0, det = null;  // det: the hits one by one, for the log
       const itU = (!ab || modsOK) && !spec.fixed && (u.itc || (u.rules.it && u.rules.it[rar])), itT = !spec.fixed && profile !== "DirectDamage" && (t.itc || (t.rules.it && t.rules.it[rar]));
       const dwT = abOf(t, "Deathwing") || abOf(t, "DeathwingKnight"), anvT = abOf(t, "AnvilShield");
-      if ((itU && itU.c.length) || (itT && itT.b.length) || rawPre !== null) {  // a normal attack always goes hit by hit: each hit has its own variation (DAMVAR), and its own critical and block rolls
+      const abv = ab && !F && ab[8] && ab[8][rar] && ab[8][rar].minDmg && ab[8][rar].maxDmg ? ab[8][rar] : null;  // an ability's figure is a range: every hit lands somewhere between its minimum and its maximum
+      // the extra blocks of the target (traits, auras, states) and what moves the critical chance and damage of the hit (traits, allies' abilities, states)
+      const blkExtra = [];
+      if (itT || (!spec.fixed && profile !== "DirectDamage")) {
+        if (!spec.fixed && profile !== "DirectDamage") {
+          if (tt.Daemon) blkExtra.push([TV.daemonBlockChance || 25, Math.round(t.atk * (TV.daemonBlockDamagePercentage || 50) / 100)]);
+          if (tt.BeastSlayer) blkExtra.push([TV.beastSlayerBlockChance || 10, Math.round(armorOf(t) * (TV.beastSlayerBlockAsMaxArmorPct || 100) / 100)]);
+          if (tt.BeastSnagga) blkExtra.push([TV.beastSnaggaBlockChance || 10, Math.round(t.max * (TV.beastSnaggaDmgAsMaxHpPct || 20) / 100)]);
+          const ps = live().filter(function (x) { return x.side === t.side && x !== t && t.tset.Psyker && abOf(x, "PropheticSentinel") && RULES.dist(x.t, t.t) === 1; })[0];
+          if (ps) blkExtra.push([abOf(ps, "PropheticSentinel").blockChance || 0, abOf(ps, "PropheticSentinel").blockDmg || 0]);
+          aurasOn(t, t.t).forEach(function (a) { if (a.id === "PsychicFortress") blkExtra.push([parseInt(a.v.blockChance, 10) || 0, a.v.blockDmg || 0]); });
+          const sk = fxOn(t, "shackle"); if (sk && sk.v) blkExtra.push([sk.v.blockChance || 0, sk.v.blockDmg || 0]);
+        }
+      }
+      if ((itU && itU.c.length) || (itT && itT.b.length) || blkExtra.length || rawPre !== null || abv || tt.Impervious) {  // a normal attack always goes hit by hit: each hit has its own variation (DAMVAR), and its own critical and block rolls
         const nHit = Math.max(1, Math.round(hits)), cache = {}, perFor = function (extra, blk, dvi) {  // a critical hit raises the damage (Damage + Crit damage), a block lowers it: both before the variation and the armour
           const k = extra + "|" + blk + "|" + dvi;
-          if (cache[k] === undefined) { const base = (rawPre !== null ? rawPre : raw) + extra - blk; cache[k] = base <= 0 ? 0 : post(perOf(rawPre !== null ? base * (1 + dvi / 100) : base, extra > 0)); }
+          if (cache[k] === undefined) { const base = (rawPre !== null ? rawPre : raw) + extra - blk; cache[k] = base <= 0 ? 0 : post(perOf(rawPre !== null || abv ? base * (1 + dvi / 100) : base, extra > 0)); }
           return cache[k];
         };
         let bBonus = itT ? itT.bb[0] : 0, bDmg = itT ? itT.bb[1] : 0;  // what raises the block chance of the target: the boosters, a Watcher next to it (+15 %), Anvil Shield (wounded, or the attacker stands on ice)
@@ -1305,23 +1323,39 @@
           if (abOf(t, "ReinforcedHiveNode") && (round - (t.arrRound || 1)) % 2 === 0) bBonus += 100;  // Tyranid Warrior: sure to block every other round
           if (anvT) { bDmg += anvT.blockDmg || 0; if (t.hp < t.max * (parseInt(anvT.healthPct, 10) || 35) / 100 || hexKind(u.t) === "ice") bBonus += anvT.blockChance || 0; }
         }
-        const critU = itU && itU.c.length ? chanceOf(itU.c, [itU.cb[0] + (!ranged && fxOn(u, "howl") ? fxOn(u, "howl").v.extraCritChance || 0 : 0), itU.cb[1]]) : { p: 0, d: 0 };
-        critU.d += spec.critExtra || 0;  // Heroic Fusillade: more critical damage for each free hex around the target
-        const blockT = itT && itT.b.length ? chanceOf(itT.b, [bBonus, bDmg]) : { p: 0, d: 0 };
+        let xc = 0, xd = 0, sure = false;  // the critical chance and damage the traits, the allies and the states add; sure: the hit is always critical
+        const hw2 = fxOn(u, "howl"); if (!ab && !ranged && hw2) xc += hw2.v.extraCritChance || 0;  // War Howl: the normal melee attacks
+        aurasOn(u, u.t).forEach(function (a) { if (a.id === "PathOfCommand") xc += a.v.extraCritChance || 0; });
+        const ia = abOf(u, "InescapableAccuracy"); if (ia && ranged && u.spent === 0) { xc += ia.extraCritChance || 0; xd += ia.extraCritDmg || 0; }  // Maugan Ra, not moved
+        const sgc = abOf(u, "SagaOfTheWarriorBorn") || (u.rules.fa === "SpaceWolves" && live().some(function (x) { return x.side === u.side && abOf(x, "SagaOfTheWarriorBorn") && x.kills > 0; }) ? abOf(live().filter(function (x) { return x.side === u.side && abOf(x, "SagaOfTheWarriorBorn"); })[0], "SagaOfTheWarriorBorn") : null);
+        if (sgc && charges(u, t)) xd += sgc.extraCritDmg || 0;  // Ragnar and the Space Wolves who charge
+        const rb = abOf(u, "RefusalToBeOutdone"); if (rb && !ab) xd += (rb.extraCritDmg || 0) * Object.keys(u.outr || {}).length;  // Laviscus: per Chaos ally that raised his Outrage
+        const tk2 = abOf(u, "TrophyTaker"); if (tk2) { xc += (tk2.extraCritChance || 0) * (u.kills || 0); if (t.hp <= t.max * (parseInt(tk2.hpPct, 10) || 50) / 100) xd += tk2.extraCritDmg || 0; }  // Tarvakh
+        if (ab && ab[0] === "TacticalPrecision" && charges(u, t)) { sure = true; xd += (ab[8][rar] || {}).extraCritDmg || 0; }  // Titus: always critical when he charged
+        if (u.tset.ThrillSeekers && (u.hitNow || t.hp >= t.max)) xc += TV.thrillSeekersExtraCritChance || 15;  // Exalted: it has lost health this turn, or targets an enemy at full health
+        if (u.rules.al === "Chaos" && killTurn[u.side] === turnNo && live().some(function (x) { return x.side === u.side && abOf(x, "ObsessiveAnnunciation") && RULES.dist(x.t, t.t) === 1; })) xd += (abOf(live().filter(function (x) { return x.side === u.side && abOf(x, "ObsessiveAnnunciation"); })[0], "ObsessiveAnnunciation") || {}).extraCritDmg || 0;  // Adamatar: after a kill this turn
+        const ttk = abOf(t, "ToughToKill"); if (ttk) { xc -= ttk.critChanceReduction || 0; xd -= ttk.critDmgReduction || 0; }  // Dreir: attacks against him crit less and for less
+        const critU = itU && itU.c.length ? chanceOf(itU.c, [itU.cb[0] + xc, itU.cb[1] + xd]) : { p: 0, d: 0 };
+        critU.d = Math.max(0, critU.d + (spec.critExtra || 0));  // Heroic Fusillade: more critical damage for each free hex around the target
+        if (sure && itU && itU.c.length) critU.p = 100;
+        const blkAll = (itT ? itT.b : []).concat(blkExtra);
+        const ucb = fxOn(t, "ancb"); if (ucb && blkAll.length) bBonus += ucb.extra || 0;  // Uthar after Ancestral Fortune
+        const blockT = blkAll.length ? chanceOf(blkAll, [bBonus, bDmg]) : { p: 0, d: 0 };
         const hitsOut = [];
+        let cLive = true, bLive = true;  // the chains of critical hits and of blocks
         for (let i = 0; i < nHit; i++) {
           let add = 0, block = 0, blocked = false;
-          const dvi = rawPre === null ? 0 : i === 0 ? dvPct : F ? F.dv : Math.round(dice() * 40 - 20);  // the variation of this hit
+          const dvi = abv ? Math.round(((abv.minDmg + dice() * (abv.maxDmg - abv.minDmg)) / ((abv.minDmg + abv.maxDmg) / 2) - 1) * 100) : rawPre === null ? 0 : i === 0 ? dvPct : F ? F.dv : Math.round(dice() * 40 - 20);  // the variation of this hit
           if (F) { if (F.crit && itU && itU.c.length) { add = critU.d; crits++; } }
-          else if (itU && itU.c.length && dice() * 100 < critU.p) { add = critU.d; crits++; }  // each hit rolls the same chance again
-          if (F) { if (F.block && itT && itT.b.length) { block = blockT.d; blocked = true; blocks++; } }
-          else if (itT && itT.b.length && dice() * 100 < blockT.p) { block = blockT.d; blocked = true; blocks++; }  // the block is rolled with the critical hit
-          hitsOut.push([perFor(add, block, dvi), blocked, add, block, dvi]);
+          else if (itU && itU.c.length && cLive) { if (dice() * 100 < critU.p) { add = critU.d; crits++; } else cLive = false; }  // a chain: the first hit rolls its critical chance; as long as it succeeds the next hit rolls it too, at the first miss the chain stops
+          if (F) { if (F.block && blkAll.length) { block = blockT.d; blocked = true; blocks++; } }
+          else if (blkAll.length && bLive) { if (dice() * 100 < blockT.p) { block = blockT.d; blocked = true; blocks++; } else bLive = false; }  // the block is a chain too, rolled with the critical hit
+          hitsOut.push([tt.Impervious ? (add > 0 ? Math.max(1, t.hp) : 0) : perFor(add, block, dvi), blocked, add, block, dvi]);  // Impervious: only a critical hit hurts it, and it defeats it at once
         }
         // Deathwing: once a hit of the attack is blocked, the other hits of it are weaker (twice as much against Chaos, or next to another Dark Angel)
         const dwCut = dwT && blocks > 0 ? (dwT.dmgReduction || 0) * (u.rules.al === "Chaos" || live().some(function (x) { return x !== t && x.side === t.side && x.rules.fa === "DarkAngels" && RULES.dist(x.t, t.t) === 1; }) ? 2 : 1) : 0;
         total = 0;
-        det = hitsOut.map(function (h) { return { d: Math.round(h[1] ? h[0] : Math.max(1, h[0] - dwCut)), c: h[2] > 0 ? Math.round(h[2]) : 0, b: h[3] > 0 ? Math.round(h[3]) : 0, v: rawPre === null ? null : h[4] }; });
+        det = hitsOut.map(function (h) { return { d: Math.round(h[1] ? h[0] : Math.max(1, h[0] - dwCut)), c: h[2] > 0 ? Math.round(h[2]) : 0, b: h[3] > 0 ? Math.round(h[3]) : 0, v: rawPre === null && !abv ? null : h[4] }; });
         hitsOut.forEach(function (h) { total += h[1] ? h[0] : Math.max(1, h[0] - dwCut); });
         per = total / nHit;
       }
@@ -1528,7 +1562,7 @@
       const v = (o.ab[8] && o.ab[8][rar]) || {}, n = parseInt(v.nrOfHits, 10) || o.ab[6] || 1, prof = o.ab[5] || "Projectile";
       const stay = hex[0] === u.t[0] && hex[1] === u.t[1];
       return withPos(u, hex, function () {
-        const free = freeAdj(t).length, hit = function (e) { const r = abilityHit(u, e, avgOf(v, ""), prof, n, 0, o.ab, (v.extraCritDmg || 0) * free); return { tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), label: o.name }; };
+        const free = freeAdj(t).length, hit = function (e) { const r = abilityHit(u, e, avgOf(v, ""), prof, n, 0, o.ab, (v.extraCritDmg || 0) * free); return { tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), det: r.det, label: o.name }; };
         return { moves: stay ? [] : [{ u: u, to: hex.slice() }], main: hit(t), more: foes(u).filter(function (e) { return e !== t && RULES.dist(t.t, e.t) === 1; }).map(hit) };
       });
     }
@@ -1609,7 +1643,7 @@
           });
           if (!hs.length) return;
           const r = withPos(u, hs[0], function () { return damageOf(u, t, { w: mainWeapon(u, true), extra: v.extraDmg || 0 }, 1); });
-          out.push({ u: t, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), plan: { moves: [{ u: u, to: hs[0].slice() }], more: [] } });
+          out.push({ u: t, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), det: r.det, plan: { moves: [{ u: u, to: hs[0].slice() }], more: [] } });
           return;
         }
         if (sp && sp.leap) {  // Heroic Fusillade: Judh moves to a free hex next to the enemy (within 2 steps of her, or where she stands), then hits it and the enemies around it; the hex is the highest, then tall grass, then the nearest
@@ -1619,25 +1653,25 @@
           });
           if (!hs.length) return;
           const plan = fusilladeAt(u, o, hs[0], t);
-          out.push({ u: t, dmg: plan.main.dmg, hits: plan.main.hits, per: plan.main.per, plan: { moves: plan.moves, more: plan.more } });
+          out.push({ u: t, dmg: plan.main.dmg, hits: plan.main.hits, per: plan.main.per, det: plan.main.det, plan: { moves: plan.moves, more: plan.more } });
           return;
         }
         if (sp && sp.drach) {  // Drach'nyen: Abaddon picks an adjacent enemy and hits it with a normal melee attack (his health is set at the same time)
           if (dd !== 1) return;
           const r = damageOf(u, t, { w: mainWeapon(u, true) }, 1);
-          out.push({ u: t, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), dv: r.dv, cr: r.cr, bl: r.bl });
+          out.push({ u: t, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), det: r.det, dv: r.dv, cr: r.cr, bl: r.bl });
           return;
         }
         if (sp && sp.duel) {  // Holy Duel: an adjacent enemy is hit by a normal melee attack (+dmg) and the two are taunted by each other until one falls; the duellist takes less from his partner
           if (dd !== 1) return;
           const v = (o.ab[8] && o.ab[8][rar]) || {}, r = damageOf(u, t, { w: mainWeapon(u, true), extra: v.extraDmg || 0 }, 1);
-          out.push({ u: t, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), plan: { moves: [], more: [], fx: [{ u: t, id: "taunt", taunt: u, until: 9999, v: {} }, { u: u, id: "taunt", taunt: t, until: 9999, reduce: v.dmgReduction || 0, v: {} }] } });
+          out.push({ u: t, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), det: r.det, plan: { moves: [], more: [], fx: [{ u: t, id: "taunt", taunt: u, until: 9999, v: {} }, { u: u, id: "taunt", taunt: t, until: 9999, reduce: v.dmgReduction || 0, v: {} }] } });
           return;
         }
         if (sp && sp.nob) {  // Unstoppable Momentum: pick an enemy on one of the 6 lines
           const p = nobPlan(u, o, t);
           if (!p) return;
-          out.push({ u: t, dmg: p.main.dmg, hits: p.main.hits, per: p.main.per, prof: o.ab[5], plan: p });
+          out.push({ u: t, dmg: p.main.dmg, hits: p.main.hits, per: p.main.per, prof: o.ab[5], det: p.main.det, plan: p });
           return;
         }
         if (sp && sp.chargeAb) {  // a charge ability (Dante, Dreir, Mataneo, Kîmm): if the unit has not moved, it runs to a free hex next to an enemy within its range and hits it
@@ -1649,7 +1683,7 @@
           });
           if (!hs.length) return;
           const stay = sameHex(hs[0], u.t), r = withPos(u, hs[0], function () { return sp.normal ? damageOf(u, t, { w: mainWeapon(u, true), extra: (v.extraDmg || 0) }, 1) : damageOf(u, t, { ab: o.ab }, 1); });
-          out.push({ u: t, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), prof: o.ab[5], plan: { moves: stay ? [] : [{ u: u, to: hs[0].slice() }], more: [], fx: [] } });
+          out.push({ u: t, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), det: r.det, prof: o.ab[5], plan: { moves: stay ? [] : [{ u: u, to: hs[0].slice() }], more: [], fx: [] } });
           return;
         }
         if (sp && sp.charge) {  // Waaagh!: Boyz around Gulgortz (if he has not moved), his adjacent allies get +1 movement and +dmg until the end of his turn, then he charges an enemy within his movement: a normal melee attack
@@ -1661,7 +1695,7 @@
           if (!hs.length) return;
           const stay = hs[0][0] === u.t[0] && hs[0][1] === u.t[1], r = withPos(u, hs[0], function () { return damageOf(u, t, { w: mainWeapon(u, true) }, 1); });
           const buff = live().filter(function (x) { return x.side === u.side && x !== u && RULES.dist(u.t, x.t) === 1; }).map(function (x) { return { u: x, id: "waaagh", until: round, v: v }; });
-          out.push({ u: t, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), plan: { moves: stay ? [] : [{ u: u, to: hs[0].slice() }], more: [], fx: buff } });
+          out.push({ u: t, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), det: r.det, plan: { moves: stay ? [] : [{ u: u, to: hs[0].slice() }], more: [], fx: buff } });
           return;
         }
         if (sp && sp.focus) {  // Sternguard Focus: a normal attack (the unit's own weapon, in melee or at range) at 100 % of its damage, capped; it does not end the turn
@@ -1673,7 +1707,7 @@
         if (sp && sp.swoop) {  // Swooping Hawk: a melee target, then the enemies on the 2 hexes behind it in line; the damage ignores the attacker's bonuses
           if (dd !== 1) return;
           const v = (o.ab[8] && o.ab[8][rar]) || {}, r = abilityHit(u, t, v.dmg0 || 0, o.ab[5] || "Piercing", parseInt(v.nrOfHits, 10) || 1);
-          out.push({ u: t, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), prof: o.ab[5] });
+          out.push({ u: t, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), det: r.det, prof: o.ab[5] });
           return;
         }
         if (sp && sp.ambush) {  // Empyric Ambush: Lhykhis goes to a free hex next to any enemy (no distance limit) and hits it; the best hex is the highest, then tall grass
@@ -1684,7 +1718,7 @@
           });
           if (!hs.length) return;
           const r = withPos(u, hs[0], function () { return damageOf(u, t, { ab: o.ab }, 1); });
-          out.push({ u: t, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), prof: o.ab[5], plan: { moves: sameHex(hs[0], u.t) ? [] : [{ u: u, to: hs[0].slice() }], more: [] } });
+          out.push({ u: t, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), det: r.det, prof: o.ab[5], plan: { moves: sameHex(hs[0], u.t) ? [] : [{ u: u, to: hs[0].slice() }], more: [] } });
           return;
         }
         if (sp && sp.noDmg) { if (sp.adjOnly ? dd === 1 : dd <= abilityReach(u, o.ab) && (clear || sp.anywhere)) out.push({ u: t, dmg: 0, hits: 0, per: 0 }); return; }  // no damage of its own: the target only places the decoys
@@ -1724,7 +1758,7 @@
     };
     const adjFoeAt = function (u, h) { return live().some(function (x) { return x.side !== u.side && footOf(x).some(function (f) { return RULES.dist(h, f) === 1; }); }); };
     // what the chosen character can still do this turn
-    const mine = function () { return sel && !sel.summon && !sel.auto && sel.alive && sel.side === active; };  // a summon plays by itself
+    const mine = function () { return sel && !sel.summon && !sel.auto && sel.alive && sel.side === active && !battleOver(); };  // a summon plays by itself
     // one move per turn (the whole movement, in one go), and no move after an attack, unless the active ability that was just used says the unit can move again
     const MOVE_AGAIN = { ItItches: 1, StrikeFromTheShadows: 1, ProclivityForMurder: 1, FireAndReposition: 1, FightingRetreat: 1 };
     const budget = function (u) {
@@ -2025,11 +2059,17 @@
       if (/^(nano|duty|facade|fear|decoyb|term|resil|ambush|rapid|heavy|crush|empl|rspec|prio|betray|twist|shun|shroud|aura-|move|mvup|waaagh|montka|howl|crusade|dr|chalice|shield|stance|ow|ds|observed|wrath|reanim|hail|conflag|grass|infusion|sentinel|aug)/.test(id)) return "buff";
       return "";
     };
+    // the hits of an attack under a cap (Judh): the first ones take what is allowed, the next ones nothing
+    const capHits = function (det, allowed) {
+      if (!det) return null;
+      let left = allowed;
+      return det.map(function (h) { const d = Math.max(0, Math.min(h.d, left)); left -= d; return { d: d, c: h.c, b: h.b, v: h.v, cap: d < h.d }; });
+    };
     // the hits of an attack, one line each: the damage, its variation (DAMVAR), the critical hit with the critical damage it added, the block
     const hitLines = function (det) {
       if (!det || !det.length) return "";
       return det.map(function (h, i) {
-        return '<span class="sb-sub">Coup ' + (i + 1) + " : <b>−" + num(h.d) + "</b>" + (h.v !== null && h.v !== undefined ? " · DAMVAR " + (h.v > 0 ? "+" : "") + h.v + " %" : "") + (h.c ? ' · <b class="sb-lc">critique +' + num(h.c) + "</b>" : "") + (h.b ? " · bloc −" + num(h.b) : "") + "</span>";
+        return '<span class="sb-sub">Coup ' + (i + 1) + " : <b>−" + num(h.d) + "</b>" + (h.v !== null && h.v !== undefined ? " · DAMVAR " + (h.v > 0 ? "+" : "") + h.v + " %" : "") + (h.c ? ' · <b class="sb-lc">critique +' + num(h.c) + "</b>" : "") + (h.b ? " · bloc −" + num(h.b) : "") + (h.cap ? " · plafonné (Sens hyper-aiguisés)" : "") + "</span>";
       }).join("");
     };
     const autoText = function (list) {  // what acted by itself: the summons, Khârn's Betrayer
@@ -2132,7 +2172,9 @@
       const o = act && sel && options(sel).filter(function (x) { return x.id === act.id; })[0];
       $("sb-tip").hidden = !o;
       if (o) $("sb-tip").innerHTML = tipHtml(o);
-      $("sb-turnlab").textContent = turnText(round, active);
+      const over = battleOver();
+      $("sb-turnlab").textContent = over === 1 ? "Victoire : les ennemis ont tous quitté le plateau" : over === 2 ? "Défaite : tous vos personnages ont quitté le plateau" : turnText(round, active);
+      $("sb-end").disabled = !!over;
       const bh = vb[3] * 0.075, bl = vb[3] * 0.007, bx = vb[0].toFixed(1), bw = vb[2].toFixed(1);  // the band along the map: green along its bottom edge on our turn, red along its top edge on theirs (drawn in the picture's own frame)
       $("sb-turnband").innerHTML = active === 0 ? '<rect x="' + bx + '" y="' + (vb[1] + vb[3] - bh).toFixed(1) + '" width="' + bw + '" height="' + bh.toFixed(1) + '" fill="url(#sbBandG)"/><rect x="' + bx + '" y="' + (vb[1] + vb[3] - bl).toFixed(1) + '" width="' + bw + '" height="' + bl.toFixed(1) + '" fill="#34d399" fill-opacity="0.85"/>'
         : '<rect x="' + bx + '" y="' + vb[1].toFixed(1) + '" width="' + bw + '" height="' + bh.toFixed(1) + '" fill="url(#sbBandR)"/><rect x="' + bx + '" y="' + vb[1].toFixed(1) + '" width="' + bw + '" height="' + bl.toFixed(1) + '" fill="#f06b6b" fill-opacity="0.85"/>';
@@ -2146,14 +2188,15 @@
         else if (m.k === "atk") {
           const made = (m.adds || []).filter(function (a) { return !a.decoy; }), deco = (m.adds || []).filter(function (a) { return a.decoy; }).length;
           const sums = made.length || deco ? "invoque " + made.map(function (a) { return esc(a.name); }).join(", ") + (deco ? (made.length ? " et " : "") + deco + " leurre" + (deco > 1 ? "s" : "") : "") : "";
-          text = esc(m.u.name) + " · " + esc(m.label) + (m.dmg > 0 ? " → " + esc(m.tgt.name) + ((m.guards || []).some(function (x) { return x.n; }) ? "" : " <b>−" + num(m.dmg) + "</b>") + (m.hits > 1 && !m.det ? " (" + m.hits + " coups de " + num(m.per) + ")" : "") + (m.det ? ((m.guards || []).some(function (g) { return g.n; }) ? "" : hitLines(m.det)) : diceText(m)) : m.tgt !== m.u ? " → " + esc(m.tgt.name) : "") + (sums ? " · " + sums : "") +
-            (m.more || []).map(function (x) { return " · " + (x.by ? esc(x.by.name) + " (" + esc(x.label) + ")" : esc(x.label)) + " → " + esc(x.tgt.name) + " <b>−" + num(x.dmg) + "</b>" + (x.hits > 1 ? " (" + x.hits + " coups)" : "") + hitLines(x.det); }).join("") +
+          text = esc(m.u.name) + " · " + esc(m.label) + (m.dmg > 0 ? " → " + esc(m.tgt.name) + ((m.guards || []).some(function (x) { return x.n; }) ? "" : " <b>−" + num(m.capDmg !== undefined ? m.capDmg : m.dmg) + "</b>" + (m.capDmg !== undefined && m.capDmg < m.dmg ? " <i>(plafonné à la moitié de ses PV)</i>" : "")) + (m.hits > 1 && !m.det ? " (" + m.hits + " coups de " + num(m.per) + ")" : "") + (m.det ? ((m.guards || []).some(function (g) { return g.n; }) ? "" : hitLines(m.detShown || m.det)) : diceText(m)) : m.tgt !== m.u ? " → " + esc(m.tgt.name) : "") + (sums ? " · " + sums : "") +
+            (m.more || []).map(function (x) { if (x.cut) return " · " + (x.by ? esc(x.by.name) + " (" + esc(x.label) + ")" : esc(x.label)) + " → " + esc(x.tgt.name) + " <i>interrompue (Sens hyper-aiguisés)</i>"; return " · " + (x.by ? esc(x.by.name) + " (" + esc(x.label) + ")" : esc(x.label)) + " → " + esc(x.tgt.name) + " <b>−" + num(x.capDmg !== undefined ? x.capDmg : x.dmg) + "</b>" + (x.hits > 1 ? " (" + x.hits + " coups)" : "") + hitLines(x.detShown || x.det); }).join("") +
             (m.moves || []).map(function (x) { return " · " + esc(x.u.name) + " se déplace"; }).join("") + (m.mk && m.mk.length ? " · marque " + m.mk.reduce(function (a, x) { return a + x.hexes.length; }, 0) + " hexagone" + (m.mk.reduce(function (a, x) { return a + x.hexes.length; }, 0) > 1 ? "s" : "") : "") + (m.pend && m.tgt ? " (tir au début de son prochain tour)" : "") + hxText(m.hx) + autoText(m.react) + guardText(m.guards) + (m.heals && m.heals.length ? " · soigne " + m.heals.map(function (h) { return esc(h.u.name) + " +" + num(h.amt); }).join(", ") : "") + autoText(m.autoNow);
         }
         else text = esc(m.u.name) + (m.tp ? (m.tpm ? " se téléporte près de la marque" : " se téléporte (assaut en profondeur)") : " se déplace") + autoText(m.trig);
         text += regenText(m.regen) + boomText(m.booms) + deathText(m.deaths, m);
         return '<li data-k="' + (i + 1) + '" class="' + (m.k === "end" ? "rp-turn " : "") + (cur === i + 1 ? "is-cur" : "") + (i >= cur ? " sb-later" : "") + '"><button type="button">' + text + "</button></li>";
       }).join("");
+      if (over && cur === steps.length) $("sb-log").innerHTML += '<li class="rp-turn is-cur"><button type="button" disabled>' + (over === 1 ? "Victoire : les cinq personnages ennemis ont quitté le plateau (les invocations peuvent rester)" : "Défaite : vos cinq personnages ont quitté le plateau") + "</button></li>";
       const on = $("sb-log").querySelector("li.is-cur"), box = $("sb-log");
       if (on) box.scrollTop = on.offsetTop - box.clientHeight / 2 + on.clientHeight / 2;
       const sk = $("sb-seek");
@@ -2240,8 +2283,8 @@
       };
       if (m.k === "mv" && m.to) add(function () { place(m.u, m.to); }, 3);  // a plain walk is the first beat: the character walks, and what watches reacts once it has arrived
       (m.moves || []).forEach(function (mv) { add(function () { place(mv.u, mv.to); }); });  // the moves of the action (a charge, a pull, a swap)
-      if (m.k === "atk" && m.tgt && m.tgt !== m.u) strikeBeat(m.u, m.tgt, m.dmg > 0 ? m.dmg : 0, m.guards);
-      (m.more || []).forEach(function (x) { strikeBeat(x.by || m.u, x.tgt, x.dmg, m.guards); });
+      if (m.k === "atk" && m.tgt && m.tgt !== m.u) strikeBeat(m.u, m.tgt, (m.capDmg !== undefined ? m.capDmg : m.dmg) > 0 ? (m.capDmg !== undefined ? m.capDmg : m.dmg) : 0, m.guards);
+      (m.more || []).forEach(function (x) { if (!x.cut) strikeBeat(x.by || m.u, x.tgt, x.capDmg !== undefined ? x.capDmg : x.dmg, m.guards); });
       (m.adds || []).filter(function (a) { return !a.decoy; }).forEach(function (a) { add(function () { if (a.t) place(a, a.t); show(a, a.alive); if (a.g) { a.g.classList.add("tk-new"); setTimeout(function () { a.g.classList.remove("tk-new"); }, 500); } hp[a.i] = a.max; bar(a); }); });
       (m.heals || []).forEach(function (h) { add(function () { healed(h.u, h.amt); }); });
       const recs = (m.react || []).concat(m.trig || []).concat(m.auto || []).concat(m.autoNow || []);
@@ -2254,7 +2297,7 @@
       (m.booms || []).forEach(function (x) { add(function () { hit(x.from, x.tgt, x.dmg); }); });
       (m.regen || []).filter(function (r) { return r.amt > 0 && !r.shield && !r.shielded && !r.spawn && !r.revive && !r.flee; }).forEach(function (r) { add(function () { healed(r.u, r.amt); }); });
       let when = 100;
-      beats.forEach(function (b) { seqTimers.push(setTimeout(b.fn, when)); when += b.w * gap; });
+      beats.forEach(function (b) { seqTimers.push(setTimeout(b.fn, when)); when += b.w >= 3 ? Math.max(b.w * gap, 420) : b.w * gap; });  // the walks and the guards' steps (a Gemini that comes, is hit, falls) stay long enough to be seen, whatever the speed
       seqTimers.push(setTimeout(function () {  // the end: the settled state, everything in its place
         seqRender = true; render(); seqRender = false; seqActive = false; fx.innerHTML = "";
         units.forEach(function (x) { if (x.g) x.g.classList.remove("tk-hit", "tk-act"); });
@@ -2276,7 +2319,16 @@
     };
     const stop = function () { if (timer) { clearInterval(timer); timer = null; } $("sb-play").innerHTML = I_PLAY + '<span class="rp-lab"> Lecture</span>'; };
     let tgtSet = {}, hexSet = {};  // the characters the chosen action can hit (by index)
-    const push = function (step) { step.salt = salts[cur] || 0; steps.length = cur; steps.push(step); go(steps.length); };
+    // the end of the battle: once the five characters of a side are off the board (defeated, or waiting to come back like Lucius), it is over; the summons and the decoys do not count. 1: won, 2: lost
+    const battleOver = function () {
+      const chars = function (side) { return units.filter(function (u) { return u.side === side && !u.mow && !u.summon && !u.decoy; }); };
+      const them = chars(1), us = chars(0);
+      if (them.length && them.every(function (u) { return !u.alive; })) return 1;
+      if (us.length && us.every(function (u) { return !u.alive; })) return 2;
+      return 0;
+    };
+    const push = function (step) { if (battleOver()) return;  // nothing is played after the end of the battle
+       step.salt = salts[cur] || 0; steps.length = cur; steps.push(step); go(steps.length); };
 
     // ---- the zones of the chosen character (rules in hex-rules.js): the hexes it can reach, and those the other side can hit after moving ----
     const RULES = window.HexRules ? window.HexRules(d.cells) : null;
@@ -2343,7 +2395,7 @@
     const NOMODS = "ignorent tous les bonus et modificateurs de l'attaquant";  // the text of the abilities whose damage takes no bonus and no critical hit
     let extrasAb = null;  // the ability whose extra hits (the area, the other targets) are being worked out: they follow its own rule on the bonuses and the critical hits
     const abilityHit = function (u, t, avg, profile, hits, pierce, real, critExtra) {
-      return damageOf(u, t, { ab: ["", "", "a", (function () { const o = {}; o[rar] = avg; return o; })(), "Ranged", profile, hits, real ? real[7] || "" : NOMODS], pierce: pierce || 0, critExtra: critExtra || 0 }, u.mow ? 3 : RULES.dist(u.t, t.t));  // the passives' strikes, the blasts, the missiles: fixed figures (the text mark keeps the buffs and the critical hits out)
+      return damageOf(u, t, { ab: ["", "", "a", (function () { const o = {}; o[rar] = avg; return o; })(), "Ranged", profile, hits, real ? real[7] || "" : NOMODS, (function () { const rv = real && real[8] && real[8][rar], mid = rv && rv.minDmg && rv.maxDmg ? (rv.minDmg + rv.maxDmg) / 2 : 0, o = {}; if (mid) o[rar] = { minDmg: avg * rv.minDmg / mid, maxDmg: avg * rv.maxDmg / mid }; return o; })()], pierce: pierce || 0, critExtra: critExtra || 0 }, u.mow ? 3 : RULES.dist(u.t, t.t));  // the passives' strikes, the blasts, the missiles: fixed figures (the text mark keeps the buffs and the critical hits out)
     };
     const avgOf = function (vals, suf) { return ((vals["minDmg" + suf] || 0) + (vals["maxDmg" + suf] || 0)) / 2; };
     const foes = function (u) { return live().filter(function (x) { return x.side !== u.side && !x.ds; }); };  // a unit in Deep Strike mode cannot be targeted
@@ -2359,13 +2411,13 @@
       if (o.ab && CULT[o.ab[0]] && CULT[o.ab[0]].adj) {  // up to N units next to the target take the same hit
         const nMax = parseInt(vals.maxAdjacentTargets, 10) || 0;
         foes(u).filter(function (e) { return e !== t && RULES.dist(t.t, e.t) === 1; }).sort(function (x, y) { return RULES.dist(u.t, x.t) - RULES.dist(u.t, y.t); }).slice(0, nMax).forEach(function (e) {
-          const r = abilityHit(u, e, avgOf(vals, ""), o.ab[5], o.ab[6] || 1, 0, o.ab); more.push({ tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), label: o.name });
+          const r = abilityHit(u, e, avgOf(vals, ""), o.ab[5], o.ab[6] || 1, 0, o.ab); more.push({ tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), det: r.det, label: o.name });
         });
       }
       if (o.ab && CULT[o.ab[0]] && CULT[o.ab[0]].hitAll) {  // Stormcaller: every enemy on the 7 covered hexes takes the hits (the target's own are the main hit)
         const cover = [t.t].concat(RULES.around(t.t[0], t.t[1]));
         foes(u).filter(function (e) { return e !== t && cover.some(function (h) { return h[0] === e.t[0] && h[1] === e.t[1]; }); }).forEach(function (e) {
-          const r = abilityHit(u, e, avgOf(vals, ""), o.ab[5], parseInt(vals.nrOfHits, 10) || o.ab[6] || 1); more.push({ tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), label: o.name });
+          const r = abilityHit(u, e, avgOf(vals, ""), o.ab[5], parseInt(vals.nrOfHits, 10) || o.ab[6] || 1); more.push({ tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), det: r.det, label: o.name });
         });
       }
       if (o.ab && o.ab[0] === "KillMaimBurn") {  // three attacks on the same target until it falls, then on the weakest in reach (the eliminations come first)
@@ -2377,7 +2429,7 @@
           if (!cur || left(cur) <= 0) cur = foes(u).filter(function (e) { return left(e) > 0 && RULES.dist(u.t, e.t) <= leg[1]; }).sort(function (x, y) { return left(x) - left(y); })[0];
           if (!cur) return;
           const n = parseInt(vals["nrOfHits" + leg[0]], 10) || 1, r = abilityHit(u, cur, avgOf(vals, leg[0]), prof["damageProfile" + leg[0]] || o.ab[5], n);
-          more.push({ tgt: cur, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), label: o.name });
+          more.push({ tgt: cur, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), det: r.det, label: o.name });
           hp[cur.i] -= r.tot;
         });
       }
@@ -2385,54 +2437,54 @@
         const t1 = [t], t2 = foes(u).filter(function (e) { return e !== t && RULES.dist(t.t, e.t) === 1; });
         const t3 = foes(u).filter(function (e) { return e !== t && t2.indexOf(e) < 0 && t2.some(function (x) { return RULES.dist(x.t, e.t) === 1; }); });
         [[t2, "_2"], [t3, "_3"]].forEach(function (g) {
-          g[0].forEach(function (e) { const r = abilityHit(u, e, avgOf(vals, g[1]), o.ab[5], 1); more.push({ tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), label: o.name }); });
+          g[0].forEach(function (e) { const r = abilityHit(u, e, avgOf(vals, g[1]), o.ab[5], 1); more.push({ tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), det: r.det, label: o.name }); });
         });
       }
-      if (!o.ab && RULES.dist(u.t, t.t) === 1 && fxOn(u, "cord")) { const cv = fxOn(u, "cord").v, r = abilityHit(u, t, avgOf(cv, "_2"), "DirectDamage", parseInt(cv.nrOfHits_2, 10) || 2); more.push({ tgt: t, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), label: "Griffe-câble" }); }  // Exitor-Rho: more direct hits on his next attacks
-      if (!o.ab && RULES.dist(u.t, t.t) === 1 && fxOn(u, "drach")) { const dv = fxOn(u, "drach").v, e2 = foes(u).filter(function (e) { return RULES.dist(u.t, e.t) === 1 && (e !== t || healthAfter(t, main) > 0); }).sort(function (a, b2) { return a.hp - b2.hp; })[0]; if (e2) { const r = abilityHit(u, e2, avgOf(dv, ""), "Piercing", parseInt(dv.nrOfHits, 10) || 3); more.push({ tgt: e2, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), label: "Drachnyen" }); } }  // Abaddon: a second melee attack after each normal one
-      if (!o.ab && RULES.dist(u.t, t.t) === 1 && fxOn(u, "infusion")) { const fi = fxOn(u, "infusion").v, r = abilityHit(u, t, fi.dmg || 0, "Toxic", parseInt(fi.nrOfHits, 10) || 1); more.push({ tgt: t, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), label: "Infusion impie" }); }  // Foul Infusion: extra toxic hits on melee attacks
+      if (!o.ab && RULES.dist(u.t, t.t) === 1 && fxOn(u, "cord")) { const cv = fxOn(u, "cord").v, r = abilityHit(u, t, avgOf(cv, "_2"), "DirectDamage", parseInt(cv.nrOfHits_2, 10) || 2); more.push({ tgt: t, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), det: r.det, label: "Griffe-câble" }); }  // Exitor-Rho: more direct hits on his next attacks
+      if (!o.ab && RULES.dist(u.t, t.t) === 1 && fxOn(u, "drach")) { const dv = fxOn(u, "drach").v, e2 = foes(u).filter(function (e) { return RULES.dist(u.t, e.t) === 1 && (e !== t || healthAfter(t, main) > 0); }).sort(function (a, b2) { return a.hp - b2.hp; })[0]; if (e2) { const r = abilityHit(u, e2, avgOf(dv, ""), "Piercing", parseInt(dv.nrOfHits, 10) || 3); more.push({ tgt: e2, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), det: r.det, label: "Drachnyen" }); } }  // Abaddon: a second melee attack after each normal one
+      if (!o.ab && RULES.dist(u.t, t.t) === 1 && fxOn(u, "infusion")) { const fi = fxOn(u, "infusion").v, r = abilityHit(u, t, fi.dmg || 0, "Toxic", parseInt(fi.nrOfHits, 10) || 1); more.push({ tgt: t, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), det: r.det, label: "Infusion impie" }); }  // Foul Infusion: extra toxic hits on melee attacks
       if (!o.ab) {  // a normal attack: the extra hits the allies' auras and its own passives add
         const ranged = RULES.dist(u.t, t.t) > 1;
         const scm = abOf(u, "SpecialIssueCombiMelta"), ffd = abOf(u, "FuryFromTheDelve"), sqh = abOf(u, "SquigHound"), flm = abOf(u, "FleshmetalGuns");
         const dd0 = RULES.dist(u.t, t.t);
-        if (scm && dd0 === 2) { const r = abilityHit(u, t, avgOf(scm, ""), "Bolter", parseInt(scm.nrOfHits, 10) || 1); more.push({ tgt: t, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), label: abName(u, "SpecialIssueCombiMelta") }); }  // exactly 2 hexes: more hits
-        if (ffd && t.hp <= t.max * (parseInt(ffd.hpPct, 10) || 50) / 100 && healthAfter(t, main) > 0) { const r = abilityHit(u, t, avgOf(ffd, ""), "Eviscerate", parseInt(ffd.nrOfHits, 10) || 2); more.push({ tgt: t, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), label: abName(u, "FuryFromTheDelve") }); }
-        if (sqh) { const r = abilityHit(u, t, avgOf(sqh, ""), "Physical", parseInt(sqh.nrOfHits, 10) || 2); more.push({ tgt: t, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), label: abName(u, "SquigHound") }); }  // Snotflogga: more physical hits
-        if (flm && dd0 > 1) { const k = (round - 1) % 3, suf = ["", "_2", "_3"][k], r = abilityHit(u, t, avgOf(flm, suf), ["Melta", "Flame", "HeavyRound"][k], parseInt(flm["nrOfHits" + suf], 10) || 2); more.push({ tgt: t, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), label: ["Malveillance concentrée", "Salve désastreuse", "Grêle du warp"][k] }); }  // Volk: the effect of the round
+        if (scm && dd0 === 2) { const r = abilityHit(u, t, avgOf(scm, ""), "Bolter", parseInt(scm.nrOfHits, 10) || 1); more.push({ tgt: t, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), det: r.det, label: abName(u, "SpecialIssueCombiMelta") }); }  // exactly 2 hexes: more hits
+        if (ffd && t.hp <= t.max * (parseInt(ffd.hpPct, 10) || 50) / 100 && healthAfter(t, main) > 0) { const r = abilityHit(u, t, avgOf(ffd, ""), "Eviscerate", parseInt(ffd.nrOfHits, 10) || 2); more.push({ tgt: t, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), det: r.det, label: abName(u, "FuryFromTheDelve") }); }
+        if (sqh) { const r = abilityHit(u, t, avgOf(sqh, ""), "Physical", parseInt(sqh.nrOfHits, 10) || 2); more.push({ tgt: t, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), det: r.det, label: abName(u, "SquigHound") }); }  // Snotflogga: more physical hits
+        if (flm && dd0 > 1) { const k = (round - 1) % 3, suf = ["", "_2", "_3"][k], r = abilityHit(u, t, avgOf(flm, suf), ["Melta", "Flame", "HeavyRound"][k], parseInt(flm["nrOfHits" + suf], 10) || 2); more.push({ tgt: t, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), det: r.det, label: ["Malveillance concentrée", "Salve désastreuse", "Grêle du warp"][k] }); }  // Volk: the effect of the round
         const rr = abOf(u, "RighteousRepugnance"), bs = abOf(u, "Boltstorm"), fa2 = abOf(u, "FireOfAbsolution"), vh = abOf(u, "VisionsOfHeresy");
         if (rr && !ranged) [t].concat(foes(u).filter(function (e) { return e !== t && RULES.dist(e.t, t.t) === 1 && RULES.dist(e.t, u.t) === 1; })).forEach(function (e) {  // Morvenn: intensity hits on the target and on the enemies next to both of them
-          const r = abilityHit(u, e, avgOf(rr, ""), "Power", parseInt(rr.nrOfHits, 10) || 3); more.push({ tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), label: abName(u, "RighteousRepugnance") });
+          const r = abilityHit(u, e, avgOf(rr, ""), "Power", parseInt(rr.nrOfHits, 10) || 3); more.push({ tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), det: r.det, label: abName(u, "RighteousRepugnance") });
         });
         if (bs && ranged) [t].concat(foes(u).filter(function (e) { return e !== t && RULES.dist(e.t, t.t) === 1 && RULES.dist(e.t, u.t) <= weaponReach(u); })).forEach(function (e) {  // Burchard: bolter hits on the target and its neighbours in range, which are pinned
-          const r = abilityHit(u, e, avgOf(bs, ""), "Bolter", parseInt(bs.nrOfHits, 10) || 3); more.push({ tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), label: abName(u, "Boltstorm"), pinIt: true });
+          const r = abilityHit(u, e, avgOf(bs, ""), "Bolter", parseInt(bs.nrOfHits, 10) || 3); more.push({ tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), det: r.det, label: abName(u, "Boltstorm"), pinIt: true });
         });
         if (fa2 && ranged) adjUnits(t.t, u).filter(function (e) { return e !== t; }).forEach(function (e) {  // Retributor: flame hits on every unit next to the target
-          const r = abilityHit(u, e, fa2.dmg || 0, "Flame", parseInt(fa2.nrOfHits, 10) || 3); more.push({ tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), label: abName(u, "FireOfAbsolution") });
+          const r = abilityHit(u, e, fa2.dmg || 0, "Flame", parseInt(fa2.nrOfHits, 10) || 3); more.push({ tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), det: r.det, label: abName(u, "FireOfAbsolution") });
         });
         if (vh && healthAfter(t, main) >= 0) {  // Lucien: a second attack on an enemy within 2
           const e2 = foes(u).filter(function (e) { return RULES.dist(u.t, e.t) <= (parseInt(vh.range, 10) || 2) && (e !== t || healthAfter(t, main) > 0); }).sort(function (a, b2) { return a.hp - b2.hp; })[0];
-          if (e2) { const r = abilityHit(u, e2, avgOf(vh, ""), "Bolter", parseInt(vh.nrOfHits, 10) || 2); more.push({ tgt: e2, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), label: abName(u, "VisionsOfHeresy") }); }
+          if (e2) { const r = abilityHit(u, e2, avgOf(vh, ""), "Bolter", parseInt(vh.nrOfHits, 10) || 2); more.push({ tgt: e2, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), det: r.det, label: abName(u, "VisionsOfHeresy") }); }
         }
         aurasOn(u, u.t).forEach(function (a) {
           const v = a.v, ab = (a.e.rules.ab || []).filter(function (x) { return x[0] === a.id; })[0] || [];
           if ((a.id === "InfernalPacts" && (ranged || u.tset.Daemon)) || (a.id === "ExplosiveMaladies" && (ranged || u.rules.al === "Chaos"))) {
             const avg = a.id === "InfernalPacts" ? avgOf(v, "") : v.extraDmg, r = abilityHit(u, t, avg, ab[5] || (a.id === "InfernalPacts" ? "Psychic" : "Blast"), parseInt(v.nrOfHits, 10) || 1);
-            more.push({ tgt: t, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), label: ab[1] || a.id });
+            more.push({ tgt: t, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), det: r.det, label: ab[1] || a.id });
           }
         });
         const fs = live().filter(function (x) { return x.side === u.side && (x.rules.ab || []).some(function (a) { return a[0] === "WayOfTheShortBlade"; }); })[0];
         if (fs && u.rules.fa === "Tau" && RULES.dist(u.t, t.t) === 1 && (fs === u || RULES.dist(u.t, fs.t) <= 2) && healthAfter(t, main) > 0) {  // Farsight: a melee attack of a T'au within 2 is followed by a ranged one on the same unit
           const rw = (u.rules.wp || []).filter(function (w) { return w[0] > 1; })[0];
-          if (rw) { const r = damageOf(u, t, { w: rw }, 1); more.push({ tgt: t, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), label: "Voie de la lame courte" }); }
+          if (rw) { const r = damageOf(u, t, { w: rw }, 1); more.push({ tgt: t, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), det: r.det, label: "Voie de la lame courte" }); }
         }
         (u.rules.ab || []).forEach(function (a) {
           if (a[0] !== "CyclicIonBlaster") return;  // Re'vas: every attack adds 3 hits, more against a marked or mechanical target
           const v = (a[8] && a[8][rar]) || {}, bonus = t.marked || t.tset.Mechanical ? v.extraDmg || 0 : 0, r = abilityHit(u, t, avgOf(v, "") + bonus, a[5], parseInt(v.nrOfHits, 10) || 3);
-          more.push({ tgt: t, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), label: a[1] });
+          more.push({ tgt: t, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), det: r.det, label: a[1] });
         });
         const fg = abOf(u, "CalibaniteGreatsword");
         if (fg && u.stance === 1) foes(u).filter(function (e) { return e !== t && RULES.dist(e.t, u.t) === 1 && RULES.dist(e.t, t.t) === 1; }).forEach(function (e) {  // sweeping stance: every enemy next to both Forcas and his target takes intensity hits
-          const r = abilityHit(u, e, avgOf(fg, ""), "Power", parseInt(fg.nrOfHits_2, 10) || 3); more.push({ tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), label: "Posture de balayage" });
+          const r = abilityHit(u, e, avgOf(fg, ""), "Power", parseInt(fg.nrOfHits_2, 10) || 3); more.push({ tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), det: r.det, label: "Posture de balayage" });
         });
         (u.rules.ab || []).forEach(function (a) {
           const v = (a[8] && a[8][rar]) || {}, n = parseInt(v.nrOfHits, 10) || a[6] || 1;
@@ -2474,7 +2526,7 @@
     const vals_ = function (o) { return (o.ab[8] && o.ab[8][rar]) || {}; };
     const nI = function (x, dflt) { return parseInt(x, 10) || dflt; };
     const vOf = function (o) { return (o.ab[8] && o.ab[8][rar]) || {}; };
-    const mh = function (u, e, raw, prof, n, label, pierce) { const r = abilityHit(u, e, raw, prof, n, pierce, extrasAb); return { tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), label: label, prof: prof, det: r.det }; };
+    const mh = function (u, e, raw, prof, n, label, pierce) { const r = abilityHit(u, e, raw, prof, n, pierce, extrasAb); return { tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), det: r.det, label: label, prof: prof, det: r.det }; };
     // ---- the area of the abilities of characters: what a hit adds around its target (the hits come as `more` entries of the step). Friendly fire only where the text says "toutes les unités". ----
     const adjUnits = function (c, but, enemyOf) { return live().filter(function (x) { return x !== but && !x.ds && RULES.dist(x.t, c) === 1 && (enemyOf === undefined || x.side !== enemyOf); }); };
     const AOE = {
@@ -2668,7 +2720,7 @@
       if (M.self) { const p0 = M.plan(u, o, u, v); return p0 ? [{ u: u, dmg: 0, hits: 0, per: 0, plan: p0 }] : out; }  // no target: click the machine itself
       (M.ally ? live().filter(function (x) { return x.side === u.side; }) : foes(u)).forEach(function (t) {
         const p = M.plan(u, o, t, v);
-        if (p) out.push({ u: t, dmg: p.main ? p.main.dmg : 0, hits: p.main ? p.main.hits : 0, per: p.main ? p.main.per : 0, plan: p });
+        if (p) out.push({ u: t, dmg: p.main ? p.main.dmg : 0, hits: p.main ? p.main.hits : 0, per: p.main ? p.main.per : 0, det: p.main ? p.main.det : null, plan: p });
       });
       return out;
     }
@@ -2698,7 +2750,7 @@
         const x = at[nx[0] + "," + nx[1]];
         if (x) {
           const enemy = x.side !== u.side;
-          if (enemy) { const r = abilityHit(u, x, avgOf(v, "") + (v.extraDmg || 0) * (run + 1), o.ab[5] || "DirectDamage", nI(v.nrOfHits, 1)); hits.push({ tgt: x, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), label: o.name }); }
+          if (enemy) { const r = abilityHit(u, x, avgOf(v, "") + (v.extraDmg || 0) * (run + 1), o.ab[5] || "DirectDamage", nI(v.nrOfHits, 1)); hits.push({ tgt: x, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), det: r.det, label: o.name }); }
           if (x.tset.BigTarget || x.tset.Immune) { if (enemy) fx.push({ u: x, id: "stun", until: stunUntil(x) }); break; }  // it stays: the Nob stops in front of it
           const free = RULES.around(nx[0], nx[1]).filter(function (h) { const k = RULES.cell(h[0], h[1]); return k && k.kind === 0 && !at[h[0] + "," + h[1]] && !taken[h[0] + "," + h[1]] && !sameHex(h, pos) && !sameHex(h, u.t); });
           if (!free.length) break;
@@ -2821,7 +2873,7 @@
         fx = fx || [];
         const melee1 = function (e) { return withPos(u, u.t, function () { return damageOf(u, e, { w: mainWeapon(u, true) }, 1); }); };
         const adjFoes = foes(u).filter(function (e) { return RULES.dist(u.t, e.t) === 1; }).sort(function (a, b2) { return a.hp - b2.hp; });
-        const attack = function (label) { if (!adjFoes.length) return; const e = adjFoes[Math.floor(rnd() * adjFoes.length)], r = melee1(e); more.push({ tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), label: label }); };
+        const attack = function (label) { if (!adjFoes.length) return; const e = adjFoes[Math.floor(rnd() * adjFoes.length)], r = melee1(e); more.push({ tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), det: r.det, label: label }); };
         if (b === "montka") mine3.filter(function (x) { return (x.rules.wp || []).some(function (w) { return w[0] > 1; }); }).forEach(function (x) { fx.push({ u: x, id: "montka", until: round, v: v }); });
         else if (b === "howl") mine3.filter(function (x) { return !x.summon && !(x.rules.wp || []).some(function (w) { return w[0] > 1; }); }).forEach(function (x) { fx.push({ u: x, id: "howl", until: round, v: v }); });
         else if (b === "crusade") { mine3.filter(function (x) { return x !== u && RULES.dist(u.t, x.t) <= rg; }).forEach(function (x) { fx.push({ u: x, id: "crusade", until: round + 1, v: v }); }); attack(o.name); }
@@ -2845,10 +2897,10 @@
           if (id === "HammerOfWrath") {
             const dbl = u.hp <= u.max * (parseInt(v.healthPct, 10) || 50) / 100 ? 2 : 1;
             if (dbl === 2) more.push({ tgt: t, dmg: ts.dmg, hits: 0, per: 0, label: o.name });  // doubled
-            foes(u).filter(function (e) { return RULES.dist(e.t, u.t) === 1; }).forEach(function (e) { const r = abilityHit(u, e, avgOf(v, "_2") * dbl, "Physical", nI(v.nrOfHits_2, 1)); more.push({ tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), label: o.name }); });
+            foes(u).filter(function (e) { return RULES.dist(e.t, u.t) === 1; }).forEach(function (e) { const r = abilityHit(u, e, avgOf(v, "_2") * dbl, "Physical", nI(v.nrOfHits_2, 1)); more.push({ tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), det: r.det, label: o.name }); });
           }
           if (id === "LeadingTheCharge") adds = (adds || []).concat(freeReach(u).slice(0, nI(v.nrOfSummons, 4)).map(function (h) { const a = spawn("astraSmnDeathRider", u.side, u, h, [v.summonHp || 1, v.summonDmg || 1, v.summonArmor || 0], true); a.immediate = true; return a; }));
-          if (id === "MassDriverAccelerator") foes(u).filter(function (e) { return e !== t && RULES.dist(e.t, t.t) === 1; }).forEach(function (e) { const r = abilityHit(u, e, avgOf(v, "_2"), "Physical", nI(v.nrOfHits_2, 1)); more.push({ tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), label: o.name }); });
+          if (id === "MassDriverAccelerator") foes(u).filter(function (e) { return e !== t && RULES.dist(e.t, t.t) === 1; }).forEach(function (e) { const r = abilityHit(u, e, avgOf(v, "_2"), "Physical", nI(v.nrOfHits_2, 1)); more.push({ tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), det: r.det, label: o.name }); });
         });
       }
       const jet0 = abOf(u, "AggressiveOnslaught");
@@ -2874,7 +2926,7 @@
           let n2 = big ? nI(lg.nrOfHits_2, 1) : nI(lg.nrOfHits, 3);
           if (!lcUsed) { const lh2 = legendaryHits(u, e, !!o.ab); if (lh2 > 0) { n2 += lh2; lcUsed = true; } }
           const r = abilityHit(u, e, (big ? avgOf(lg, "_2") : avgOf(lg, "")) * mi, big ? "Piercing" : "Power", n2);
-          more.push({ tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), label: abName(u, "LegacyOfCombat") });
+          more.push({ tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), det: r.det, label: abName(u, "LegacyOfCombat") });
         });
       }
       if (sp && sp.barrage) {  // Basilisk Barrage: 5 shells on a target; 3 land at random on its hex or the ring around it, the other 2 around those; each finished round moves one more shell onto the target hex (outer ones first); every unit on a hit hex takes the hits
@@ -2892,7 +2944,7 @@
           const hx2 = k.split(",").map(Number);
           live().filter(function (x) { return !x.ds && sameHex(x.t, hx2) && x !== u; }).forEach(function (e) {  // allies too
             const r = abilityHit(u, e, avgOf(v, ""), o.ab[5] || "Blast", nI(v.nrOfHits, 2) * count[k]);
-            more.push({ tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), label: o.name });
+            more.push({ tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), det: r.det, label: o.name });
             if (u.tset.SuppressiveFire) fx = (fx || []).concat([{ u: e, id: "pin", until: stunUntil(e) }]);
           });
         });
@@ -2933,18 +2985,18 @@
         const v2 = vals_(o), al = live().filter(function (x) { return x.side === u.side && (x === u || RULES.dist(u.t, x.t) <= 1) && !mech(x); }), til3 = u.side === 0 ? round : round + 1;
         fx = (fx || []).concat(al.map(function (x) { return { u: x, id: "reanim", hp: v2.hp || 1, until: til3 + nI(v2.nrOfRounds, 1) - 1 }; }));
         const e0 = foes(u).filter(function (e) { return RULES.dist(u.t, e.t) === 1; }).sort(function (a, b2) { return a.hp - b2.hp; })[0];
-        if (e0) { const r = damageOf(u, e0, { w: mainWeapon(u, true) }, 1); more.push({ tgt: e0, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), label: o.name }); }
+        if (e0) { const r = damageOf(u, e0, { w: mainWeapon(u, true) }, 1); more.push({ tgt: e0, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), det: r.det, label: o.name }); }
       }
       if (o.ab && !(sp && (sp.line || sp.barrage))) {  // the effects of the abilities that hit around or beyond their target, stun, pin or move it
         const id = o.ab[0], v = vals_(o);
         fx = fx || []; moves = moves ? moves.slice() : [];
-        const til2 = u.side === 0 ? round : round + 1, hitMore = function (e, avg, prof, n) { const r = abilityHit(u, e, avg, prof, n); more.push({ tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), label: o.name }); return r; };
+        const til2 = u.side === 0 ? round : round + 1, hitMore = function (e, avg, prof, n) { const r = abilityHit(u, e, avg, prof, n); more.push({ tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), det: r.det, label: o.name }); return r; };
         const adjOfU = foes(u).filter(function (e) { return e !== t && RULES.dist(u.t, e.t) === 1; });
         if (id === "SentinelDirectives") fx.push({ u: t, id: "pin", until: stunUntil(t) });
         else if (id === "GravitonRifle") fx.push({ u: t, id: "stun", until: stunUntil(t) + nI(v.nrOfRounds, 1) - 1 });
         else if (id === "Foehammer") fx.push({ u: t, id: "stun", until: stunUntil(t) });
         else if (id === "AugmentedAssault") fx.push({ u: t, id: "armcut", amt: v.armorReduction || 0, until: 999 });
-        else if (id === "AncestralFortune") fx.push({ u: t, id: "taunt", taunt: u, until: stunUntil(t), v: {} }, { u: t, id: "noheal", until: stunUntil(t) });
+        else if (id === "AncestralFortune") fx.push({ u: t, id: "taunt", taunt: u, until: stunUntil(t), v: {} }, { u: t, id: "noheal", until: stunUntil(t) }, { u: u, id: "ancb", until: u.side === 0 ? round : round + 1, extra: v.extraBlockChance || 0 });
         else if (id === "SpiritLeech") { fx.push({ u: t, id: "pin", until: stunUntil(t) }); heals = (heals || []).concat(live().filter(function (x) { return x.side === u.side && (x === u || (x.rules.fa === "Tyranids" && RULES.dist(x.t, u.t) === 1)); }).map(function (x) { return { u: x, amt: Math.min(x.max - x.hp, Math.round(ts.dmg * (v.hpToHealPct || 60) / 100)) }; }).filter(function (h) { return h.amt > 0; })); }
         else if (id === "JakhalStimms") { foes(u).filter(function (e) { return e !== t && RULES.dist(u.t, e.t) === 1 && RULES.dist(t.t, e.t) === 1; }).forEach(function (e) { hitMore(e, avgOf(v, ""), o.ab[5], nI(v.nrOfHits, 4)); }); const sd = Math.round(u.hp * (parseInt(v.hpPct, 10) || 25) / 100); more.push({ tgt: u, dmg: sd, hits: 1, per: sd, label: o.name + " (contrecoup)" }); }
         else if (id === "BringerOfDespair") { if (adjOfU.length) hitMore(adjOfU[Math.floor(rnd() * adjOfU.length)], avgOf(v, ""), o.ab[5], nI(v.nrOfHits_2, 4)); }
@@ -3017,7 +3069,7 @@
         fx = (fx || []).concat([{ u: t, id: "taunt", taunt: u, until: stunUntil(t), v: {} }, { u: t, id: "pin", until: stunUntil(t) }]);
         foes(u).filter(function (e) { return e !== t && (RULES.dist(e.t, u.t) === 1 || RULES.dist(e.t, t.t) === 1); }).forEach(function (e) {
           const r = abilityHit(u, e, avgOf(v, "_2"), "Physical", nI(v.nrOfHits_2, 1)), dp = displaceOf(u, e, "push");
-          more.push({ tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), label: o.name });
+          more.push({ tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), det: r.det, label: o.name });
           if (dp && dp.to) moves.push({ u: e, to: dp.to.slice() });
           fx.push({ u: e, id: "pin", until: stunUntil(e) });
         });
@@ -3059,7 +3111,7 @@
         const hbp = abOf(u, "HeavyBoltPistol"); if (hbp && d1 === 1) more.push(mh(u, t, hbp.dmg || 0, "Bolter", nI(hbp.nrOfHits, 1), abName(u, "HeavyBoltPistol")));
         const fl2 = abOf(u, "FragLance"); if (fl2 && d1 === 1 && charges(u, t)) more.push(mh(u, t, avgOf(fl2, ""), "Blast", nI(fl2.nrOfHits, 1), abName(u, "FragLance")));
         const af = abOf(u, "AncientFury");
-        if (af && d1 === 1) foes(u).filter(function (e) { return e !== t && RULES.dist(e.t, t.t) === 1 && RULES.dist(e.t, u.t) <= 2; }).forEach(function (e) { const r = damageOf(u, e, { w: mainWeapon(u, true) }, RULES.dist(u.t, e.t)); more.push({ tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), label: "Doyen en furie" }); });  // Galatian: the enemies next to the target and next to him (or 2 away) are hit too
+        if (af && d1 === 1) foes(u).filter(function (e) { return e !== t && RULES.dist(e.t, t.t) === 1 && RULES.dist(e.t, u.t) <= 2; }).forEach(function (e) { const r = damageOf(u, e, { w: mainWeapon(u, true) }, RULES.dist(u.t, e.t)); more.push({ tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), det: r.det, label: "Doyen en furie" }); });  // Galatian: the enemies next to the target and next to him (or 2 away) are hit too
         const es2 = abOf(u, "ElectroShock");
         if (es2 && d1 === 1) {  // Electro-priest: a random enemy next to the target takes a share of the hit; both are pinned
           const c2 = foes(u).filter(function (e) { return e !== t && RULES.dist(e.t, t.t) === 1; }), e4 = c2.length ? c2[Math.floor(pd(11) / 100 * c2.length)] : null;
@@ -3227,7 +3279,7 @@
     // ---- Auto: the side that has the move is played by the page. Each character in turn goes where it hurts most (a kill first, then the most damage; a normal attack or an active ability that hits a
     // target) and attacks; one that cannot hit anything walks toward the nearest enemy; then the turn ends. The summons already play by themselves at the start of the turn. ----
     let autoRun = false;
-    const autoLabel = function () { const b = $("sb-auto"); b.textContent = autoRun ? "Stop" : "Auto"; b.disabled = !autoRun && active !== 1; };
+    const autoLabel = function () { const b = $("sb-auto"); b.textContent = autoRun ? "Stop" : "Auto"; b.disabled = (!autoRun && active !== 1) || !!battleOver(); };
     // The choice of a character (the summons' way, with the actives first): what it can do, from every hex it can reach: an active ability first (the character walks, then uses it as soon as it can; Mephiston and Judh
     // may not in round 1), then an overkill (the target is exterminated), then a kill, then the most damage; among the hexes that give the same hit: its guard in place, no razor wire, the help of an ally's ability, the highest ground, tall grass, the shortest walk.
     const planFor = function (u) {
@@ -3280,6 +3332,40 @@
         const pick = ally.length ? ally.sort(function (a2, b2) { return a2.u.hp / a2.u.max - b2.u.hp / b2.u.max; })[0] : foe.sort(function (a2, b2) { return RULES.dist(u.t, a2.u.t) - RULES.dist(u.t, b2.u.t); })[0];
         if (pick) strike(u, o, pick.u);
       });
+    };
+    // Can an active that deals no damage be used from where the unit stands? (the same tests as useUtility, without using it)
+    const canUtility = function (u) {
+      return options(u).some(function (o) {
+        const sp = o.ok && o.ab && o.ab[2] === "a" && CULT[o.ab[0]];
+        if (!sp || !u.alive || u.acted || fxOn(u, "stun") || !abReady(u, o.ab)) return false;
+        if (sp.hex || sp.leap || sp.kauyon || sp.mark || sp.dash || sp.barrage || sp.mow) return false;
+        if ((sp.heal || sp.healAdj) && !live().some(function (x) { return x.side === u.side && (x === u || RULES.dist(u.t, x.t) <= 1) && x.hp < x.max; })) return false;
+        if (sp.pick) return hexesOf(u, o).length > 0;
+        const ts = targetsOf(u, o);
+        return ts.length > 0 && !ts.some(function (x) { return x.dmg > 0; });
+      });
+    };
+    // An active with no damage that is out of reach from here but not from a hex the unit can walk to (Isaak's decoys, Sho'syl's missile lock ...): it walks there first (the nearest such hex, away from the
+    // razor wire, on the highest ground), then uses it. Returns true when it has walked.
+    const walkForUtility = function (u) {
+      if (u.mow || u.acted || !u.alive || fxOn(u, "stun") || canUtility(u)) return false;
+      const reach = stepsOf(u, budget(u)), saved = { spent: u.spent, moves: u.moves };
+      let best = null;
+      Object.keys(reach).forEach(function (key) {
+        const h = key.split(",").map(Number), c = RULES.cell(h[0], h[1]), k0 = reach[key];
+        if (!c || c.kind !== 0 || !k0) return;
+        u.spent = saved.spent + k0; u.moves = saved.moves + 1;
+        let ok = false;
+        try { ok = withPos(u, h, function () { return canUtility(u); }); } finally { u.spent = saved.spent; u.moves = saved.moves; }
+        if (!ok) return;
+        const rank = [c.tile === "Swamp" && !u.rules.us && !u.rules.fl ? 0 : 1, -k0, c.el || 0, c.tile === "DryBush" && !u.tset.BigTarget ? 1 : 0];
+        let better = !best;
+        if (best) for (let i = 0; i < rank.length; i++) if (rank[i] !== best.rank[i]) { better = rank[i] > best.rank[i]; break; }
+        if (better) best = { h: h, k0: k0, rank: rank };
+      });
+      if (!best) return false;
+      push({ k: "mv", u: u, from: u.t.slice(), to: best.h, cost: best.k0, tp: false, tpm: false });
+      return true;
     };
     // Who plays next, as the game's AI chooses it (cascade: summons first -- they play by themselves at the start of the turn --, non-bosses before the boss, units that have just appeared, a score by
     // unit, then the one closest to an enemy). The score adds up, from the unit's id, its traits and its abilities: Hailstrike +10; Sorcerous Facade, Master of the Tutelaries +2; Psyker, Doombolt,
@@ -3377,16 +3463,18 @@
       const side = active, pool = units.filter(function (u) { return u.side === side && (u.mow || (field.indexOf(u) >= 0 && u.alive && !u.decoy && !u.summon && !u.auto)); });  // the machines of war are not in `field`: they are added here
       const next = function () {
         if (!autoRun) return;
+        if (battleOver()) { autoRun = false; autoLabel(); return; }
         if (seqActive) { setTimeout(next, 120); return; }  // the beats of the last action are still playing
         if (active !== side) { autoRun = false; autoLabel(); return; }
         pool.sort(function (a, b2) { return orderScore(b2) - orderScore(a) || nearestFoe(a) - nearestFoe(b2) || a.i - b2.i; });  // asked again after every action: the board has changed
         const u = pool.shift();
         if (!u) { autoRun = false; autoLabel(); $("sb-end").onclick(); return; }
+        if (battleOver()) { autoRun = false; autoLabel(); return; }
         if (!u.mow && (!u.alive || u.acted)) { next(); return; }
         sel = u; choose(u);
         if (u.mow) { autoMow(u); setTimeout(next, 450 / speed); return; }  // a machine of war: its primary ability, else its secondary
         preActives(u);
-        const play = function () {  // the active that deals no damage (if it has one), then the walk and the attack
+        const play = function (walked) {  // the active that deals no damage (if it has one), then the walk and the attack
           useUtility(u);
           const plan = u.acted ? null : planFor(u);
           if (plan) {
@@ -3399,6 +3487,7 @@
           } else if (!u.acted && walkToward(u)) {  // it only walked: once it has arrived, its active (or its attack) is used if the new hex allows it
             setTimeout(function () {
               if (!autoRun) return;
+              if (u.alive && !u.acted) useUtility(u);  // the active that deals no damage (Sho'syl's missile lock ...) now that it has arrived in range
               const p2 = u.acted || !u.alive ? null : planFor(u);
               if (p2 && !(p2.h && p2.k0 > 0)) strike(u, p2.o, p2.t);
               setTimeout(next, 450 / speed);
@@ -3407,7 +3496,9 @@
           }
           setTimeout(next, 450 / speed);
         };
-        if (moveForActive(u)) setTimeout(function () { if (autoRun) play(); }, 480 / speed); else play();
+        if (moveForActive(u)) setTimeout(function () { if (autoRun) play(); }, 480 / speed);
+        else if (!u.acted && !(planFor(u) || { o: {} }).o.ab && walkForUtility(u)) setTimeout(function () { if (autoRun) play(true); }, 480 / speed);  // no damaging active to use: the one without damage comes first, once it has walked into range
+        else play();
       };
       next();
     };
