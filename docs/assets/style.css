@@ -3418,3 +3418,7 @@ details.adv-expand > :not(summary):first-of-type { margin-top: 0.4rem; }
 
 /* the first frame of a played action: the board jumps to the state before it without any fade or movement */
 .sb-board.sb-notrans .tk, .sb-board.sb-notrans .tk-ov, .sb-board.sb-notrans .tk-body, .sb-board.sb-notrans .tk-hp { transition: none !important; animation: none !important; }
+
+/* the "Fin de tour" and "Auto" buttons side by side */
+.sb-turnbtns { display: flex; gap: 0.4rem; align-items: center; }
+#sb-auto:disabled { opacity: 0.45; cursor: not-allowed; }

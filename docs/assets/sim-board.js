@@ -103,14 +103,14 @@
       "<div><b>" + esc(mapName) + (q.get("l") ? ' <span class="rp-lvl">' + esc(q.get("l")) + "</span>" : "") + "</b><small>" +
       esc([player ? "Attaque de " + player : "", q.get("g") || "", q.get("w") || ""].filter(Boolean).join(" · ")) + "</small></div></div>" +
       (score ? '<div class="rp-dmg"><b>' + esc(score) + "</b><small>score de l'attaque d'origine</small></div>" : "") + "</div>" +
-      '<div class="rp-left"><div class="rp-boardwrap"><div class="sb-turn sb-turn-map"><button type="button" class="rp-btn rp-play" id="sb-end" title="Passer la main à l\'autre camp">Fin de tour</button><div class="sb-turnlab" id="sb-turnlab"></div></div><div class="rp-board sb-board" id="sb-board"></div></div></div>' +
+      '<div class="rp-left"><div class="rp-boardwrap"><div class="sb-turn sb-turn-map"><div class="sb-turnbtns"><button type="button" class="rp-btn rp-play" id="sb-end" title="Passer la main à l\'autre camp">Fin de tour</button><button type="button" class="rp-btn" id="sb-auto" title="Le camp adverse joue tout seul (disponible à son tour)">Auto</button></div><div class="sb-turnlab" id="sb-turnlab"></div></div><div class="rp-board sb-board" id="sb-board"></div></div></div>' +
       '<div class="rp-right"><div class="rp-ledger sb-unit" id="sb-unit"></div><div class="rp-ledger sb-stats" id="sb-stats"></div></div>' +
       '<div class="rp-logcol"><h3>Fil du combat</h3><ol class="rp-log" id="sb-log"></ol></div></div>' +
       '<div class="rp-dock"><input type="range" class="rp-seek" id="sb-seek" min="0" max="0" value="0" aria-label="Position dans le combat">' +
       '<div class="rp-ctl"><button type="button" class="rp-btn" id="sb-prev" title="Action précédente">' + I_PREV + '<span class="rp-lab"> Préc.</span></button>' +
       '<button type="button" class="rp-btn rp-play" id="sb-play" title="Lecture / pause">' + I_PLAY + '<span class="rp-lab"> Lecture</span></button>' +
       '<button type="button" class="rp-btn" id="sb-next" title="Action suivante"><span class="rp-lab">Suiv. </span>' + I_PLAY + "</button>" +
-      '<button type="button" class="rp-btn" id="sb-undo" title="Supprimer la dernière action" disabled>Annuler</button><button type="button" class="rp-btn" id="sb-reset" title="Remettre tout le monde au départ" disabled>Réinitialiser</button>' +
+      '<button type="button" class="rp-btn" id="sb-reset" title="Remettre tout le monde au départ" disabled>Réinitialiser</button>' +
       '' +
       '<button type="button" class="rp-btn rp-tog" id="sb-el" aria-pressed="false" title="Afficher l\'altitude de chaque case">Altitude</button>' +
       '<button type="button" class="rp-btn rp-tog" id="sb-grid" aria-pressed="true" title="Afficher le quadrillage">Quadrillage</button>' +
@@ -478,7 +478,7 @@
       if (spots.length) w.t = spots[0].slice();
     };
     const wrathShield = function (by, wd) {  // Wrask: a shield for him and the Chaos units next to him
-      [by].concat(live().filter(function (x) { return x !== by && x.side === by.side && x.rules.al === "Chaos" && RULES.dist(x.t, by.t) === 1; })).forEach(function (x) { x.shield = { amt: wd.shieldHp || 0, until: by.side === 0 ? round : round + 1 }; regenLog.push({ u: x, amt: wd.shieldHp || 0, label: "bouclier", shield: true }); });
+      [by].concat(live().filter(function (x) { return x !== by && x.side === by.side && x.rules.al === "Chaos" && RULES.dist(x.t, by.t) === 1; })).forEach(function (x) { x.shield = { amt: wd.shieldHp || 0, until: by.side === 0 ? round : round + 1, src: "WrathfulDevotion" }; regenLog.push({ u: x, amt: wd.shieldHp || 0, label: "bouclier", shield: true }); });
     };
     const hurt = function (t, dmg, by, per, prof) {  // a hit lands: its health, the kill of the one who struck, and the decoy a fallen Ambush unit leaves
       if (t.lastAtk !== curAtk) { t.lastAtk = curAtk; t.attacked++; }
@@ -713,7 +713,7 @@
       if ((a = abOf(u, "RedRampage")) && adj.length) {  // every adjacent enemy; a kill gives +1 movement through his next turn
         let kills = 0;
         adj.forEach(function (e) { fireBack(u, e, a, "Power", abName(u, "RedRampage")); if (!e.alive) kills++; });
-        if (kills && u.alive) u.fx.mvup = { id: "mvup", until: round + 1, mv: parseInt(a.extraMovement, 10) || 1 };
+        if (kills && u.alive) u.fx.mvup = { id: "mvup", src: "RedRampage", until: round + 1, mv: parseInt(a.extraMovement, 10) || 1 };
       }
       if ((a = abOf(u, "LivingLightning"))) {  // a random enemy within 2
         const c = foes(u).filter(function (e) { return RULES.dist(u.t, e.t) <= 2; });
@@ -721,7 +721,7 @@
       }
       if ((a = abOf(u, "ArcaneShield"))) {  // Thaumachus shields the nearest ally within 2 (Thousand Sons first, then Chaos, then anyone, else himself) for a round
         const near = live().filter(function (x) { return x.side === u.side && x !== u && RULES.dist(u.t, x.t) <= (parseInt(a.range, 10) || 2); }).sort(function (p1, p2) { const rk = function (x) { return x.rules.fa === "ThousandSons" ? 0 : x.rules.al === "Chaos" ? 1 : 2; }; return rk(p1) - rk(p2) || RULES.dist(u.t, p1.t) - RULES.dist(u.t, p2.t); })[0] || u;
-        near.shield = { amt: a.shieldHp || 0, until: u.side === 0 ? round : round + 1 }; regenLog.push({ u: near, amt: a.shieldHp || 0, label: "bouclier", shield: true });
+        near.shield = { amt: a.shieldHp || 0, until: u.side === 0 ? round : round + 1, src: "ArcaneShield" }; regenLog.push({ u: near, amt: a.shieldHp || 0, label: "bouclier", shield: true });
       }
       if ((a = abOf(u, "HaywireMine"))) { const mh2 = u.mineHex || prio(u, freeAround(u), u.t)[0]; if (mh2) layMine(u, mh2, a); u.mineHex = null; }  // Cyrus: a mine on the hex he left, or next to him at the end of his turn if he did not move
       if ((a = abOf(u, "ChampionOfTheFeast")) && adj.length) {  // an adjacent enemy loses armour for the rest of the battle
@@ -742,11 +742,11 @@
     const endRegen = function () {
       field.forEach(function (g) {  // Grot: at the end of its turn, at full health, a chance to bring another Grot next to it (less for each Grot on the board)
         const pi = g.alive && g.side === active && g.kids ? abOf(g, "PileIn") : null;
-        if (!pi || g.hp < g.max) return;
+        if (!pi || g.hp < g.max || g.born === turnNo) return;  // a Grot that has just appeared cannot copy itself in the turn it comes
         const chance = (parseInt(pi.chance, 10) || 75) - (parseInt(pi.chance_2, 10) || 5) * live().filter(function (x) { return x.side === g.side && x.id === "orksGrot"; }).length;
         g.kidIdx = g.kidIdx || 0;
-        const k = g.kids[g.kidIdx], hs = prio(g, freeAround(g), g.t);
-        if (k && hs.length && stepRng() * 100 < chance) { g.kidIdx++; k.t = hs[0].slice(); k.alive = true; k.hp = k.max; k.acted = false; k.spent = 0; k.arrRound = round; regenLog.push({ u: k, amt: k.hp, label: "invoqué par Entassement", spawn: true }); }
+        const reach = stepsOf(g, 1), k = g.kids[g.kidIdx], hs = prio(g, Object.keys(reach).filter(function (key) { return reach[key] === 1; }).map(function (key) { return key.split(",").map(Number); }), g.t);  // only a free adjacent hex it could walk onto (elevation, walls, bridges)
+        if (k && hs.length && stepRng() * 100 < chance) { g.kidIdx++; k.t = hs[0].slice(); k.alive = true; k.hp = k.max; k.acted = false; k.spent = 0; k.arrRound = round; k.born = turnNo; regenLog.push({ u: k, amt: k.hp, label: "invoqué par Entassement", spawn: true }); }
       });
       field.forEach(function (u) { const tpz = u.alive && u.side === active ? fxOn(u, "terror") : null; if (tpz && tpz.by) { const r0 = abilityHit(tpz.by, u, avgOf(tpz.v, ""), "Toxic", parseInt(tpz.v.poisonedNrOfHits, 10) || 1), d0 = Math.round(r0.tot); boomLog.push({ tgt: u, dmg: d0, hits: r0.hits, per: Math.round(r0.per), from: tpz.by, label: "empoisonné" }); curAtk++; hurt(u, d0, tpz.by, Math.round(r0.per)); } });  // Poisoned: toxic damage at the end of its turn
       field.forEach(function (u) { if (u.alive && u.side === active && u.spent === 0 && !u.relocated && (abOf(u, "SanguinaryPriest") || abOf(u, "FabricatorClawArray") || MOVE_AB.some(function (id) { return abOf(u, id); }))) afterMove(u); }); };
@@ -812,7 +812,7 @@
     const diceSeed = function () { const idx = settling ? rollKey : cur; return ((idx + 1) * 2654435761) ^ ((settling ? rollSalt : (salts[idx] || 0)) * 1597334677); };  // the dice of the hits (damage variation, critical hits, blocks) are seeded by the step being replayed, or by the step about to be taken
     const settle = function (k) {  // everybody on the hexes, with the health, they have after k steps, and whose turn it is
       settling = true;
-      field.forEach(function (u) { u.max = u.max0; u.fx = {}; u.twisted = false; u.twistDmg = 0; u.t = u.t0 ? u.t0.slice() : null; u.hp = u.max; u.alive = !u.summon; u.nAtk = 0; u.kills = 0; u.attacked = 0; u.lastAtk = -1; u.annBy = null; u.shun = null; u.used = {}; u.marked = false; u.markedBy = -1; u.markFresh = false; u.came = false; u.exploded = false; u.grim = 0; u.euph = null; u.neuro = 0; u.cloak = 0; u.hypTurn = -1; u.lcTurn = -1; u.miTurn = -1; u.atkTurns = 0; u.lastAtkTurn = -1; u.shield = null; u.waaaghLvl = 0; u.relocated = false; u.aug = null; u.dutyDmg = 0; u.armCut = 0; u.charKills = 0; u.smasha = false; u.auto = false; u.rage = false; u.chargedTurn = -1; u.psyTurn = -1; u.ghost = null; u.pi = {}; u.kidIdx = 0; u.outr = {}; u.yexec = false; u.stillPrev = false; u.tfUsed = false; u.stance = 0; u.stTurn = -1; u.grimTurn = -1; u.ripAtk = -1; u.ow = false; u.owCut = 0; u.owForce = false; u.ds = !!u.tset.TeleportStrike && !u.summon; u.noRanged = false; u.lastSpent = 0; u.nano = false; u.moveBonus = 0; u.shroud = 0; u.ambush = !!u.tset.Ambush && !u.decoy; u.fallen = false; });
+      field.forEach(function (u) { u.max = u.max0; u.fx = {}; u.twisted = false; u.twistDmg = 0; u.t = u.t0 ? u.t0.slice() : null; u.hp = u.max; u.alive = !u.summon; u.nAtk = 0; u.kills = 0; u.attacked = 0; u.lastAtk = -1; u.annBy = null; u.shun = null; u.used = {}; u.marked = false; u.markedBy = -1; u.markFresh = false; u.came = false; u.exploded = false; u.grim = 0; u.euph = null; u.neuro = 0; u.cloak = 0; u.hypTurn = -1; u.lcTurn = -1; u.miTurn = -1; u.atkTurns = 0; u.lastAtkTurn = -1; u.shield = null; u.waaaghLvl = 0; u.relocated = false; u.aug = null; u.dutyDmg = 0; u.armCut = 0; u.charKills = 0; u.smasha = false; u.auto = false; u.rage = false; u.chargedTurn = -1; u.psyTurn = -1; u.ghost = null; u.pi = {}; u.kidIdx = 0; u.born = -1; u.outr = {}; u.yexec = false; u.stillPrev = false; u.tfUsed = false; u.stance = 0; u.stTurn = -1; u.grimTurn = -1; u.ripAtk = -1; u.ow = false; u.owCut = 0; u.owForce = false; u.ds = !!u.tset.TeleportStrike && !u.summon; u.noRanged = false; u.lastSpent = 0; u.nano = false; u.moveBonus = 0; u.shroud = 0; u.ambush = !!u.tset.Ambush && !u.decoy; u.fallen = false; });
       round = 1; active = 0; pending = []; hexfx = {}; zmarks = []; turnNo = 0; meleeDead = 0; activeUses = [0, 0]; psyCount = [0, 0]; regenLog = []; boomLog = []; deadLog = [];
       units.forEach(function (u) { u.lastPer = 0; u.narthAt = -1; if (u.mow) { u.fx = {}; u.used = {}; u.acted = false; u.deployed = false; u.nAtk = 0; u.usedActive = false; } });
       turnStart();
@@ -1800,6 +1800,7 @@
       }, 2300);
     }
     // ---- the states shown on a character (like the active ability of the replay's tokens): a small icon under its health bar; when the state is spent or ends, the icon flies up and fades ----
+    const abIcon = function (id) { return assets + "abilities/" + id + ".webp"; };  // a state that comes from an ability wears that ability's icon
     const fxIcon = function (n) { return assets + "effects/" + n + ".webp"; }, trIcon = function (n) { return assets + "traits/" + n + ".webp"; };
     function statuses(u) {
       const out = [];
@@ -1822,50 +1823,59 @@
       if (T.PrioritisedEfficiency && u.spent < (TV.prioritisedEfficiencyMovement || 3)) add("prio", trIcon("PrioritisedEfficiency"), "Efficacité prioritaire : +" + (TV.prioritisedEfficiencyExtraDmgPct || 25) + " % de dégâts, −" + (TV.prioritisedEfficiencyDmgReductionPct || 25) + " % reçus (tant qu'il bouge de moins de 3 cases).");
       if ((u.rules.ab || []).some(function (a) { return a[0] === "TheBetrayer"; }) && u.kills > 0) add("betray", assets + "abilities/TheBetrayer.webp", "Trahison : agit seul au début de son tour (se déplace de 2 cases et frappe une unité adjacente).");
       if (u.euph && u.euph.name) { const ev = abOf(u.euph, "ArmourOfShriekingSouls") || {}; add("euph", assets + "abilities/ArmourOfShriekingSouls.webp", "Euphorique (" + u.euph.name + ") : perd " + num(ev.minHp || 0) + " à " + num(ev.maxHp || 0) + " PV au début de chacun de ses tours. Quand elle tombe ou quitte le champ de bataille, " + u.euph.name + " ressuscite sur sa dernière case (jusqu'à " + num(ev.hp || 0) + " PV)."); }
-      if (fxOn(u, "decoyb")) add("decoyb", fxIcon("buffed"), "Leurres et détours : +" + num(fxOn(u, "decoyb").extra) + " dégâts jusqu'à la fin du tour (il s'est déplacé sur un leurre allié).");
-      const webf = fxOn(u, "web"); if (webf && webf.by && webf.by.alive) add("web", fxIcon("debuffed"), "Toile du Murmure (" + webf.by.name + ") : chaque coup d'une attaque alliée fait plus de dégâts que le précédent.");
-      const tcf = fxOn(u, "terror"); if (tcf) add("terror", fxIcon("poisoned"), "Empoisonné et Poison terrochimique : perd de la santé au début et à la fin de son tour, −" + (tcf.v.dmgReductionPct || 0) + " % de dégâts infligés, −" + (tcf.v.healPct || 0) + " % de soins (jusqu'au round " + tcf.until + ").");
-      const fcf = fxOn(u, "facade"); if (fcf) add("facade", fxIcon("buffed"), "Façade de sorcier : ses attaques normales infligent des dégâts psychiques en plus (jusqu'au début du prochain tour de Yazaghor).");
-      const frf = fxOn(u, "fear"); if (frf) add("fear", fxIcon("damage_powerup"), "Peur de l'invisible : ses attaques infligent des dégâts directs en plus à son prochain tour.");
+      if (fxOn(u, "decoyb")) add("decoyb", abIcon("DecoysAndMisdirection"), "Leurres et détours : +" + num(fxOn(u, "decoyb").extra) + " dégâts jusqu'à la fin du tour (il s'est déplacé sur un leurre allié).");
+      const webf = fxOn(u, "web"); if (webf && webf.by && webf.by.alive) add("web", abIcon("WhisperingWeb"), "Toile du Murmure (" + webf.by.name + ") : chaque coup d'une attaque alliée fait plus de dégâts que le précédent.");
+      const tcf = fxOn(u, "terror"); if (tcf) add("terror", abIcon("TerrorchemPoison"), "Empoisonné et Poison terrochimique : perd de la santé au début et à la fin de son tour, −" + (tcf.v.dmgReductionPct || 0) + " % de dégâts infligés, −" + (tcf.v.healPct || 0) + " % de soins (jusqu'au round " + tcf.until + ").");
+      const fcf = fxOn(u, "facade"); if (fcf) add("facade", abIcon("SorcerousFacade"), "Façade de sorcier : ses attaques normales infligent des dégâts psychiques en plus (jusqu'au début du prochain tour de Yazaghor).");
+      const frf = fxOn(u, "fear"); if (frf) add("fear", abIcon("FearOfTheUnseen"), "Peur de l'invisible : ses attaques infligent des dégâts directs en plus à son prochain tour.");
+      const mtk = fxOn(u, "montka"); if (mtk) add("montka", abIcon("ExemplarOfTheMontka"), "Exemplaire du Mont'ka : +" + num((mtk.v && mtk.v.extraDmg) || 0) + " dégâts à ses attaques à distance (+" + num((mtk.v && mtk.v.extraDmg_2) || 0) + " contre les grandes cibles), jusqu'au round " + mtk.until + ".");
+      const hwl = fxOn(u, "howl"); if (hwl) add("howl", abIcon("WarHowl"), "Hurlement de guerre : Implacable, +" + ((hwl.v && hwl.v.extraCritChance) || 0) + " % de coup critique et +" + num((hwl.v && hwl.v.extraDmg) || 0) + " dégâts à ses attaques de mêlée, jusqu'au round " + hwl.until + ".");
+      const crs = fxOn(u, "crusade"); if (crs) add("crusade", abIcon("CrusadeOfWrath"), "Croisade du courroux : +" + num((crs.v && crs.v.extraDmg) || 0) + " dégâts et +" + ((crs.v && crs.v.extraPierceRatio) || 0) + " % de perforation en mêlée, jusqu'au round " + crs.until + ".");
+      const drf = fxOn(u, "dr"); if (drf) add("dr", abIcon(drf.src || "UnbreakableDuty"), "Réduit de " + (drf.pct || 0) + " % les dégâts reçus, jusqu'au round " + drf.until + ".");
+      const inf = fxOn(u, "infusion"); if (inf) add("infusion", abIcon("FoulInfusion"), "Infusion impie : ses attaques de mêlée ajoutent des coups toxiques, jusqu'au round " + inf.until + ".");
+      const chl = fxOn(u, "chalice"); if (chl) add("chalice", abIcon("BloodChalice"), "Calice de sang : ses attaques de mêlée le soignent de " + num((chl.v && chl.v.hpToHeal) || 0) + " et percent plus d'armure, jusqu'au round " + chl.until + ".");
+      const htd = fxOn(u, "hated"); if (htd) add("hated", abIcon("ExemplarOfHate"), "Haï : subit +" + num(htd.extra || 0) + " dégâts des attaques de mêlée (jusqu'au round " + htd.until + ").");
+      const chn = fxOn(u, "chrono"); if (chn) add("chrono", abIcon("Chronometron"), "Chronométré : la prochaine attaque contre lui inflige +" + num(chn.extra || 0) + " dégâts.");
+      if (u.aug) add("aug", abIcon("PrimeTestSubject"), "Sujet d'essai : +" + num(u.aug.dmg || 0) + " dégâts" + (u.aug.mv ? ", +" + u.aug.mv + " déplacement" : "") + " tant qu'il tient.");
       const mind = fxOn(u, "mind");
-      if (mind) add("mind", fxIcon("taunted"), "Contrôle mental : inflige −" + ((mind.v && mind.v.dmgReduction) || 0) + " dégâts, subit +" + ((mind.v && mind.v.extraDmgPct) || 0) + " %, provoqué par " + (mind.taunt ? mind.taunt.name : "?") + " (jusqu'au round " + mind.until + ").");
+      if (mind) add("mind", abIcon("MindControl"), "Contrôle mental : inflige −" + ((mind.v && mind.v.dmgReduction) || 0) + " dégâts, subit +" + ((mind.v && mind.v.extraDmgPct) || 0) + " %, provoqué par " + (mind.taunt ? mind.taunt.name : "?") + " (jusqu'au round " + mind.until + ").");
       const hk = hexKind(u.t);
       if (hk === "fire") add("hfire", fxIcon("fire"), "Hexagone en feu : 20 % de la santé initiale en dégâts au début de son tour.");
       else if (hk === "ice") add("hice", fxIcon("ice"), "Glace : un déplacement qui y arrive s'arrête.");
       else if (hk === "contam") add("hcontam", fxIcon("poisoned"), "Hexagone contaminé : −30 % d'armure (sauf mécaniques et Nurgle).");
       else if (hk === "despoiled") add("hdesp", fxIcon("possessed"), "Terrain souillé : 6 à 9 % de la santé initiale en dégâts au début de son tour.");
-      if (fxOn(u, "wrath")) add("wrath", fxIcon("taunted"), "Courroux écrasant : provoque les ennemis adjacents, −" + (fxOn(u, "wrath").red || 0) + " % des attaques à distance, frappe les adjacents au début de son tour.");
+      if (fxOn(u, "wrath")) add("wrath", abIcon("OverwhelmingWrath"), "Courroux écrasant : provoque les ennemis adjacents, −" + (fxOn(u, "wrath").red || 0) + " % des attaques à distance, frappe les adjacents au début de son tour.");
       const obs = fxOn(u, "observed");
-      if (obs) add("observed", fxIcon("reveal"), "Observé : +" + num(obs.v.extraDmg || 0) + " dégâts et −" + (obs.v.dmgReductionPct || 0) + " % de dégâts subis par ennemi provoqué adjacent (jusqu'à la fin de son prochain tour).");
-      if (u.shield && round <= u.shield.until && u.shield.amt > 0) add("shield", fxIcon("shield"), "Bouclier : absorbe " + num(u.shield.amt) + " dégâts (jusqu'au round " + u.shield.until + ").");
-      if (fxOn(u, "reanim")) add("reanim", fxIcon("healing_powerup"), "Faisceau réanimateur : la première fois qu'il devrait être vaincu avant le prochain tour du Réanimateur, il est réanimé.");
+      if (obs) add("observed", abIcon("DaemonicPatrons"), "Observé : +" + num(obs.v.extraDmg || 0) + " dégâts et −" + (obs.v.dmgReductionPct || 0) + " % de dégâts subis par ennemi provoqué adjacent (jusqu'à la fin de son prochain tour).");
+      if (u.shield && round <= u.shield.until && u.shield.amt > 0) add("shield", u.shield.src ? abIcon(u.shield.src) : fxIcon("shield"), "Bouclier : absorbe " + num(u.shield.amt) + " dégâts (jusqu'au round " + u.shield.until + ").");
+      if (fxOn(u, "reanim")) add("reanim", abIcon("ReanimationBeam"), "Faisceau réanimateur : la première fois qu'il devrait être vaincu avant le prochain tour du Réanimateur, il est réanimé.");
       const wkf = fxOn(u, "weak");
-      if (wkf) add("weak", fxIcon("debuffed"), "Lumière de Sanguinius : −" + wkf.pct + " % de dégâts infligés (le double contre les unités à " + (wkf.half || 50) + " % de santé ou moins).");
-      if (fxOn(u, "mvup") && !(u.shun && u.shun.kind === 2)) add("mvup", fxIcon("buffed"), "+" + (fxOn(u, "mvup").mv || 1) + " déplacement jusqu'à la fin du tour.");
-      if (abOf(u, "DoctrinaImperatives")) add("stance", fxIcon("buffed"), u.stance ? "Impératif conquérant : ses unités mécaniques adjacentes frappent plus fort les unités à l'armure réduite." : "Impératif protecteur : ses unités mécaniques adjacentes ont plus d'armure ; ses attaques invoquent un Patrouilleur Skitarii.");
-      if (abOf(u, "CalibaniteGreatsword")) add("stance", fxIcon("martial_superiority"), u.stance ? "Posture de balayage : ses attaques normales frappent aussi les ennemis adjacents à lui et à la cible." : "Posture de frappe : Sentinelle à la fin de son tour, même s'il a attaqué.");
+      if (wkf) add("weak", abIcon("LightOfSanguinius"), "Lumière de Sanguinius : −" + wkf.pct + " % de dégâts infligés (le double contre les unités à " + (wkf.half || 50) + " % de santé ou moins).");
+      if (fxOn(u, "mvup") && !(u.shun && u.shun.kind === 2)) add("mvup", fxOn(u, "mvup").src ? abIcon(fxOn(u, "mvup").src) : fxIcon("buffed"), "+" + (fxOn(u, "mvup").mv || 1) + " déplacement jusqu'à la fin du tour.");
+      if (abOf(u, "DoctrinaImperatives")) add("stance", abIcon("DoctrinaImperatives"), u.stance ? "Impératif conquérant : ses unités mécaniques adjacentes frappent plus fort les unités à l'armure réduite." : "Impératif protecteur : ses unités mécaniques adjacentes ont plus d'armure ; ses attaques invoquent un Patrouilleur Skitarii.");
+      if (abOf(u, "CalibaniteGreatsword")) add("stance", abIcon("CalibaniteGreatsword"), u.stance ? "Posture de balayage : ses attaques normales frappent aussi les ennemis adjacents à lui et à la cible." : "Posture de frappe : Sentinelle à la fin de son tour, même s'il a attaqué.");
       const bzf = fxOn(u, "brazier");
-      if (bzf) add("brazier", fxIcon("debuffed"), "Brasier du feu sacré : +" + bzf.pct + " % de dégâts subis (jusqu'au round " + bzf.until + ").");
+      if (bzf) add("brazier", abIcon("BrazierOfHolyFire"), "Brasier du feu sacré : +" + bzf.pct + " % de dégâts subis (jusqu'au round " + bzf.until + ").");
       if (fxOn(u, "pin")) add("pin", fxIcon("supressed"), "Neutralisé : −30 % de dégâts, −1 déplacement, pas de Sentinelle (1 manche).");
       const cfx = fxOn(u, "conflag");
-      if (cfx) add("conflag", fxIcon("fire"), "Conflagration trois fois bénie : plus de dégâts à distance contre les ennemis sur un hexagone en feu (jusqu'au round " + cfx.until + ").");
+      if (cfx) add("conflag", abIcon("ThriceBlessedConflagration"), "Conflagration trois fois bénie : plus de dégâts à distance contre les ennemis sur un hexagone en feu (jusqu'au round " + cfx.until + ").");
       if (fxOn(u, "stun")) add("stun", fxIcon("stunned"), "Étourdi : 1 déplacement, −50 % de dégâts, aucune capacité active (un soin annule l'effet).");
       if (u.ow) add("ow", fxIcon("overwatch"), "Sentinelle : attaque le premier ennemi qui se déplace à sa portée pendant le tour adverse.");
-      if (fxOn(u, "hail")) add("hail", fxIcon("buffed"), "Hailstrike : plus de perforation en Sentinelle, et le Storm Speeder tire avec lui.");
+      if (fxOn(u, "hail")) add("hail", abIcon("Hailstrike"), "Hailstrike : plus de perforation en Sentinelle, et le Storm Speeder tire avec lui.");
       if (u.ds) add("ds", trIcon("TeleportStrike"), "Assaut en profondeur : ne peut être ciblé ni subir de dégâts avant d'avoir agi ou terminé son tour ; peut se téléporter sur n'importe quel hexagone libre non adjacent à un ennemi.");
       if (u.noRanged) add("noranged", fxIcon("debuffed"), "S'est téléporté : pas d'attaque à distance jusqu'à la fin de son tour.");
       const wg = fxOn(u, "waaagh");
-      if (wg) add("waaagh", fxIcon("damage_powerup"), "Waaagh ! : +" + ((wg.v && wg.v.extraMovement) || 1) + " déplacement, +" + num((wg.v && wg.v.extraDmg) || 0) + " dégâts et un coup de plus à ses attaques normales de mêlée (jusqu'à la fin du tour).");
+      if (wg) add("waaagh", abIcon("Waaagh"), "Waaagh ! : +" + ((wg.v && wg.v.extraMovement) || 1) + " déplacement, +" + num((wg.v && wg.v.extraDmg) || 0) + " dégâts et un coup de plus à ses attaques normales de mêlée (jusqu'à la fin du tour).");
       const tn = fxOn(u, "taunt");
       if (tn) add("taunt", fxIcon("taunted"), "Provoqué par " + (tn.taunt ? tn.taunt.name : "?") + " : ne peut viser que lui s'il le peut " + (tn.until >= 999 ? "(tant que l'un des deux n'est pas tombé)" : "(jusqu'au round " + tn.until + ")") + ".");
-      if (u.twisted) add("twist", fxIcon("health_powerup"), "Science distordue : PV max augmentés" + (u.rules.fa === "Genestealers" ? ", +" + u.twistDmg + " dégâts" : "") + ".");
+      if (u.twisted) add("twist", abIcon("TwistedScience"), "Science distordue : PV max augmentés" + (u.rules.fa === "Genestealers" ? ", +" + u.twistDmg + " dégâts" : "") + ".");
       if (u.marked) add("mark", fxIcon("markerlight"), "Pointeur lumineux : les attaques à distance de certains alliés de l'ennemi font plus de dégâts.");
-      if (u.annBy && u.annBy.alive) add("annih", fxIcon("master_annihilator"), "Maître annihilateur (" + u.annBy.name + ") : les attaques normales des alliés de " + u.annBy.name + " portent un coup de plus.");
-      if (u.shun) add("shun" + u.shun.kind, fxIcon(["", "fortified", "buffed", "damage_powerup"][u.shun.kind]), ["", "Sens de la pierre : −50 % de dégâts reçus.", "Grâce du Zéphyr : +1 déplacement.", "Tempête de feu : +1 044 dégâts."][u.shun.kind] + " (Aun'Shi)");
-      if (u.shroud) add("shroud", fxIcon("infiltrate"), "Voile de nuit : −" + u.shroud + " dégâts à chaque coup reçu.");
+      if (u.annBy && u.annBy.alive) add("annih", abIcon("MasterAnnihilator"), "Maître annihilateur (" + u.annBy.name + ") : les attaques normales des alliés de " + u.annBy.name + " portent un coup de plus.");
+      if (u.shun) add("shun" + u.shun.kind, abIcon("SereneUnifier"), ["", "Sens de la pierre : −50 % de dégâts reçus.", "Grâce du Zéphyr : +1 déplacement.", "Tempête de feu : +1 044 dégâts."][u.shun.kind] + " (Aun'Shi)");
+      if (u.shroud) add("shroud", abIcon("Nightshroud"), "Voile de nuit : −" + u.shroud + " dégâts à chaque coup reçu.");
       aurasOn(u, u.t).forEach(function (a) {  // one tag per ability whose aura reaches it
         const ab = (a.e.rules.ab || []).filter(function (x) { return x[0] === a.id; })[0], nm = (ab ? ab[1] : a.id) + (a.e === u ? "" : " (" + a.e.name + ")");
-        out.push({ id: "aura-" + a.id + "-" + a.e.i, icon: fxIcon("buffed"), title: nm + " : aura d'une capacité qui l'aide" + ((a.id === "RelentlessMarch" || a.id === "CursedPlagueBell") && u.moveBonus > 0 ? " (+" + (a.id === "RelentlessMarch" ? 1 : parseInt(a.v.extraMovement, 10) || 1) + " déplacement ce tour)" : "") + ".", label: nm });
+        out.push({ id: "aura-" + a.id + "-" + a.e.i, icon: abIcon(a.id), title: nm + " : aura d'une capacité qui l'aide" + ((a.id === "RelentlessMarch" || a.id === "CursedPlagueBell") && u.moveBonus > 0 ? " (+" + (a.id === "RelentlessMarch" ? 1 : parseInt(a.v.extraMovement, 10) || 1) + " déplacement ce tour)" : "") + ".", label: nm });
       });
       // (the +movement of an aura is told in the aura's own tag: no second one)
       if (!T.ContagionsOfNurgle && live().some(function (e) { return e.side !== u.side && e.tset.ContagionsOfNurgle && RULES.dist(e.t, u.t) <= contagionRange(); })) add("conta", trIcon("ContagionsOfNurgle"), "Contagion de Nurgle : l'armure est réduite dans l'aura d'un ennemi.");
@@ -1944,7 +1954,8 @@
       return !options(u).some(function (o) { return o.ok && (targetsOf(u, o).length || hexesOf(u, o).length); });
     };
     function render() {
-      if (seqActive && !seqRender) { endSeq(); $("sb-fx").innerHTML = ""; }  // the player clicked: the beats stop, the board shows the settled state
+      if (seqActive && !seqRender) { endSeq(); $("sb-fx").innerHTML = ""; }
+      if ($("sb-auto") && typeof autoLabel === "function") autoLabel();  // the player clicked: the beats stop, the board shows the settled state
       units.forEach(function (u) {
         if (!u.g) return;
         u.g.classList.toggle("tk-sel", u === sel);
@@ -2017,7 +2028,6 @@
       if (on) box.scrollTop = on.offsetTop - box.clientHeight / 2 + on.clientHeight / 2;
       const sk = $("sb-seek");
       sk.max = steps.length; sk.value = cur;
-      $("sb-undo").disabled = !steps.length;
       $("sb-reset").disabled = !steps.length;
       $("sb-prev").disabled = cur === 0;
       $("sb-next").disabled = cur >= steps.length;
@@ -2651,7 +2661,7 @@
         else if (b === "howl") mine3.filter(function (x) { return !x.summon && !(x.rules.wp || []).some(function (w) { return w[0] > 1; }); }).forEach(function (x) { fx.push({ u: x, id: "howl", until: round, v: v }); });
         else if (b === "crusade") { mine3.filter(function (x) { return x !== u && RULES.dist(u.t, x.t) <= rg; }).forEach(function (x) { fx.push({ u: x, id: "crusade", until: round + 1, v: v }); }); attack(o.name); }
         else if (b === "duty") {
-          mine3.filter(function (x) { return x === u || RULES.dist(u.t, x.t) <= rg; }).forEach(function (x) { fx.push({ u: x, id: "dr", pct: v.dmgReductionPct || 33, until: til }); });
+          mine3.filter(function (x) { return x === u || RULES.dist(u.t, x.t) <= rg; }).forEach(function (x) { fx.push({ u: x, id: "dr", pct: v.dmgReductionPct || 33, until: til, src: "UnbreakableDuty" }); });
           if (field.filter(function (x) { return x.side === u.side && !x.alive && x.hp <= 0 && !x.summon && x.rules.al === "Imperial"; }).length >= 2) { buff = [{ u: u, hp: v.extraHp || 0, rep: 0, dutyDmg: v.extraDmg || 0 }]; attack(o.name); }
         }
         else if (b === "chrono") foes(u).filter(function (e) { return RULES.dist(u.t, e.t) <= rg; }).forEach(function (e) { fx.push({ u: e, id: e.summon ? "stun" : "pin", until: stunUntil(e) + nI(v.nrOfRounds, 1) - 1 }); fx.push({ u: e, id: "chrono", until: 999, extra: v.extraDmg || 0, extra2: v.extraDmg_2 || 0 }); });
@@ -2664,7 +2674,7 @@
       if (sp && sp.chargeAb) {  // what each charge adds, seen from where the unit lands
         const v = vals_(o), id = o.ab[0], dest = moves && moves.length ? moves[0].to : u.t;
         fx = fx || [];
-        if (id === "MassDriverAccelerator") live().filter(function (x) { return x.side === u.side && (x === u || RULES.dist(x.t, u.t) === 1); }).forEach(function (x) { fx.push({ u: x, id: "mvup", until: round, mv: parseInt(v.extraMovement, 10) || 1 }); });  // before she moves: she and the allies around her
+        if (id === "MassDriverAccelerator") live().filter(function (x) { return x.side === u.side && (x === u || RULES.dist(x.t, u.t) === 1); }).forEach(function (x) { fx.push({ u: x, id: "mvup", src: "MassDriverAccelerator", until: round, mv: parseInt(v.extraMovement, 10) || 1 }); });  // before she moves: she and the allies around her
         withPos(u, dest, function () {
           if (id === "LightOfSanguinius") foes(u).filter(function (e) { return e === t || RULES.dist(e.t, t.t) === 1; }).forEach(function (e) { fx.push({ u: e, id: "weak", pct: v.dmgReductionPct || 30, half: parseInt(v.healthPct, 10) || 50, until: stunUntil(e) + (parseInt(v.nrOfRounds, 10) || 1) - 1 }); });
           if (id === "HammerOfWrath") {
@@ -2774,7 +2784,7 @@
         else if (id === "JakhalStimms") { foes(u).filter(function (e) { return e !== t && RULES.dist(u.t, e.t) === 1 && RULES.dist(t.t, e.t) === 1; }).forEach(function (e) { hitMore(e, avgOf(v, ""), o.ab[5], nI(v.nrOfHits, 4)); }); const sd = Math.round(u.hp * (parseInt(v.hpPct, 10) || 25) / 100); more.push({ tgt: u, dmg: sd, hits: 1, per: sd, label: o.name + " (contrecoup)" }); }
         else if (id === "BringerOfDespair") { if (adjOfU.length) hitMore(adjOfU[Math.floor(rnd() * adjOfU.length)], avgOf(v, ""), o.ab[5], nI(v.nrOfHits_2, 4)); }
         else if (id === "SilentDeath") { let last = t; const used = [t]; for (let k = 0; k < nI(v.nrOfTargets, 3); k++) { const nx = foes(u).filter(function (e) { return used.indexOf(e) < 0 && RULES.dist(e.t, last.t) === 1; }).sort(function (a, b2) { return a.hp - b2.hp; })[0]; if (!nx) break; hitMore(nx, avgOf(v, ""), o.ab[5], nI(v.nrOfHits, 3)); used.push(nx); last = nx; } }
-        else if (id === "VexillaMagnifica") { const e2 = adjOfU.sort(function (a, b2) { return a.hp - b2.hp; })[0]; if (e2) { hitMore(e2, avgOf(v, ""), o.ab[5], nI(v.nrOfHits, 1)); fx.push({ u: e2, id: "stun", until: stunUntil(e2) }); } fx.push({ u: t, id: "stun", until: stunUntil(t) }, { u: u, id: "dr", pct: v.dmgReductionPct || 66, until: til2 + nI(v.nrOfRounds, 1) - 1 }); }
+        else if (id === "VexillaMagnifica") { const e2 = adjOfU.sort(function (a, b2) { return a.hp - b2.hp; })[0]; if (e2) { hitMore(e2, avgOf(v, ""), o.ab[5], nI(v.nrOfHits, 1)); fx.push({ u: e2, id: "stun", until: stunUntil(e2) }); } fx.push({ u: t, id: "stun", until: stunUntil(t) }, { u: u, id: "dr", src: "VexillaMagnifica", pct: v.dmgReductionPct || 66, until: til2 + nI(v.nrOfRounds, 1) - 1 }); }
         else if (id === "PlasmaCannon") { const d0 = RULES.dist(u.t, t.t), back = RULES.around(t.t[0], t.t[1]).filter(function (h) { return RULES.dist(u.t, h) === d0 + 1; })[0]; if (back) { const b2 = RULES.around(back[0], back[1]).filter(function (h) { return RULES.dist(u.t, h) === d0 + 2 && RULES.dist(h, t.t) === 2; })[0]; [back, b2].forEach(function (h) { if (!h) return; foes(u).filter(function (e) { return sameHex(e.t, h); }).forEach(function (e) { hitMore(e, avgOf(v, ""), o.ab[5], nI(v.nrOfHits, 3)); }); }); } }
         else if (id === "DarkTalonStrike") { const line = foes(u).filter(function (e) { return e !== t && RULES.dist(e.t, t.t) <= 3; }); let last = t; const used = [t]; for (let k = 0; k < 4; k++) { const nx = line.filter(function (e) { return used.indexOf(e) < 0 && RULES.dist(e.t, last.t) === 1 && RULES.dist(u.t, e.t) > RULES.dist(u.t, last.t); })[0]; if (!nx) break; hitMore(nx, avgOf(v, "_2"), "Bolter", nI(v.nrOfHits_2, 6)); fx.push({ u: nx, id: "pin", until: stunUntil(nx) }); used.push(nx); last = nx; } fx.push({ u: t, id: "pin", until: stunUntil(t) }); }
         else if (id === "Executioner") { ts.dmg = Math.round(ts.dmg * round); if (healthAfter(t, ts.dmg) <= 0) { const e2 = foes(u).filter(function (e) { return e !== t && RULES.dist(e.t, t.t) === 1; })[0]; if (e2) more.push({ tgt: e2, dmg: Math.round(ts.dmg), hits: 1, per: Math.round(ts.dmg), label: o.name }); } }  // per round started
@@ -3048,7 +3058,94 @@
       timer = setInterval(function () { if (seqActive) return; if (cur >= steps.length) return stop(); go(cur + 1); }, 900 / speed);
     };
     $("sb-end").onclick = function () { stop(); sel = null; push({ k: "end" }); };
-    $("sb-undo").onclick = function () { stop(); if (!steps.length) return; steps.pop(); go(Math.min(cur, steps.length)); };
+    // ---- Auto: the side that has the move is played by the page. Each character in turn goes where it hurts most (a kill first, then the most damage; a normal attack or an active ability that hits a
+    // target) and attacks; one that cannot hit anything walks toward the nearest enemy; then the turn ends. The summons already play by themselves at the start of the turn. ----
+    let autoRun = false;
+    const autoLabel = function () { const b = $("sb-auto"); b.textContent = autoRun ? "Stop" : "Auto"; b.disabled = !autoRun && active !== 1; };
+    // The choice of a character (the summons' way, with the actives first): what it can do, from every hex it can reach: an overkill (the target is exterminated) first, then a kill, then an active ability
+    // before a normal attack, then the most damage; among the hexes that give the same hit: its guard in place, no razor wire, the help of an ally's ability, the highest ground, tall grass, the shortest walk.
+    const planFor = function (u) {
+      const opts = options(u).filter(function (o) { return o.ok && !(o.ab && o.ab[2] !== "a"); });
+      const reach = u.mow ? { cur: 0 } : stepsOf(u, budget(u)), saved = { spent: u.spent, moves: u.moves };
+      let best = null;
+      Object.keys(reach).forEach(function (key) {
+        const h = u.mow ? null : key.split(",").map(Number), c = h && RULES.cell(h[0], h[1]), k0 = reach[key];
+        if (h && (!c || c.kind !== 0)) return;
+        u.spent = saved.spent + k0; u.moves = k0 ? saved.moves + 1 : saved.moves;  // the walk counts for what depends on it
+        try {
+          const probe = function () { return { lists: opts.map(function (o) { return targetsOf(u, o); }), guard: guardAt(u) ? 1 : 0, buff: buffedAt(u, u.t) ? 1 : 0 }; };
+          const here = h ? withPos(u, h, probe) : probe();
+          opts.forEach(function (o, oi) {
+            here.lists[oi].forEach(function (r) {
+              if (!(r.dmg > 0) || r.heal || r.u.side === u.side) return;
+              const over = r.dmg - r.u.hp >= r.u.max ? 1 : 0, kill = healthAfter(r.u, r.dmg) <= 0 ? 1 : 0;
+              const wire = c && c.tile === "Swamp" && !u.rules.us && !u.rules.fl ? 0 : 1, grass = c && c.tile === "DryBush" && !u.tset.BigTarget ? 1 : 0;
+              const rank = [over, kill, o.ab ? 1 : 0, Math.round(r.dmg), here.guard, wire, here.buff, c ? c.el || 0 : 0, grass, -k0];
+              let better = !best;
+              if (best) for (let i2 = 0; i2 < rank.length; i2++) if (rank[i2] !== best.rank[i2]) { better = rank[i2] > best.rank[i2]; break; }
+              if (better) best = { h: h, k0: k0, o: o, t: r.u, rank: rank };
+            });
+          });
+        } finally { u.spent = saved.spent; u.moves = saved.moves; }
+      });
+      return best;
+    };
+    const preActives = function (u) {  // an ability that buffs the character or its allies and does not end its turn (Waaagh!, the Mont'ka ...): used first
+      options(u).filter(function (o) { const sp = o.ab && CULT[o.ab[0]]; return o.ok && sp && sp.self && sp.keep && sp.buffs; }).forEach(function (o) {
+        if (u.alive && targetsOf(u, o).some(function (x) { return x.u === u; })) strike(u, o, u);
+      });
+    };
+    // Who plays next, as the game's AI chooses it (cascade: summons first -- they play by themselves at the start of the turn --, non-bosses before the boss, units that have just appeared, a score by
+    // unit, then the one closest to an enemy). The score adds up, from the unit's id, its traits and its abilities: Hailstrike +10; Sorcerous Facade, Master of the Tutelaries +2; Psyker, Doombolt,
+    // Master Annihilator, Cord Claw, Blood Chalice +1; Weaver of Fate, Voltagheist Field -2. The higher the earlier.
+    const ORDER_SCORE = { Hailstrike: 10, SorcerousFacade: 2, MasterOfTheTutelaries: 2, Psyker: 1, Doombolt: 1, MasterAnnihilator: 1, CordClaw: 1, BloodChalice: 1, WeaverOfFate: -2, VoltagheistField: -2 };
+    const orderScore = function (u) {
+      const keys = [u.id].concat(Object.keys(u.tset || {})).concat((u.rules.ab || []).map(function (a) { return a[0]; }));
+      return Object.keys(ORDER_SCORE).reduce(function (sum, w) { return sum + (keys.some(function (x) { return String(x).indexOf(w) >= 0; }) ? ORDER_SCORE[w] : 0); }, 0);
+    };
+    const nearestFoe = function (u) { return u.mow || !u.t ? 99 : Math.min.apply(null, foes(u).map(function (e) { return RULES.dist(u.t, e.t); }).concat([99])); };
+    const walkToward = function (u) {  // nothing to hit this turn: as far as it can go toward the nearest enemy (not into razor wire unless it must)
+      if (u.mow) return;
+      const reach = stepsOf(u, budget(u)), foesNow = foes(u);
+      if (!foesNow.length) return;
+      const dist = function (h) { return Math.min.apply(null, foesNow.map(function (e) { return RULES.dist(h, e.t); })); };
+      let best = null;
+      Object.keys(reach).forEach(function (key) {
+        const h = key.split(",").map(Number), c = RULES.cell(h[0], h[1]);
+        if (!c || c.kind !== 0 || reach[key] === 0) return;
+        const rank = [c.tile === "Swamp" && !u.rules.us && !u.rules.fl ? 0 : 1, -dist(h), -reach[key]];
+        let better = !best;
+        if (best) for (let i = 0; i < rank.length; i++) if (rank[i] !== best.rank[i]) { better = rank[i] > best.rank[i]; break; }
+        if (better) best = { h: h, k0: reach[key], rank: rank };
+      });
+      if (best && -best.rank[1] < dist(u.t)) push({ k: "mv", u: u, from: u.t.slice(), to: best.h, cost: best.k0, tp: false, tpm: false });
+    };
+    const autoTurn = function () {
+      if (autoRun) { autoRun = false; autoLabel(); return; }  // a second click stops it
+      if (active !== 1) return;
+      autoRun = true; stop(); autoLabel();
+      const side = active, pool = field.filter(function (u) { return (u.alive || u.mow) && !u.decoy && !u.summon && !u.auto && u.side === side; });
+      const next = function () {
+        if (!autoRun) return;
+        if (seqActive) { setTimeout(next, 120); return; }  // the beats of the last action are still playing
+        if (active !== side) { autoRun = false; autoLabel(); return; }
+        pool.sort(function (a, b2) { return orderScore(b2) - orderScore(a) || nearestFoe(a) - nearestFoe(b2) || a.i - b2.i; });  // asked again after every action: the board has changed
+        const u = pool.shift();
+        if (!u) { autoRun = false; autoLabel(); $("sb-end").onclick(); return; }
+        if (!u.mow && (!u.alive || u.acted)) { next(); return; }
+        sel = u; choose(u);
+        if (!u.mow) preActives(u);
+        const plan = planFor(u);
+        if (plan) {
+          if (plan.h && plan.k0 > 0) push({ k: "mv", u: u, from: u.t.slice(), to: plan.h, cost: plan.k0, tp: false, tpm: false });
+          strike(u, plan.o, plan.t);
+        } else walkToward(u);
+        setTimeout(next, 450 / speed);
+      };
+      next();
+    };
+    $("sb-auto").onclick = autoTurn;
+    const undoLast = function () { stop(); if (!steps.length) return; steps.pop(); go(Math.min(cur, steps.length)); };  // « Préc. » at the end does the same; Ctrl/Cmd+Z too
     $("sb-reset").onclick = function () { stop(); steps.length = 0; sel = null; go(0); };
     // the toggles: classes on the board (altitude figures, grid lines), see style.css
     const toggle = function (id, cls, shownWhenOn) {
@@ -3061,7 +3158,7 @@
       if (e.key === "Escape" && (sel || act)) { if (act) { act = null; tgtSet = {}; hexSet = {}; } else sel = null; render(); }
       else if (e.key === "ArrowRight") { stop(); go(cur + 1); e.preventDefault(); }
       else if (e.key === "ArrowLeft") { stop(); go(cur - 1); e.preventDefault(); }
-      else if ((e.key === "z" || e.key === "Z") && (e.metaKey || e.ctrlKey)) { $("sb-undo").click(); e.preventDefault(); }
+      else if ((e.key === "z" || e.key === "Z") && (e.metaKey || e.ctrlKey)) { undoLast(); e.preventDefault(); }
     });
     settle(0);
     render();
