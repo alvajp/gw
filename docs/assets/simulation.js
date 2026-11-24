@@ -108,8 +108,7 @@
         }).join("");
       };
       box.innerHTML = '<div class="sim-pv-head"><b>' + esc(D.p[r[11]]) + "</b><small>" + esc(D.g[r[12]]) + " \u00b7 " + esc(D.w[r[8]]) + '</small><span class="sim-score ' + "is-win" + '">' + r[7] + "</span></div>" +
-        '<div class="pl-board"><img class="pl-map" src="' + esc(img) + '" alt="" draggable="false">' + (slot ? place(r[10], "e", "pl-def") + place(r[4], "o", "pl-att") : "") + "</div>" +
-        '<div class="sim-pv-legend"><span><i class="pl-key pl-key-att"></i>Attaque</span><span><i class="pl-key pl-key-def"></i>D\u00e9fense</span></div>';
+        '<div class="pl-board"><img class="pl-map" src="' + esc(img) + '" alt="" draggable="false">' + (slot ? place(r[10], "e", "pl-def") + place(r[4], "o", "pl-att") : "") + "</div>";
     });
   }
   function attacks() {
