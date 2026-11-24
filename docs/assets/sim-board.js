@@ -198,6 +198,11 @@
         const w = 1.3 * r - 2, sh = document.createElementNS(NS, "rect");
         sh.setAttribute("class", "tk-sh"); sh.setAttribute("x", "1"); sh.setAttribute("y", "7.6"); sh.setAttribute("width", w.toFixed(1)); sh.setAttribute("height", "2.6"); sh.setAttribute("rx", "1.3"); sh.setAttribute("fill", "#60a5fa"); sh.style.display = "none";
         bar.appendChild(sh);
+        ["tk-pvg", "tk-pvo", "tk-pvy"].forEach(function (cls, i) {  // the damage preview on the health bar, from the left: yellow (the damage that is certain), orange (what may come on top), green (the health left even in the best case)
+          const r2 = document.createElementNS(NS, "rect");
+          r2.setAttribute("class", cls); r2.setAttribute("x", "1"); r2.setAttribute("y", "1"); r2.setAttribute("width", "0"); r2.setAttribute("height", "4"); r2.setAttribute("rx", "2"); r2.setAttribute("fill", ["#34d399", "#fb923c", "#facc15"][i]); r2.style.display = "none";
+          bar.appendChild(r2);
+        });
         const ov = document.createElementNS(NS, "g");
         ov.setAttribute("class", "tk-ov"); ov.dataset.i = u.i;
         ov.appendChild(bar); ov.appendChild(sts);
@@ -205,6 +210,7 @@
       }
       u.hpEl = (u.ov || g).querySelector(".tk-hp");
       u.shEl = (u.ov || g).querySelector(".tk-sh");
+      u.pvG = (u.ov || g).querySelector(".tk-pvg"); u.pvO = (u.ov || g).querySelector(".tk-pvo"); u.pvY = (u.ov || g).querySelector(".tk-pvy"); u.pvW = 1.3 * r - 2;
       u.stG = (u.ov || g).querySelector(".tk-sts"); u.stShown = {};
       pos(g, home(u));
       tokLayer.appendChild(g);
@@ -392,7 +398,7 @@
     // Spore mines (Biovore): a flying mine with 1 movement walks toward the nearest enemy (or the one it is ordered at) and, when it ends next to an enemy, explodes (Floating Death): toxic hits on every adjacent
     // enemy, and the mine is gone. A mine that is defeated explodes too, and so do the allied mines next to it.
     const isMine = function (x) { return x.id === "tyranSmnSporeMine" && !!x.boom; };
-    let boomLog = [];
+    let boomLog = [], overLog = [];  // overLog: the units exterminated by an overkill in this step
     const explode = function (m) {
       if (m.exploded) return [];
       m.exploded = true;
@@ -584,7 +590,7 @@
           const tg = targetsOf(t, { id: "atk", ok: true }).sort(function (a, b2) { return ((b2.dmg >= b2.u.hp) - (a.dmg >= a.u.hp)) || b2.dmg - a.dmg; })[0];
           if (tg && tg.dmg > 0) { boomLog.push({ tgt: tg.u, dmg: tg.dmg, hits: tg.hits, per: tg.per, from: t, label: "porte un dernier coup" }); curAtk++; hurt(tg.u, tg.dmg, t, tg.per); }
         }
-        t.alive = false; deadLog.push(t);
+        t.alive = false; deadLog.push(t); if (ext) overLog.push(t);
         live().filter(function (x) { return x.side === t.side && x.tset.BattleFatigue && RULES.dist(x.t, t.t) === 1 && !live().some(function (y) { return y.side === x.side && y.tset.Synapse && RULES.dist(y.t, x.t) <= 2; }); }).forEach(function (x) {  // Battle Fatigue: 10 % to flee when an adjacent ally falls, 50 % when it was exterminated
           if (stepRng() * 100 < (ext ? 50 : 10)) {
             const yr = live().filter(function (p) { return p.side === x.side && abOf(p, "SummaryExecution"); })[0];
@@ -807,18 +813,18 @@
       });
       return out;
     };
-    let settling = false, rollKey = 0, rollSalt = 0;
+    let settling = false, rollKey = 0, rollSalt = 0, previewForce = null;  // previewForce: {dv, crit, block} the damage preview asks the dice to give (the worst or the best case)
     const salts = {};  // going back to a step bumps its salt: the same action played again gets other dice (damage variation, critical hits, blocks)
     const diceSeed = function () { const idx = settling ? rollKey : cur; return ((idx + 1) * 2654435761) ^ ((settling ? rollSalt : (salts[idx] || 0)) * 1597334677); };  // the dice of the hits (damage variation, critical hits, blocks) are seeded by the step being replayed, or by the step about to be taken
     const settle = function (k) {  // everybody on the hexes, with the health, they have after k steps, and whose turn it is
       settling = true;
       field.forEach(function (u) { u.max = u.max0; u.fx = {}; u.twisted = false; u.twistDmg = 0; u.t = u.t0 ? u.t0.slice() : null; u.hp = u.max; u.alive = !u.summon; u.nAtk = 0; u.kills = 0; u.attacked = 0; u.lastAtk = -1; u.annBy = null; u.shun = null; u.used = {}; u.marked = false; u.markedBy = -1; u.markFresh = false; u.came = false; u.exploded = false; u.grim = 0; u.euph = null; u.neuro = 0; u.cloak = 0; u.hypTurn = -1; u.lcTurn = -1; u.miTurn = -1; u.atkTurns = 0; u.lastAtkTurn = -1; u.shield = null; u.waaaghLvl = 0; u.relocated = false; u.aug = null; u.dutyDmg = 0; u.armCut = 0; u.charKills = 0; u.smasha = false; u.auto = false; u.rage = false; u.chargedTurn = -1; u.psyTurn = -1; u.ghost = null; u.pi = {}; u.kidIdx = 0; u.born = -1; u.outr = {}; u.yexec = false; u.stillPrev = false; u.tfUsed = false; u.stance = 0; u.stTurn = -1; u.grimTurn = -1; u.ripAtk = -1; u.ow = false; u.owCut = 0; u.owForce = false; u.ds = !!u.tset.TeleportStrike && !u.summon; u.noRanged = false; u.lastSpent = 0; u.nano = false; u.moveBonus = 0; u.shroud = 0; u.ambush = !!u.tset.Ambush && !u.decoy; u.fallen = false; });
-      round = 1; active = 0; pending = []; hexfx = {}; zmarks = []; turnNo = 0; meleeDead = 0; activeUses = [0, 0]; psyCount = [0, 0]; regenLog = []; boomLog = []; deadLog = [];
+      round = 1; active = 0; pending = []; hexfx = {}; zmarks = []; turnNo = 0; meleeDead = 0; activeUses = [0, 0]; psyCount = [0, 0]; regenLog = []; boomLog = []; deadLog = []; overLog = [];
       units.forEach(function (u) { u.lastPer = 0; u.narthAt = -1; if (u.mow) { u.fx = {}; u.used = {}; u.acted = false; u.deployed = false; u.nAtk = 0; u.usedActive = false; } });
       turnStart();
       for (let i = 0; i < k; i++) {
         const m = steps[i];
-        curAtk++; rollKey = i; rollSalt = m.salt || 0; stepRng = mulberry(((i + 1) * 2654435761) ^ 0x51ed270b); regenLog = []; boomLog = []; deadLog = [];
+        curAtk++; rollKey = i; rollSalt = m.salt || 0; stepRng = mulberry(((i + 1) * 2654435761) ^ 0x51ed270b); regenLog = []; boomLog = []; deadLog = []; overLog = [];
         if (m.k === "mv") {
           m.u.t = m.to.slice(); m.u.spent += m.cost; m.u.moves++; m.u.ds = false; if (abOf(m.u, "GrimEfficiency") && m.cost >= (parseInt(abOf(m.u, "GrimEfficiency").movement, 10) || 3)) m.u.grim = 1 - (m.u.grim || 0); if (abOf(m.u, "HaywireMine")) m.u.mineHex = m.from.slice(); if (abOf(m.u, "TimeFlux") && !m.u.tfUsed) m.u.ghost = m.from.slice(); if (m.tp && !m.tpm) m.u.noRanged = true;  // Deep Strike: it teleported, no ranged attack until the end of its turn  // (Deep Strike ends as soon as the unit has moved, not only at the end of the turn)
           decoys().forEach(function (x) {  // an enemy stepping on a decoy destroys it (and Decoys and Misdirection blasts it)
@@ -881,7 +887,7 @@
             x.u.max += x.hp; x.u.hp += x.hp;
             if (x.aug) x.u.aug = x.aug;  // Prime Test Subject: augmented
             else if (x.dutyDmg !== undefined) x.u.dutyDmg = (x.u.dutyDmg || 0) + x.dutyDmg;  // Unbreakable Duty
-            else { x.u.nano = true; x.u.nanoBonus = x.rep || 0; }
+            else { x.u.nano = true; x.u.nanoBonus = x.rep || 0; x.u.nanoHp = x.hp || 0; }
           });  // Nanoscarab protocols: health and maximum health
           if (m.deploy) m.u.deployed = true;
           (m.hx || []).forEach(function (x) { hexfx[x.h[0] + "," + x.h[1]] = x; });  // the hexes it covers with fire, ice ...
@@ -940,7 +946,7 @@
           m.auto = tileTurn().concat(resolveMarks(), resolvePending(), summonsPlay(), betray());  // what acts by itself at the start of this turn: the summons first, then the characters that do
         }
         field.forEach(function (x) { if (x.ghost && live().some(function (y) { return y !== x && y.t[0] === x.ghost[0] && y.t[1] === x.ghost[1]; })) x.ghost = null; });  // Toth's time ghost vanishes when another unit stands on it
-        m.deaths = deadLog.filter(function (x, k, a) { return a.indexOf(x) === k; }); m.regen = regenLog; m.booms = boomLog;  // the heals, the revivals and the mine blasts this step caused
+        m.deaths = deadLog.filter(function (x, k, a) { return a.indexOf(x) === k; }); m.regen = regenLog; m.booms = boomLog; m.over = overLog;  // the heals, the revivals and the mine blasts this step caused
       }
       settling = false;
     };
@@ -1070,7 +1076,7 @@
         if (profile === "Psychic" && a.id === "PsychicFortress") flat += a.v.dmgReduction || 0;
         else if (profile === "Psychic" && a.id === "DaughterOfTheAbyss") { if (a.e === t) flat += a.v.dmgReduction || 0; else mult *= 1 - (a.v.dmgReductionPct || 0) / 100; }
       });
-      return { flat: flat + (t.shroud || 0), mult: mult };  // shroud: Nightshroud, from the start of its turn
+      return { flat: flat, mult: mult };
     }
     // how far a unit walks in a turn: its movement, Rapid Assault until it attacks, what the auras gave it at the start of the turn
     const mvOf = function (u) { if (fxOn(u, "stun")) return 1;  // stunned: 1 movement
@@ -1081,8 +1087,10 @@
       const ab = spec.ab, cu = cellAt2(u), ct = cellAt2(t), tr = u.tset, tt = t.tset;
       const profile = ab && ab[0] === "TalonsOfTheEmperor" && (tt.Psyker || live().some(function (x) { return x !== u && x.side === u.side && x.rules.fa === "Custodes" && RULES.dist(x.t, u.t) === 1; })) ? "DirectDamage" : ab ? (ab[5] || (u.rules.wp && u.rules.wp.length ? u.rules.wp[u.rules.wp.length - 1][1] : "Physical")) : spec.w[1];
       const ranged = ab ? ab[4] !== "Melee" : spec.w[0] > 1, indirect = !!u.rules.id;
-      let hits = ab ? (ab[6] || 1) : spec.w[2], raw = ab ? ab[3][rar] : u.atk, ign = 0, xp = 0, crMul = 1, dvPct = null;
+      const F = spec.force || previewForce;
+      let hits = ab ? (ab[6] || 1) : spec.w[2], raw = ab ? ab[3][rar] : u.atk, ign = 0, xp = 0, pm = 1, rawPre = null, dvPct = null;  // pm: the multipliers that come after the armour (the traits' percentages, the higher ground ...); rawPre: the damage before its variation
       const dice = mulberry(diceSeed() ^ (u.i * 40503) ^ (t.i * 9973) ^ 0x2f9b1c);  // the same dice for the same attacker and target at the same moment: what the target list shows is what the attack does
+      if (ab && F) { const av = ab[8] && ab[8][rar]; if (av && av.minDmg && av.maxDmg) raw *= 2 * (F.dv < 0 ? av.minDmg : av.maxDmg) / (av.minDmg + av.maxDmg); }  // an ability's figure is its middle: the preview asks for the lowest or the highest
       if (ab && ab[0] === "MartialInspiration") raw *= 1 + ((ab[8][rar] || {}).extraDmgPct || 33) * ((u.atkTurns || 0) + (u.lastAtkTurn === turnNo ? 0 : 1)) / 100;  // Kariyan: more damage for each turn in which he attacked
       if (ab && ab[0] === "TacticalPrecision" && !charges(u, t)) { const tv = ab[8][rar] || {}; raw = avgOf(tv, "_2") || raw; hits = parseInt(tv.nrOfHits_2, 10) || hits; }  // Titus: the second set of figures when he did not charge
       if (ab && ab[0] === "HellfireShells" && tt.BigTarget) hits += parseInt(ab[8][rar].extraHit, 10) || 0;  // Heavy Intercessor: more hits on a big target
@@ -1187,13 +1195,13 @@
         if (km) bonus += parseInt(abOf(km, "ModifiedExoarmour").extraDmgPct, 10) || 25;  // Kîmm charged: the units with Prioritised Efficiency that went 3 hexes or more hit harder
         const cf = fxOn(u, "conflag");
         if (cf && ranged && hexKind(t.t) === "fire") au.pct += (cf.v && cf.v.extraDmgPct) || 0;  // Thrice Blessed Conflagration: more damage at range on burning hexes
-        raw = (raw + au.flat + (spec.extra || 0) + (u.twisted && u.rules.fa === "Genestealers" ? u.twistDmg : 0)) * (1 + bonus / 100) * (1 + au.pct / 100);  // the allies' auras add flat damage per hit, and a percentage
-        crMul = 1 + bonus / 100;  // a critical hit adds its own damage after the buffs: only the traits' bonuses, the higher ground ... apply to it
+        raw = (raw + au.flat + (spec.extra || 0) + (u.twisted && u.rules.fa === "Genestealers" ? u.twistDmg : 0)) * (1 + au.pct / 100);  // the allies' auras add flat damage per hit (part of the damage that varies), and a percentage
+        pm = 1 + bonus / 100;  // the traits' percentages (Heavy Weapon ...) come after the armour, with the higher ground, the trench and the razor wire (the game's order, tacticus.wiki.gg "How Damage Truly Works")
         hits += au.hit; ign = au.ign;
-        if (cu.el > ct.el && !inTrench) { raw *= 1 + (TV.elevationBonus || 50) / 100; crMul *= 1 + (TV.elevationBonus || 50) / 100; }  // higher ground (a trench cancels it)
-        if (profile === "Melta" && tt.Vehicle) { raw *= 1.5; crMul *= 1.5; }  // Melta: +50 % against vehicles
+        if (cu.el > ct.el && !inTrench) pm *= 1 + (TV.elevationBonus || 50) / 100;  // higher ground (a trench cancels it)
+        if (profile === "Melta" && tt.Vehicle) pm *= 1.5;  // Melta: +50 % against vehicles
         if (tr.Dakka && spec.w[0] >= 3 && dd === 2) hits += TV.dakkaExtraHits || 0;
-        if (!spec.fixed) { dvPct = Math.round(dice() * 40 - 20); raw *= 1 + dvPct / 100; }  // DAMVAR: a normal attack varies from -20 % to +20 % of the figure shown
+        if (!spec.fixed) { rawPre = raw; dvPct = F ? F.dv : Math.round(dice() * 40 - 20); raw *= 1 + dvPct / 100; }  // DAMVAR: a normal attack varies from -20 % to +20 % of the figure shown
       }
       // what takes hits off a ranged attack or a multi-hit one
       let cut = 0;
@@ -1209,8 +1217,9 @@
       if (ab && ab[0] === "Supercharge") pierceAdd += (ab[8][rar] || {}).extraPierceRatio || 0;
       if (ab && ab[0] === "LeadingTheCharge") pierceAdd += ((ab[8][rar] || {}).extraPierceRatio || 0) * deadAllies(u);  // +10 % per allied unit defeated in the battle
       const adS = abOf(t, "AllIsDust");
-      const perOf = function (rx) { if (adS && (PIERCE[profile] || 1) + pierceAdd <= (parseInt(adS.pierceRatio, 10) || 35)) return Math.max(rx - arm, rx * 0.01, 1);  /* All Is Dust: a weak piercing ratio counts as 1 % */
-        let p = armorDamage(rx, profile, arm, pierceAdd); if (tt.MkXGravis) p = armorDamage(p, profile, arm); return p; };  // the damage goes through the armour (twice for Mk X Gravis)
+      const perOf = function (rx, isCrit) { rx = Math.max(1, rx - (t.shroud || 0));  // Nightshroud: a flat penalty on the damage before the armour
+        if (adS && (PIERCE[profile] || 1) + pierceAdd <= (parseInt(adS.pierceRatio, 10) || 35)) return Math.max(rx - arm, rx * 0.01, 1);  /* All Is Dust: a weak piercing ratio counts as 1 % */
+        let p = armorDamage(rx, profile, arm, pierceAdd); if (tt.MkXGravis && !isCrit) p = armorDamage(p, profile, arm); return p; };  // the damage goes through the armour (twice for Mk X Gravis, not on a critical hit)
       let per = perOf(raw);
       let mod = 1;  // the target's own modifiers
       const mindT = fxOn(t, "mind");
@@ -1236,7 +1245,8 @@
       if (tt.TerminatorArmour && !t.termUsed && String(TV.terminatorArmourExcludedDmgProfiles || "").split(",").indexOf(profile) < 0) mod *= 1 + (TV.terminatorArmourDmgReduction || -75) / 100;
       const duel = fxOn(t, "taunt");  // Holy Duel: the dueller takes less from his partner
       const camo = ranged && cut > 0 && abOf(t, "CamoCloak") ? abOf(t, "CamoCloak").dmgReduction || 0 : 0;  // Camo Cloak: a ranged attack whose hits were reduced hurts less
-      const post = function (per) {  // what comes after the armour: the target's modifiers, caps
+      const post = function (per) {  // what comes after the armour: the multipliers (traits, higher ground ...), the target's modifiers, caps
+        per *= pm;
         const wcb = !ranged ? abOf(t, "WhipcoilBody") : null, rsh = abOf(t, "Ramshackle");
         if (wcb) per = Math.max(1, per - (wcb.dmgReduction || 0));  // Ophydian Destroyer: less from melee
         if (rsh && (PIERCE[profile] || 1) <= (parseInt(rsh.pierceRatio, 10) || 30)) per = Math.max(1, per - (rsh.dmgReduction || 0));  // Grot Tank: less from weak piercing
@@ -1254,7 +1264,11 @@
       const itU = !ab && !spec.fixed && (u.itc || (u.rules.it && u.rules.it[rar])), itT = !spec.fixed && profile !== "DirectDamage" && (t.itc || (t.rules.it && t.rules.it[rar]));
       const dwT = abOf(t, "Deathwing") || abOf(t, "DeathwingKnight"), anvT = abOf(t, "AnvilShield");
       if ((itU && itU.c.length) || (itT && itT.b.length)) {
-        const nHit = Math.max(1, Math.round(hits)), cache = {}, perFor = function (extra) { const k = String(extra); if (cache[k] === undefined) cache[k] = post(perOf(raw + extra)); return cache[k]; };
+        const nHit = Math.max(1, Math.round(hits)), cache = {}, perFor = function (extra, blk) {  // a critical hit raises the damage (Damage + Crit damage), a block lowers it: both before the variation and the armour
+          const k = extra + "|" + blk;
+          if (cache[k] === undefined) { const base = (rawPre !== null ? rawPre : raw) + extra - blk; cache[k] = base <= 0 ? 0 : post(perOf(rawPre !== null ? base * (1 + dvPct / 100) : base, extra > 0)); }
+          return cache[k];
+        };
         let bBonus = itT ? itT.bb[0] : 0, bDmg = itT ? itT.bb[1] : 0;  // what raises the block chance of the target: the boosters, a Watcher next to it (+15 %), Anvil Shield (wounded, or the attacker stands on ice)
         if (itT && itT.b.length) {
           live().forEach(function (w) { if (w !== t && w.side === t.side && RULES.dist(w.t, t.t) === 1 && (w.rules.pa || []).indexOf("WatchedOver") >= 0) bBonus += (abOf(w, "WatchedOver") || {}).blockChance || 0; });
@@ -1263,16 +1277,17 @@
         }
         const hitsOut = [];
         for (let i = 0; i < nHit; i++) {
-          let add = 0, block = null;
-          if (itU) for (let k = 0; k < itU.c.length; k++) if (dice() * 100 < Math.min(100, itU.c[k][0] + itU.cb[0] + (!ranged && fxOn(u, "howl") ? fxOn(u, "howl").v.extraCritChance || 0 : 0))) { add = (itU.c[k][1] + itU.cb[1]) * crMul; crits++; break; }
-          const hit = add ? perFor(add) : per;
-          if (itT) for (let k = 0; k < itT.b.length; k++) if (dice() * 100 < Math.min(100, itT.b[k][0] + bBonus)) { block = itT.b[k][1] + bDmg; blocks++; break; }
-          hitsOut.push([hit, block]);
+          let add = 0, block = 0, blocked = false;
+          if (F) { if (F.crit && itU && itU.c.length) { add = Math.max.apply(null, itU.c.map(function (c3) { return c3[1]; })) + itU.cb[1]; crits++; } }
+          else if (itU) for (let k = 0; k < itU.c.length; k++) if (dice() * 100 < Math.min(100, itU.c[k][0] + itU.cb[0] + (!ranged && fxOn(u, "howl") ? fxOn(u, "howl").v.extraCritChance || 0 : 0))) { add = itU.c[k][1] + itU.cb[1]; crits++; break; }
+          if (F) { if (F.block && itT && itT.b.length) { block = Math.max.apply(null, itT.b.map(function (b3) { return b3[1]; })) + bDmg; blocked = true; blocks++; } }
+          else if (itT) for (let k = 0; k < itT.b.length; k++) if (dice() * 100 < Math.min(100, itT.b[k][0] + bBonus)) { block = itT.b[k][1] + bDmg; blocked = true; blocks++; break; }  // the block is rolled with the critical hit
+          hitsOut.push([perFor(add, block), blocked]);
         }
         // Deathwing: once a hit of the attack is blocked, the other hits of it are weaker (twice as much against Chaos, or next to another Dark Angel)
         const dwCut = dwT && blocks > 0 ? (dwT.dmgReduction || 0) * (u.rules.al === "Chaos" || live().some(function (x) { return x !== t && x.side === t.side && x.rules.fa === "DarkAngels" && RULES.dist(x.t, t.t) === 1; }) ? 2 : 1) : 0;
         total = 0;
-        hitsOut.forEach(function (h) { total += h[1] !== null ? Math.max(0, h[0] - h[1]) : Math.max(1, h[0] - dwCut); });
+        hitsOut.forEach(function (h) { total += h[1] ? h[0] : Math.max(1, h[0] - dwCut); });
         per = total / nHit;
       }
       if (!ab && t.annBy && t.annBy.alive && t.annBy.side === u.side && profile !== "Psychic") { const x = Math.min(per, (t.annBy.rules.ab.filter(function (a) { return a[0] === "MasterAnnihilator"; })[0][8][rar] || {}).maxDmg || per); total += x; hits += 1; }  // Master Annihilator: one more hit, at most its cap
@@ -1310,7 +1325,7 @@
       SpiritLeech: {}, HarbingerOfDestruction: {}, AncestralFortune: {}, ThunderousAssault: {}, CordClaw: {}, VigilanceEternal: { chargeAb: true }, MomentShackle: { self: true, always: true, shackle: true }, Drachnyen: { drach: true },
       DoctrinaImperatives: { self: true, always: true, stance: true },
       TitanhammerSquad: { mark: true, keep: true }, BasiliskBarrage: { noDmg: true, anywhere: true, reach: 99, unmoved: true, barrage: true },
-      IronkinSteeljack: { self: true, always: true, summon: true }, GrotTank: { self: true, always: true, summon: true }, Poxwalkers: { self: true, always: true, summon: true }, MasterOfTheTutelaries: { self: true, always: true, summon: true },
+      IronkinSteeljack: { self: true, always: true, summon: true, pick: true }, GrotTank: { self: true, always: true, summon: true, pick: true }, Poxwalkers: { self: true, always: true, summon: true }, MasterOfTheTutelaries: { self: true, always: true, summon: true, pick: true },
       ScarabHive: { noDmg: true, summon: true, forceT: true }, Incursion: { noDmg: true, summon: true, forceT: true, reach: 2 }, DeathFromAbove: { noDmg: true, summon: true, forceT: true, adjOnly: true, reach: 1 },
       ResurrectionOrb: { self: true, always: true, revive: "orb" }, RitesOfRestoration: { self: true, always: true, revive: "rites", healAdj: { key: "hpToHeal", mechNo: true } },
       ExemplarOfTheMontka: { self: true, always: true, keep: true, buffs: "montka" }, WarHowl: { self: true, always: true, keep: true, buffs: "howl", unmoved: true }, CrusadeOfWrath: { self: true, always: true, buffs: "crusade" },
@@ -1359,6 +1374,8 @@
       return out;
     };
     const waaaghSpots = function (u, t, vals) { return u.spent === 0 ? prio(u, freeAround(u), u.t).slice(0, parseInt(vals.nrOfSummons, 10) || 2) : []; };
+    let pickedHex = null;  // the hex the player chose for a one-unit summon (Giba's tank ...)
+    const placeAt = function (u) { return pickedHex ? [pickedHex.slice()] : prio(u, freeAround(u), u.t).slice(0, 1); };  // the chosen hex, else the usual priority
     function cultAdds(u, o, t) {  // the units the action puts on the board
       const id = o.ab[0], vals = (o.ab[8] && o.ab[8][rar]) || {}, stat = function (suf) { return [vals["summonHp" + suf] || 1, vals["summonDmg" + suf] || 1, vals["summonArmor" + suf] || 0]; };
       const decAt = {};
@@ -1382,9 +1399,9 @@
       } else if (id === "Waaagh") {  // Gulgortz, if he has not moved: 2 Ork Boyz on free hexes next to him (toward the target)
         waaaghSpots(u, t, vals).forEach(function (h) { put("orksOrkBoys", h, stat(""), false); });
       } else if (id === "IronkinSteeljack") {
-        prio(u, freeAround(u), u.t).slice(0, 1).forEach(function (h) { put("votanSmnSteeljack", h, stat(""), true); });
+        placeAt(u).forEach(function (h) { put("votanSmnSteeljack", h, stat(""), true); });
       } else if (id === "GrotTank") {  // more health for each round started
-        prio(u, freeAround(u), u.t).slice(0, 1).forEach(function (h) { put("orksGrotTank", h, [(vals.summonHp || 1) + (vals.extraHp || 0) * round, vals.summonDmg || 1, vals.summonArmor || 0], true); });
+        placeAt(u).forEach(function (h) { put("orksGrotTank", h, [(vals.summonHp || 1) + (vals.extraHp || 0) * round, vals.summonDmg || 1, vals.summonArmor || 0], true); });
       } else if (id === "Poxwalkers") {  // on a share of the free hexes in Corrodius' Contagion aura, they hit at once but cannot move
         const free = d.cells.filter(function (c) { return c[4] === 0 && RULES.dist(u.t, [c[0], c[1]]) >= 1 && RULES.dist(u.t, [c[0], c[1]]) <= contagionRange() && !live().some(function (x) { return x.t[0] === c[0] && x.t[1] === c[1]; }); }).map(function (c) { return [c[0], c[1]]; });
         const rr = mulberry(diceSeed() ^ (u.i * 40503) ^ 0x5eed7), share = (vals.chance || 20) + rr() * ((vals.chance_2 || 45) - (vals.chance || 20));  // a share of the free hexes between the two figures, drawn at each cast, on hexes drawn at random
@@ -1392,7 +1409,7 @@
         while (bag.length && pick.length < Math.ceil(free.length * share / 100)) pick.push(bag.splice(Math.floor(rr() * bag.length), 1)[0]);
         pick.forEach(function (h) { put("deathPoxwalker", h, stat(""), true); });
       } else if (id === "MasterOfTheTutelaries") {
-        prio(u, freeAround(u), u.t).slice(0, 1).forEach(function (h) { put("thousSmnPinkHorror", h, stat(""), false); });
+        placeAt(u).forEach(function (h) { put("thousSmnPinkHorror", h, stat(""), false); });
       } else if (id === "ScarabHive") {
         prio(u, freeAdj(t), t.t).slice(0, 2).forEach(function (h) { put("necroSmnSwarm", h, stat(""), true); });
       } else if (id === "Incursion") {  // Bloodletters next to the target, one after the other while it stands and a hex is free (6 at most)
@@ -1462,10 +1479,10 @@
       return RULES.around(t.t[0], t.t[1]).filter(function (h) { const c = RULES.cell(h[0], h[1]); return c && c.kind === 0 && !taken[h[0] + "," + h[1]]; });
     };
     const mainWeapon = function (u, melee) { const wp = u.rules.wp || []; return (wp.filter(function (w) { return melee ? w[0] === 1 : w[0] > 1; })[0]) || wp[0] || [1, "Physical", 1]; };
-    function stepsOf(u, mov, onAllies) {  // the hexes a unit can reach within `mov` steps (an enemy blocks, an ally can be crossed but not stopped on, unless onAllies: the hex of an ally counts, it is a swap): key -> steps
+    function stepsOf(u, mov, onAllies, noStop) {  // the hexes a unit can reach within `mov` steps (an enemy blocks, an ally can be crossed but not stopped on, unless onAllies: the hex of an ally counts, it is a swap): key -> steps
       const occ = {}, out = {};
       live().forEach(function (x) { if (x !== u) footOf(x).forEach(function (h) { occ[h[0] + "," + h[1]] = x; }); });
-      RULES.reach({ from: u.t, mov: mov, fly: !!u.rules.fl, free: !!u.rules.us || !!fxOn(u, "howl"), enemy: function (c, r) { const x = occ[c + "," + r]; return !!x && x.side !== u.side; }, any: function (c, r) { return !onAllies && !!occ[c + "," + r]; }, stop: stopFor(u) })
+      RULES.reach({ from: u.t, mov: mov, fly: !!u.rules.fl, free: !!u.rules.us || !!fxOn(u, "howl") || !!noStop, enemy: function (c, r) { const x = occ[c + "," + r]; return !!x && x.side !== u.side; }, any: function (c, r) { return !onAllies && !!occ[c + "," + r]; }, stop: stopFor(u) })
         .forEach(function (p) { out[p.c + "," + p.r] = p.k; });
       return out;
     }
@@ -1484,8 +1501,9 @@
       const sp = o && o.ab && CULT[o.ab[0]];
       if (sp && sp.mark && o.ok && !u.acted && abReady(u, o.ab)) return playable().filter(function (h) { return freeHex(h) && !foes(u).some(function (e) { return RULES.dist(e.t, h) === 1; }); });  // Titanhammer: a free hex not next to an enemy
       if (sp && sp.kauyon && o.ok && !u.acted && abReady(u, o.ab)) return playable().filter(function (h) { return freeHex(h) && live().some(function (x) { return x.side === u.side && x !== u && RULES.dist(x.t, h) === 1; }); });  // Exemplar of the Kauyon: any free hex (no distance limit) next to an ally
+      if (sp && sp.pick) return o.ok && !u.acted && abReady(u, o.ab) && !fxOn(u, "stun") ? freeAround(u) : [];  // a one-unit summon: any free hex next to the caster
       if (!sp || !(sp.hex || sp.leap) || !o.ok || u.acted || !abReady(u, o.ab)) return [];
-      const reach = stepsOf(u, 2, !!sp.hex), occ = {};
+      const reach = stepsOf(u, 2, !!sp.hex, !!sp.hex), occ = {};  // Quickening: razor wire, fire and ice do not stop that move
       live().forEach(function (x) { if (x !== u) footOf(x).forEach(function (h) { occ[h[0] + "," + h[1]] = x; }); });
       return Object.keys(reach).filter(function (k) {
         const h = k.split(",").map(Number), x = occ[k];
@@ -1531,7 +1549,7 @@
         return live().filter(function (x) { return x.side === u.side && x !== u && !x.decoy && x.tset.Psyker; }).map(function (x) { return { u: x, dmg: 0, hits: 0, per: 0 }; });
       }
       if (sp && sp.allyAdj) return live().filter(function (x) { return x.side === u.side && x !== u && !x.decoy && RULES.dist(u.t, x.t) === 1 && (!sp.pickAny && (sp.buffs !== "prime" || !x.aug)); }).map(function (x) { return { u: x, dmg: 0, hits: 0, per: 0 }; });  // an adjacent ally
-      if (sp && sp.self) return sp.heal || sp.always || freeAround(u).length ? [{ u: u, dmg: 0 }] : out;  // a summon or a heal around the caster: it casts on itself
+      if (sp && sp.self) { if (sp.pick && !pickedHex) return out; return sp.heal || sp.always || freeAround(u).length ? [{ u: u, dmg: 0 }] : out; }  // a summon or a heal around the caster: it casts on itself
       live().forEach(function (t) {
         if (t.side === u.side || t.ds) return;
         const th = footOf(t).sort(function (a, b2) { return RULES.dist(u.t, a) - RULES.dist(u.t, b2); })[0], dd = RULES.dist(u.t, th), clear = dd <= 1 || u.rules.id || RULES.sight(u.t, th);  // a big unit is reached through its nearest hex
@@ -1700,7 +1718,7 @@
         return '<button type="button" class="sb-act' + (act && act.id === o.id ? " is-on" : "") + (o.ab && !o.ok ? " is-info" : "") + (spent || moved ? " is-spent" : "") + '" data-act="' + o.id + '" title="' + esc(o.name + (spent ? " — " + abWait(sel, o.ab) : moved ? (CULT[o.ab[0]].stance ? " — la posture ne peut plus changer : le personnage a déjà attaqué" : " — inutilisable : le personnage s'est déjà déplacé ce tour") : "")) + '">' +
           (o.icon ? '<img src="' + o.icon + '" alt="" onerror="this.style.display=\'none\'">' : '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M19 3l2 2-9.6 9.6-1.4-1.4zM8 13l3 3-2 2-1-1-2.5 2.5L4 18.5 6.5 16l-1-1z"/></svg>') + "<span>" + esc(o.name) + "</span></button>";
       };
-      const btns = auto ? '<p class="rp-none">Joue seule au début du tour de son camp (déplacement et attaque automatiques).</p>' + (opts.some(function (o) { return o.ab; }) ? '<div class="sb-acts">' + opts.filter(function (o) { return o.ab; }).map(mkBtn).join("") + "</div>" : "") : '<div class="sb-acts">' + opts.map(mkBtn).join("") + "</div>";
+      const btns = auto ? (opts.some(function (o) { return o.ab; }) ? '<div class="sb-acts">' + opts.filter(function (o) { return o.ab; }).map(mkBtn).join("") + "</div>" : "") : '<div class="sb-acts">' + opts.map(mkBtn).join("") + "</div>";
       const tr = (ru.tr || []).map(function (t) { return '<span class="sb-trait" title="' + esc(t[1]) + '"><img src="' + assets + "traits/" + esc(t[0]) + '.webp" alt="" onerror="this.style.display=\'none\'">' + esc(t[1]) + "</span>"; }).join("");
       return [head + btns, '<dl class="rp-stats">' + row("PV", st ? num(sel.hp) + " / " + num(sel.max) + (sel.shield && round <= sel.shield.until && sel.shield.amt > 0 ? ' <i class="sb-shv">+ ' + num(sel.shield.amt) + " bouclier</i>" : "") : "—") + (st ? row("Dégâts", num(sel.atk)) + row("Armure", num(sel.arm)) : "") +
         row("Mouvement", (ru.mv || 0) + (ru.ra ? " (+1 assaut rapide)" : "") + (can ? " · reste " + budget(sel) : "")) + row("Portée", reach) + '<div class="rp-sep"></div>' +
@@ -1733,7 +1751,8 @@
           (sel.tset.Healer ? '<p class="sb-tip-fig">Soin : sur un allié blessé non mécanique, l\'attaque rend (nombre de coups × dégâts) points de vie.</p>' : "") + (sel.tset.Mechanic ? '<p class="sb-tip-fig">Réparation : sur un allié blessé mécanique, l\'attaque rend (nombre de coups × dégâts) points de vie.</p>' : "");
       }
       let go = "";
-      if (!o.ok && o.ab) go = "Rien à lancer ici : cette capacité n'inflige pas de dégâts (ou n'est pas simulée).";
+      if (!o.ok && o.ab && o.ab[2] !== "a") go = "Capacité passive : rien à lancer, elle agit toute seule quand ses conditions sont réunies" + (o.ab[0] === "HunterOfSouls" ? " (au début du tour de son camp, Z'Kar attaque puis quitte le plateau)." : ".");
+      else if (!o.ok && o.ab) go = "Rien à lancer ici : cette capacité n'inflige pas de dégâts (ou n'est pas simulée).";
       else if (o.ab && abWait(sel, o.ab)) go = abWait(sel, o.ab);
       else if (sel.summon) go = "Une invocation joue seule : au début du tour de son camp, ou tout de suite si la capacité qui l'invoque le dit.";
       else if (!sel.alive) go = "Ce personnage est hors de combat.";
@@ -1741,6 +1760,7 @@
       else if (sel.acted) go = sel.mow ? "Cette machine a déjà utilisé une capacité ce tour." : "Ce personnage a déjà agi ce tour.";
       else if (sel.mow && MOW[o.ab[0]] && MOW[o.ab[0]].hex) go = mowHexes(sel, o).length ? "Cliquez sur un hexagone surligné du plateau." : "Aucun hexagone possible.";
       else if (sel.mow) go = targetsOf(sel, o).length ? (MOW[o.ab[0]].ally ? "Cliquez sur une unité alliée en surbrillance." : "Cliquez sur une unité adverse en surbrillance.") : "Aucune cible valable pour l'instant (voir les conditions dans le texte).";
+      else if (o.ab && CULT[o.ab[0]] && CULT[o.ab[0]].pick) go = hexesOf(sel, o).length ? "Cliquez sur une case libre surlignée, à côté du personnage : l'invocation y est posée." : "Aucune case libre à côté.";
       else if (o.ab && CULT[o.ab[0]] && (CULT[o.ab[0]].hex || CULT[o.ab[0]].leap)) go = hexesOf(sel, o).length ? "Cliquez sur une case surlignée : le perso s'y déplace en lançant la capacité" + (CULT[o.ab[0]].leap ? " (ou sur un ennemi : la meilleure case à côté de lui est choisie)." : ".") : "Aucune case possible.";
       else if (targetsOf(sel, o).length) go = o.ab && CULT[o.ab[0]] && CULT[o.ab[0]].self ? (CULT[o.ab[0]].heal ? "Cliquez sur le personnage pour soigner." : "Cliquez sur le personnage pour invoquer.") : "Cliquez sur un personnage adverse en surbrillance pour lancer.";
       return '<div class="sb-tip-bar"><img class="sb-tip-ico" src="' + (o.icon || "") + '" alt="" onerror="this.style.display=\'none\'"><div class="sb-tip-head"><b>' + esc(o.name) + "</b><small>" + tag + " · " + esc(sel.name) + '</small></div>' +
@@ -1834,6 +1854,8 @@
       const drf = fxOn(u, "dr"); if (drf) add("dr", abIcon(drf.src || "UnbreakableDuty"), "Réduit de " + (drf.pct || 0) + " % les dégâts reçus, jusqu'au round " + drf.until + ".");
       const inf = fxOn(u, "infusion"); if (inf) add("infusion", abIcon("FoulInfusion"), "Infusion impie : ses attaques de mêlée ajoutent des coups toxiques, jusqu'au round " + inf.until + ".");
       const chl = fxOn(u, "chalice"); if (chl) add("chalice", abIcon("BloodChalice"), "Calice de sang : ses attaques de mêlée le soignent de " + num((chl.v && chl.v.hpToHeal) || 0) + " et percent plus d'armure, jusqu'au round " + chl.until + ".");
+      if (u.nano) add("nano", abIcon("NanoscarabRepairProtocols"), "Protocoles de réparation des nanoscarabées : +" + num(u.nanoHp || 0) + " PV (et PV max) ; ses soins reçus augmentent de " + num(u.nanoBonus || 0) + ", jusqu'à la fin du combat.");
+      if (u.dutyDmg > 0) add("duty", abIcon("UnbreakableDuty"), "Devoir inébranlable : +" + num(u.dutyDmg) + " dégâts à ses attaques, jusqu'à la fin du combat.");
       const htd = fxOn(u, "hated"); if (htd) add("hated", abIcon("ExemplarOfHate"), "Haï : subit +" + num(htd.extra || 0) + " dégâts des attaques de mêlée (jusqu'au round " + htd.until + ").");
       const chn = fxOn(u, "chrono"); if (chn) add("chrono", abIcon("Chronometron"), "Chronométré : la prochaine attaque contre lui inflige +" + num(chn.extra || 0) + " dégâts.");
       if (u.aug) add("aug", abIcon("PrimeTestSubject"), "Sujet d'essai : +" + num(u.aug.dmg || 0) + " dégâts" + (u.aug.mv ? ", +" + u.aug.mv + " déplacement" : "") + " tant qu'il tient.");
@@ -1939,7 +1961,7 @@
     // the states shown on a character: a debuff in red, a buff in green, the rest neutral (the colour of the icon's ring and of the chip in the panel)
     const statusKind = function (id) {
       if (/^(web|terror|euph|mind|taunt|noranged|stun|pin|hfire|hice|hcontam|hdesp|brazier|weak|mark|annih|conta|wire|hated|chrono)/.test(id)) return "debuff";
-      if (/^(facade|fear|decoyb|term|resil|ambush|rapid|heavy|crush|empl|rspec|prio|betray|twist|shun|shroud|aura-|move|mvup|waaagh|montka|howl|crusade|dr|chalice|shield|stance|ow|ds|observed|wrath|reanim|hail|conflag|grass|infusion|sentinel|aug)/.test(id)) return "buff";
+      if (/^(nano|duty|facade|fear|decoyb|term|resil|ambush|rapid|heavy|crush|empl|rspec|prio|betray|twist|shun|shroud|aura-|move|mvup|waaagh|montka|howl|crusade|dr|chalice|shield|stance|ow|ds|observed|wrath|reanim|hail|conflag|grass|infusion|sentinel|aug)/.test(id)) return "buff";
       return "";
     };
     const autoText = function (list) {  // what acted by itself: the summons, Khârn's Betrayer
@@ -1952,6 +1974,45 @@
       if (u.summon || u.auto) return false;  // the summons of the side that plays act by themselves
       if (!u.mow && budget(u) > 0) return false;
       return !options(u).some(function (o) { return o.ok && (targetsOf(u, o).length || hexesOf(u, o).length); });
+    };
+    // The damage preview of the chosen character or ability, on the health bar of each enemy it can hit, read from left to right: yellow = the damage that is certain (the worst dice: -20 %, no critical hit, every hit blocked),
+    // orange = what may come on top of it (the best dice: +20 %, every hit critical, no block). A whole yellow bar is a sure kill; green after the orange part: the health left even with the maximum damage (it cannot be killed).
+    // No preview for an ability that deals no damage or whose damage is not clear (summons, zones, lines, redistributions ...).
+    const previewDamage = function () {
+      units.forEach(function (x) { if (x.pvO) { x.pvO.style.display = "none"; x.pvY.style.display = "none"; x.pvG.style.display = "none"; } });
+      if (!sel || !sel.alive || !mine() || seqActive) return;
+      const o = options(sel).filter(function (x) { return x.id === (act ? act.id : "atk"); })[0];
+      if (!o || !o.ok) return;
+      if (act) {
+        const sp = o.ab && CULT[o.ab[0]];
+        if (!o.ab || (sp && (sp.noDmg || sp.hex || sp.leap || sp.kauyon || sp.mark || sp.self || sp.line || sp.redist || sp.summon || sp.barrage || sp.nob || sp.disp || sp.duel || sp.debuff || sp.pend || sp.possess || sp.dash || sp.chargeAb || sp.charge || sp.swoop || sp.focus || sp.ambush || sp.drach || sp.psyAlly || sp.allyAdj))) return;
+      }
+      const grab = function (F) { previewForce = F; try { return targetsOf(sel, o); } finally { previewForce = null; } };
+      const LO = { dv: -(TV.dmgSpread || 20), crit: false, block: true }, HI = { dv: TV.dmgSpread || 20, crit: true, block: false };
+      // every enemy it could hit from where it stands or after a move (the character can walk and attack): for each one the hex that gives the most damage decides what is shown
+      const reach = sel.mow ? { cur: 0 } : stepsOf(sel, budget(sel)), saved = { spent: sel.spent, moves: sel.moves }, best = {};
+      Object.keys(reach).forEach(function (key) {
+        const h = sel.mow ? null : key.split(",").map(Number), c = h && RULES.cell(h[0], h[1]), k0 = reach[key];
+        if (h && (!c || c.kind !== 0)) return;
+        sel.spent = saved.spent + k0; sel.moves = k0 ? saved.moves + 1 : saved.moves;  // the walk counts for what depends on it
+        try {
+          const run = function () { return { hi: grab(HI), lo: grab(LO) }; }, r = h ? withPos(sel, h, run) : run();
+          r.hi.forEach(function (x) {
+            if (x.heal || !(x.dmg > 0) || x.u.side === sel.side) return;
+            const l = r.lo.filter(function (y) { return y.u === x.u; })[0], cur = best[x.u.i];
+            if (!cur || x.dmg > cur.hi) best[x.u.i] = { u: x.u, hi: x.dmg, lo: l ? l.dmg : 0 };
+          });
+        } finally { sel.spent = saved.spent; sel.moves = saved.moves; }
+      });
+      Object.keys(best).forEach(function (k) {
+        const b = best[k], t = b.u;
+        if (!t.pvO || !t.max) return;
+        const low = Math.min(t.hp, b.lo), high = Math.min(t.hp, Math.max(b.hi, low)), W = t.pvW;
+        const put = function (el, from, to) { if (to <= from) { el.style.display = "none"; return; } el.style.display = ""; el.setAttribute("x", (1 + W * from / t.max).toFixed(2)); el.setAttribute("width", Math.max(0.6, W * (to - from) / t.max).toFixed(2)); };
+        put(t.pvY, 0, low);  // from the left: the certain damage, what may come on top, then the health that stays even in the best case
+        put(t.pvO, low, high);
+        put(t.pvG, high, t.hp);
+      });
     };
     function render() {
       if (seqActive && !seqRender) { endSeq(); $("sb-fx").innerHTML = ""; }
@@ -1972,6 +2033,7 @@
         if (u.hpEl) { const pct = u.max ? Math.max(0, Math.min(1, u.hp / u.max)) : 1; u.hpEl.style.transform = "scaleX(" + pct.toFixed(3) + ")"; u.hpEl.setAttribute("fill", pct > 0.5 ? "#34d399" : pct > 0.25 ? "#f2b134" : "#f87171"); }
         if (u.shEl) { const sa = u.shield && round <= u.shield.until && u.shield.amt > 0 ? u.shield.amt : 0; u.shEl.style.display = sa ? "" : "none"; u.shEl.style.transform = "scaleX(" + Math.max(0.04, Math.min(1, u.max ? sa / u.max : 1)).toFixed(3) + ")"; }  // the shield: extra health that cannot be regenerated, a blue bar under the health bar
       });
+      previewDamage();
       const TILE = { fire: ["#ff7a1a", "fire"], ice: ["#7dd3fc", "ice"], contam: ["#7bd34a", "poisoned"], despoiled: ["#a855f7", "possessed"] };
       $("sb-tiles").innerHTML = Object.keys(hexfx).filter(function (k) { return hexKind(k.split(",").map(Number)); }).map(function (k) {  // the hex effects on the map: a tint and the effect's icon
         const f = hexfx[k], h = f.h, col = TILE[f.kind], x = cx(h[0]), y = cy(h[0], h[1]), z = R * 0.5;
@@ -2044,8 +2106,17 @@
       const extra = (m.more || []).length + (m.adds || []).filter(function (a) { return !a.decoy; }).length + recs.length + (m.booms || []).length + (m.regen || []).filter(function (r) { return r.amt > 0; }).length + (m.heals || []).length;
       return m.k === "atk" ? extra > 0 && (m.dmg > 0 || extra > 1) : extra > 1;
     };
+    function overkillFx(list) {  // "Overkill" in red rises from the centre of the avatar of a unit that is exterminated, and fades, like the states that fly off
+      const fx = $("sb-fx");
+      (list || []).forEach(function (u) {
+        if (!u.t || u.decoy) return;
+        const xy = home(u);
+        fx.insertAdjacentHTML ? fx.insertAdjacentHTML("beforeend", '<text class="sb-overkill" x="' + xy[0].toFixed(1) + '" y="' + xy[1].toFixed(1) + '" text-anchor="middle">Overkill</text>') : (fx.innerHTML += '<text class="sb-overkill" x="' + xy[0].toFixed(1) + '" y="' + xy[1].toFixed(1) + '" text-anchor="middle">Overkill</text>');
+      });
+      seqTimers.push(setTimeout(function () { Array.prototype.slice.call(fx.querySelectorAll ? fx.querySelectorAll(".sb-overkill") : []).forEach(function (e) { if (e.parentNode) e.parentNode.removeChild(e); }); }, 1500));
+    }
     function playBeats(m, pre) {
-      endSeq(); seqActive = true;
+      endSeq(); seqActive = true; units.forEach(function (x) { x.overShown = false; });
       const fx = $("sb-fx"), vis = {}, hp = {}, gap = 620 / 4 / speed;  // the beats of one action go four times faster than the pace of the steps (x4 on its own)
       const place = function (x, h) { if (!x.g || x.mow || !h) return; vis[x.i] = h; const xy = hexXY(h); pos(x.g, xy); if (x.ov) pos(x.ov, xy); };
       const bar = function (x) {
@@ -2075,7 +2146,7 @@
         if (!from || !to || !(dmg > 0)) return;
         beam(from, to, "\u2212" + num(dmg));
         hp[to.i] = Math.max(0, (hp[to.i] || 0) - dmg); bar(to);
-        if (hp[to.i] <= 0 && !to.alive) show(to, false);
+        if (hp[to.i] <= 0 && !to.alive) { show(to, false); if ((m.over || []).indexOf(to) >= 0 && !to.overShown) { to.overShown = true; overkillFx([to]); } }
       };
       const healed = function (x, amt) { if (!x || !(amt > 0)) return; beam(x, x, "+" + num(amt), "rp-heal"); hp[x.i] = Math.min(x.max, (hp[x.i] || 0) + amt); bar(x); };
       const frame = window.requestAnimationFrame || function (f) { return setTimeout(f, 32); };
@@ -2113,7 +2184,7 @@
       cur = back; settle(cur); act = null; tgtSet = {}; hexSet = {}; render();
       const m = cur === before + 1 ? steps[cur - 1] : null;  // one step forward (a launch, Suiv., the player): its effects are played
       if (seq) { flash(null); playBeats(m, forward); }
-      else { flash(m); reviveFx(m); }
+      else { flash(m); reviveFx(m); if (m && m.over && m.over.length) overkillFx(m.over); }
     };
     const stop = function () { if (timer) { clearInterval(timer); timer = null; } $("sb-play").innerHTML = I_PLAY + '<span class="rp-lab"> Lecture</span>'; };
     let tgtSet = {}, hexSet = {};  // the characters the chosen action can hit (by index)
@@ -2690,7 +2761,7 @@
       if (jet0 && t.side !== u.side) {  // Mataneo charges (any attack on an enemy he was not in melee with at the start of the turn, after a move or with a charge ability): jump-pack Intercessors next to the target attack at once
         const mv0 = moves && moves.length && moves[0].u === u ? moves[0].to : null;
         if (charges(u, t, !!mv0)) withPos(u, mv0 || u.t, function () {
-          adds = (adds || []).concat(prio(u, freeAdj(t, u), t.t).slice(0, nI(jet0.nrOfSummons, 2)).map(function (h) { const a = spawn("bloodSmnIntercessor", u.side, u, h, [jet0.summonHp || 1, jet0.summonDmg || 1, jet0.summonArmor || 0], true); a.immediate = true; a.jetFor = u; return a; }));  // they leave at the start of his next turn
+          adds = (adds || []).concat(prio(u, freeAdj(t), t.t).slice(0, nI(jet0.nrOfSummons, 2)).map(function (h) { const a = spawn("bloodSmnIntercessor", u.side, u, h, [jet0.summonHp || 1, jet0.summonDmg || 1, jet0.summonArmor || 0], true); a.immediate = true; a.jetFor = u; return a; }));  // they leave at the start of his next turn
         });
       }
       if (!o.ab && ts.dmg > 0 && abOf(u, "FeederTendrils") && charges(u, t) && RULES.dist(u.t, t.t) === 1) {  // Deathleaper charges: she heals and pins the target
@@ -2976,6 +3047,7 @@
           fx: el.filter(function (x) { return x.moves === 0 && x.spent === 0; }).map(function (x) { return { u: x, id: "tpm", hex: h.slice(), until: round }; }), hx: [] });
         return;
       }
+      if (CULT[o.ab[0]].pick) { pickedHex = h.slice(); try { strike(u, o, u); } finally { pickedHex = null; } return; }  // the summon goes on the chosen hex
       if (CULT[o.ab[0]].kauyon) {  // Exemplar of the Kauyon: Shadowsun goes to the hex, hits the nearest enemy with a normal attack plus 2 blast hits, and a stationary Command Drone takes the hex she left
         const v = (o.ab[8] && o.ab[8][rar]) || {}, old = u.t.slice(), drone = spawn("tauSmnDroneCommandLink", u.side, u, old, [v.summonHp || 1, v.summonDmg || 1, v.summonArmor || 0], true);
         const hit = withPos(u, h, function () {
@@ -3095,6 +3167,26 @@
         if (u.alive && targetsOf(u, o).some(function (x) { return x.u === u; })) strike(u, o, u);
       });
     };
+    // The abilities that deal no damage (a summon, a buff, a heal, a mark, a control) are used as soon as they can be, before the character moves and attacks: on itself, on the weakest ally
+    // for a heal, on the nearest enemy for a control, on the hex nearest to it for a summon it can place.
+    const useUtility = function (u) {
+      options(u).filter(function (o) { return o.ok && o.ab && o.ab[2] === "a" && CULT[o.ab[0]]; }).forEach(function (o) {
+        const sp = CULT[o.ab[0]];
+        if (!u.alive || u.acted || fxOn(u, "stun") || !abReady(u, o.ab)) return;
+        if (sp.hex || sp.leap || sp.kauyon || sp.mark || sp.dash || sp.barrage || sp.mow) return;  // aimed at a hex of the board: not in Auto
+        if ((sp.heal || sp.healAdj) && !live().some(function (x) { return x.side === u.side && (x === u || RULES.dist(u.t, x.t) <= 1) && x.hp < x.max; })) return;  // nothing to heal
+        if (sp.pick) {
+          const hs = hexesOf(u, o);
+          if (hs.length) strikeHex(u, o, prio(u, hs, u.t)[0]);
+          return;
+        }
+        const ts = targetsOf(u, o);
+        if (!ts.length || ts.some(function (x) { return x.dmg > 0; })) return;  // those that hit are the attack's business
+        const ally = ts.filter(function (x) { return x.u.side === u.side; }), foe = ts.filter(function (x) { return x.u.side !== u.side; });
+        const pick = ally.length ? ally.sort(function (a2, b2) { return a2.u.hp / a2.u.max - b2.u.hp / b2.u.max; })[0] : foe.sort(function (a2, b2) { return RULES.dist(u.t, a2.u.t) - RULES.dist(u.t, b2.u.t); })[0];
+        if (pick) strike(u, o, pick.u);
+      });
+    };
     // Who plays next, as the game's AI chooses it (cascade: summons first -- they play by themselves at the start of the turn --, non-bosses before the boss, units that have just appeared, a score by
     // unit, then the one closest to an enemy). The score adds up, from the unit's id, its traits and its abilities: Hailstrike +10; Sorcerous Facade, Master of the Tutelaries +2; Psyker, Doombolt,
     // Master Annihilator, Cord Claw, Blood Chalice +1; Weaver of Fate, Voltagheist Field -2. The higher the earlier.
@@ -3104,6 +3196,32 @@
       return Object.keys(ORDER_SCORE).reduce(function (sum, w) { return sum + (keys.some(function (x) { return String(x).indexOf(w) >= 0; }) ? ORDER_SCORE[w] : 0); }, 0);
     };
     const nearestFoe = function (u) { return u.mow || !u.t ? 99 : Math.min.apply(null, foes(u).map(function (e) { return RULES.dist(u.t, e.t); }).concat([99])); };
+    // A machine of war: its primary ability the first time it can be used (one use is all it has), then every turn its secondary one if it can; each time the plan (a target or a hex) that gives the most:
+    // damage, or heals, buffs and summons when there is no damage to deal.
+    const mowValue = function (p, u) {
+      if (!p) return 0;
+      const dmg = (p.main ? p.main.dmg : 0) + (p.more || []).reduce(function (a, x) { return a + (x.dmg || 0); }, 0);
+      const heal = (p.heals || []).reduce(function (a, x) { return a + (x.amt || 0); }, 0);
+      const buffs = (p.fx || []).filter(function (x) { return x.u && x.u.side === u.side; }).length * 1500 + (p.fx || []).filter(function (x) { return x.u && x.u.side !== u.side; }).length * 800;
+      return dmg + heal + buffs + ((p.addsFn ? 3000 : (p.adds || []).length * 3000)) + (p.buff ? 1500 : 0);
+    };
+    const mowBest = function (u, o) {
+      const M = MOW[o.ab[0]];
+      if (!M || !o.ok || u.acted || !abReady(u, o.ab)) return null;
+      let best = null;
+      const consider = function (p, t, h) { const v = mowValue(p, u); if (v > 0 && (!best || v > best.v)) best = { v: v, t: t, h: h }; };
+      if (M.hex) mowHexes(u, o).forEach(function (h) { consider(M.hexPlan(u, o, h, vOf(o)), null, h); });
+      else mowTargets(u, o).forEach(function (x) { consider(x.plan, x.u, null); });
+      return best;
+    };
+    const autoMow = function (u) {
+      const opts = options(u).filter(function (o) { return o.ab && o.ab[2] === "a" && MOW[o.ab[0]]; });  // in the order of the unit: primary, then secondary
+      for (let i = 0; i < opts.length; i++) {
+        const pick = mowBest(u, opts[i]);
+        if (pick) { strikeMow(u, opts[i], pick.t, pick.h); return true; }  // the primary is tried first; if it cannot be used the secondary is
+      }
+      return false;
+    };
     const walkToward = function (u) {  // nothing to hit this turn: as far as it can go toward the nearest enemy (not into razor wire unless it must)
       if (u.mow) return;
       const reach = stepsOf(u, budget(u)), foesNow = foes(u);
@@ -3124,7 +3242,7 @@
       if (autoRun) { autoRun = false; autoLabel(); return; }  // a second click stops it
       if (active !== 1) return;
       autoRun = true; stop(); autoLabel();
-      const side = active, pool = field.filter(function (u) { return (u.alive || u.mow) && !u.decoy && !u.summon && !u.auto && u.side === side; });
+      const side = active, pool = units.filter(function (u) { return u.side === side && (u.mow || (field.indexOf(u) >= 0 && u.alive && !u.decoy && !u.summon && !u.auto)); });  // the machines of war are not in `field`: they are added here
       const next = function () {
         if (!autoRun) return;
         if (seqActive) { setTimeout(next, 120); return; }  // the beats of the last action are still playing
@@ -3134,12 +3252,13 @@
         if (!u) { autoRun = false; autoLabel(); $("sb-end").onclick(); return; }
         if (!u.mow && (!u.alive || u.acted)) { next(); return; }
         sel = u; choose(u);
-        if (!u.mow) preActives(u);
-        const plan = planFor(u);
+        if (u.mow) { autoMow(u); setTimeout(next, 450 / speed); return; }  // a machine of war: its primary ability, else its secondary
+        preActives(u); useUtility(u);
+        const plan = u.acted ? null : planFor(u);
         if (plan) {
           if (plan.h && plan.k0 > 0) push({ k: "mv", u: u, from: u.t.slice(), to: plan.h, cost: plan.k0, tp: false, tpm: false });
           strike(u, plan.o, plan.t);
-        } else walkToward(u);
+        } else if (!u.acted) walkToward(u);
         setTimeout(next, 450 / speed);
       };
       next();

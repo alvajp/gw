@@ -3141,7 +3141,7 @@ button.sim-row[aria-pressed="true"] { border-color: var(--accent); background: c
 .sb-board .tk { cursor: pointer; }
 .sb-board.has-map .rp-cell[data-k="1"] { fill: rgba(0, 0, 0, 0.28); }
 .sb-board.no-grid .rp-cell { stroke: transparent; }
-.sb-board.no-starts .sb-starts { display: none; }
+.sb-board.no-grid .sb-starts { display: none; }  /* without the grid the start positions go too */
 .sb-board .sb-starts { pointer-events: none; }
 .sb-board #sb-tiles { pointer-events: none; }
 .sb-num { pointer-events: none; }
@@ -3422,3 +3422,8 @@ details.adv-expand > :not(summary):first-of-type { margin-top: 0.4rem; }
 /* the "Fin de tour" and "Auto" buttons side by side */
 .sb-turnbtns { display: flex; gap: 0.4rem; align-items: center; }
 #sb-auto:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* Overkill: a small red text that rises from the centre of the exterminated unit and fades */
+.sb-overkill { font-size: 14px; font-weight: 800; letter-spacing: 0.04em; fill: #ff4d4d; paint-order: stroke; stroke: #10151c; stroke-width: 3px; opacity: 0; pointer-events: none; animation: sb-overkill 1.3s ease-out forwards; }
+@keyframes sb-overkill { 0% { opacity: 0; transform: translateY(6px) scale(0.8); } 15% { opacity: 1; transform: translateY(0) scale(1.12); } 100% { opacity: 0; transform: translateY(-28px) scale(1); } }
+@media (prefers-reduced-motion: reduce) { .sb-overkill { animation-duration: 0.01s; opacity: 1; } }
