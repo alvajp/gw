@@ -1583,7 +1583,7 @@ body[data-guild="cabale"][data-page="home"] { --bg-img: url("bg/thousand-sons.we
   .rp-main { grid-template-columns: minmax(0, 1.5fr) minmax(17rem, 1fr); grid-template-areas: "board info" "board log"; }
 }
 @media (min-width: 1250px) {
-  .rp-main { grid-template-columns: 22rem minmax(0, 1fr) 21rem; grid-template-areas: "top board log" "info board log"; align-items: stretch; }
+  .rp-main { grid-template-columns: clamp(22rem, 23vw, 40rem) minmax(0, 1fr) clamp(21rem, 22vw, 38rem); grid-template-areas: "top board log" "info board log"; align-items: stretch; }  /* the side panels grow with a big screen */
   .rp-top { display: block; margin: 0; }
   .rp-dmg { text-align: left; margin-top: 0.55rem; }
   .rp-dmg b { font-size: 1.6rem; }
@@ -1595,7 +1595,7 @@ body[data-guild="cabale"][data-page="home"] { --bg-img: url("bg/thousand-sons.we
   html:has(body[data-page="replay"]),
   body[data-page="replay"] { overflow: hidden; height: 100dvh; }
   body[data-page="replay"] > header { display: none; }
-  body[data-page="replay"] main { max-width: 1600px; padding-top: 0.7rem; padding-bottom: 0; }  /* a cap: on a very large screen the panels stay next to the board, with gutters on both sides */
+  body[data-page="replay"] main { max-width: 1900px; padding-top: 0.7rem; padding-bottom: 0; }
   body[data-page="replay"] .rp { display: flex; flex-direction: column; height: calc(100dvh - var(--rp-chrome, 6rem) - 0.7rem); }
   .rp-main { flex: 1; min-height: 0; grid-template-rows: auto minmax(0, 1fr); gap: 0.8rem 1.2rem; }
   .rp-back { display: inline-block; margin-bottom: 0.55rem; font-size: 0.85rem; color: var(--accent); text-decoration: none; }
