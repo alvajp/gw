@@ -93,7 +93,8 @@ def main():
     KEYS = {"I_Crit": ("critChance", "critDmg"), "I_Block": ("blockChance", "blockDmg"), "I_Booster_Crit": ("critChanceBonus", "critDmgBonus"), "I_Booster_Block": ("blockChanceBonus", "blockDmgBonus")}
 
     def equipment(u, rar):
-        """The items of a unit at the top of a rarity: for each slot the best allowed one (the highest chance, then damage) of the rarity, else of the highest below; the boosters add up."""
+        """The items of a unit at the top of a rarity: for each slot the best allowed one (the highest chance, then damage) of the rarity, else of the highest below; the boosters add up.
+        Two slots of one kind can hold two copies of the same item (Judh's two symbiotic bone swords): no item is "taken"."""
         faction, taken, res = u.get("FactionId"), set(), {"c": [], "b": [], "cb": [0, 0], "bb": [0, 0], "d": [0, 0]}
         for slot in u.get("itemSlots") or []:
             if slot == "I_Defensive":  # health and armour: the best allowed one of the rarity (else of the highest below) by what it adds
@@ -102,7 +103,6 @@ def main():
                              and (not v.get("allowedFactions") or faction in v["allowedFactions"])]
                     if cands:
                         k, st = max(cands, key=lambda x: x[1].get("hp", 0) + x[1].get("fixedArmor", 0))
-                        taken.add(k)
                         res["d"][0] += st.get("hp", 0)
                         res["d"][1] += st.get("fixedArmor", 0)
                         break
@@ -119,7 +119,6 @@ def main():
                     break
             if not best:
                 continue
-            taken.add(best[0])
             val = [best[1][ck], best[1].get(dk, 0)]
             if slot == "I_Crit":
                 res["c"].append(val)

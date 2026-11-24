@@ -62,6 +62,14 @@
     list("dm").forEach(function (id) { units.push(mk(id, 1, true)); });
     let CUST = {};  // a custom team: for each of our characters, its rank, its stars and its items, as the player's roster has them (capped to the line): id -> [rank (0-based), stars, [[item, level] ...]]
     try { CUST = JSON.parse(q.get("ad") || "{}") || {}; } catch (e) { CUST = {}; }
+    // the critical hits (and the blocks): the first item gives its chance plus the boosters', the next one only rolls on what the first leaves (25 % + 4 % = 29 %, then 25 % of the 71 % left: 17.75, 46.75 in all);
+    // the damage of a critical hit is the damage of all the items plus the boosters' (2 x 834 + 207 = 1 875). list: [[chance, damage] ...], extra: [chance, damage] added by the boosters and the states
+    const chanceOf = function (list, extra) {
+      if (!list || !list.length) return { p: 0, d: 0 };
+      let miss = 1 - Math.min(1, (list[0][0] + extra[0]) / 100), d = extra[1];
+      list.forEach(function (c, i) { if (i) miss *= 1 - c[0] / 100; d += c[1]; });
+      return { p: Math.max(0, Math.min(100, 100 * (1 - miss))), d: d };
+    };
     const itemsOf = function (c) {  // the crit / block items, the boosters and the defensive items of a roster's unit, as {c, b, cb, bb, d}
       const res = { c: [], b: [], cb: [0, 0], bb: [0, 0], d: [0, 0] }, table = UNITS._items || {};
       (c[2] || []).forEach(function (x) {
@@ -429,7 +437,7 @@
       if (near) return { g: near, hex: null };
       const next = t.pool.filter(function (g) { return !g.came; })[0];
       if (!next) return null;
-      const hs = freeAround(t).sort(function (a, b2) { return RULES.cell(b2[0], b2[1]).el - RULES.cell(a[0], a[1]).el; });
+      const hs = freeReach(t).sort(function (a, b2) { return RULES.cell(b2[0], b2[1]).el - RULES.cell(a[0], a[1]).el; });
       return hs.length ? { g: next, hex: hs[0] } : null;
     }
     // regeneration and revival: a heal also ends a stun, a pin and a markerlight; every event goes in the log of the step that caused it
@@ -717,7 +725,7 @@
       }
       if (abOf(u, "RadSaturation")) hexfx[u.t[0] + "," + u.t[1]] = hexCover(u.t, "contam");  // Skitarii Vanguard: after its move (else at the end of its turn) its hex is contaminated
       if ((a = abOf(u, "SpiritualLeader"))) {  // Xybia: after a move (else at the end of her turn) a decoy on a free adjacent hex (picked like a character's summon); with 2 decoys next to her, a Neophyte Hybrid takes the place of one of them
-        const empty = prio(u, freeAround(u), u.t).filter(function (h) { return !decoys().some(function (x) { return sameHex(x.t, h); }); });
+        const empty = prio(u, freeReach(u), u.t).filter(function (h) { return !decoys().some(function (x) { return sameHex(x.t, h); }); });
         if (empty.length) putDecoy(u, empty[0]);
         const near = decoys().filter(function (x) { return x.side === u.side && RULES.dist(u.t, x.t) === 1; });
         const neo = near.length >= 2 ? fromPool(u, "neo") : null;
@@ -736,7 +744,7 @@
         const near = live().filter(function (x) { return x.side === u.side && x !== u && RULES.dist(u.t, x.t) <= (parseInt(a.range, 10) || 2); }).sort(function (p1, p2) { const rk = function (x) { return x.rules.fa === "ThousandSons" ? 0 : x.rules.al === "Chaos" ? 1 : 2; }; return rk(p1) - rk(p2) || RULES.dist(u.t, p1.t) - RULES.dist(u.t, p2.t); })[0] || u;
         near.shield = { amt: a.shieldHp || 0, until: u.side === 0 ? round : round + 1, src: "ArcaneShield" }; regenLog.push({ u: near, amt: a.shieldHp || 0, label: "bouclier", shield: true });
       }
-      if ((a = abOf(u, "HaywireMine"))) { const mh2 = u.mineHex || prio(u, freeAround(u), u.t)[0]; if (mh2) layMine(u, mh2, a); u.mineHex = null; }  // Cyrus: a mine on the hex he left, or next to him at the end of his turn if he did not move
+      if ((a = abOf(u, "HaywireMine"))) { const mh2 = u.mineHex || prio(u, freeReach(u), u.t)[0]; if (mh2) layMine(u, mh2, a); u.mineHex = null; }  // Cyrus: a mine on the hex he left, or next to him at the end of his turn if he did not move
       if ((a = abOf(u, "ChampionOfTheFeast")) && adj.length) {  // an adjacent enemy loses armour for the rest of the battle
         const e = adj[0]; fireBack(u, e, a, "Power", abName(u, "ChampionOfTheFeast"));
         if (e.alive) e.armCut = (e.armCut || 0) + (a.armorReduction || 0);
@@ -962,6 +970,9 @@
         if (m.k !== "end") field.forEach(function (x) {  // a character that can do nothing more this turn (it is greyed) ends its turn now: Xybia, Nicodemus, Mephiston standing still ...
           if (x.side === active && x.alive && !x.decoy && !x.summon && !x.auto && !x.mow && !x.endDone && isDone(x)) endUnit(x);
         });
+        decoys().forEach(function (x) {  // a decoy and a character never share a hex: the one a unit has just stepped on is gone (Isaak's passive has put a new one next to it)
+          if (live().some(function (y) { return footOf(y).some(function (h) { return sameHex(h, x.t); }); })) x.alive = false;
+        });
         field.forEach(function (x) { if (x.ghost && live().some(function (y) { return y !== x && y.t[0] === x.ghost[0] && y.t[1] === x.ghost[1]; })) x.ghost = null; });  // Toth's time ghost vanishes when another unit stands on it
         m.deaths = deadLog.filter(function (x, k, a) { return a.indexOf(x) === k; }); m.regen = regenLog; m.booms = boomLog; m.over = overLog;  // the heals, the revivals and the mine blasts this step caused
       }
@@ -1035,11 +1046,11 @@
       });
       return out;
     }
-    function auraAtk(u, t, ab, ranged, profile) {  // what the allies' abilities add to the damage of a hit: a flat figure, a percentage, one more hit
+    function auraAtk(u, t, ab, ranged, profile, full) {  // full: an ability that takes the allies' bonuses (the ones the text does not keep for the normal attacks)  // what the allies' abilities add to the damage of a hit: a flat figure, a percentage, one more hit
       let flat = 0, pct = 0, hit = 0, ign = 0;
       aurasOn(u, u.t).forEach(function (a) {
         const v = a.v;
-        if (ab) { if (a.id === "StandVigil") pct += v.extraDmgPct || 0; return; }  // an ability ignores the attacker's bonuses, except the ones a text says
+        if (ab) { if (a.id === "StandVigil") { if (!full) pct += v.extraDmgPct || 0; return; } if (!full || a.id === "WayOfTheShortBlade") return; }  // an ability that ignores the bonuses takes none, except the ones a text says; the others take them like a normal attack (not WayOfTheShortBlade: normal ranged attacks)
         if (a.id === "SpotterReworked") { if (ranged) flat += u.tset.HeavyWeapon ? v.extraDmg_2 : v.extraDmg; }
         else if (a.id === "FirstAmongTraitors") flat += Math.min(v.maxDmg || 1e9, (v.extraDmg || 0) + (v.extraDmg_2 || 0) * a.e.nAtk);
         else if (a.id === "LordOfTheHost") { if (!ranged) flat += v.extraDmg; }
@@ -1055,20 +1066,20 @@
         }
         else if (a.id === "BeaconOfRage") { if (!ranged && a.e.kills > 0) flat += 0.5 * (v.extraDmg || 0) * Math.min(parseInt(v.nrOfAttacks, 10) || 8, a.e.attacked); }  // half of Azkor's bonus for the Chaos allies next to him, once he has killed
       });
-      if (!ab) {  // its own passives: Azkor's lanterns, Aun'Shi's buff, the mark of Vitruvius
+      if (!ab || full) {  // its own passives: Azkor's lanterns, Aun'Shi's buff, the mark of Vitruvius
         (u.rules.ab || []).forEach(function (a) {
-          if (a[0] === "LordOfTempests") flat += ((a[8] && a[8][rar] && a[8][rar].extraDmg) || 0) * iceAround(u);  // Njal: +464 per ice hex around him
+          if (!ab && a[0] === "LordOfTempests") flat += ((a[8] && a[8][rar] && a[8][rar].extraDmg) || 0) * iceAround(u);  // Njal: +464 per ice hex around him
           if (a[0] === "BeaconOfRage") flat += ((a[8] && a[8][rar] && a[8][rar].extraDmg) || 0) * Math.min(parseInt(a[8][rar].nrOfAttacks, 10) || 8, u.attacked);
         });
         if (u.shun && u.shun.kind === 3) flat += u.shun.v.extraDmg || 0;  // Serene Unifier, third round of its cycle: +1044 damage
       }
-      if (!ab) live().forEach(function (e) {  // the marks an ally leaves on the enemies around it
+      if (!ab || full) live().forEach(function (e) {  // the marks an ally leaves on the enemies around it
         if (e.side !== u.side) return;
         (e.rules.ab || []).forEach(function (a) {
           const v = (a[8] && a[8][rar]) || {};
           if (a[0] === "Doom" && e !== u && RULES.dist(e.t, t.t) <= 2) flat += u.rules.fa === "Aeldari" ? v.extraDmg_2 : v.extraDmg;
           else if (a[0] === "ObsessiveAnnunciation" && ranged && RULES.dist(e.t, t.t) === 1) flat += v.extraDmg;
-          else if (a[0] === "LegendaryCommander" && live().some(function (x) { return x.side === u.side && x.usedActive && RULES.dist(x.t, t.t) === 1; })) flat += v.extraDmg;
+          else if (a[0] === "LegendaryCommander" && !ab && live().some(function (x) { return x.side === u.side && x.usedActive && RULES.dist(x.t, t.t) === 1; })) flat += v.extraDmg;
         });
       });
       return { flat: flat || 0, pct: pct, hit: hit, ign: ign };
@@ -1131,11 +1142,13 @@
       }
       const mindA = fxOn(u, "mind");
       if (mindA) raw = Math.max(1, raw - ((mindA.v && mindA.v.dmgReduction) || 0));  // Mind Control: it deals less
+      const modsOK = !!ab && !u.mow && !spec.fixed && !/ignorent? tous les bonus et modificateurs de l'attaquant/i.test(ab[7] || "");  // an ability takes the critical hits, the higher ground and the allies' buffs, unless its text says it ignores them
       const big = !!tt.BigTarget, inGrass = ct.tile === "DryBush" && !big, inTrench = ct.tile === "Trench" && !big;
-      if (!ab) {  // the attacker's bonuses: only a normal attack gets them
+      if (!ab || modsOK) {  // the attacker's bonuses: a normal attack gets them all, an ability the ones whose text does not keep them for the normal attacks (Crushing Strike, Power Trip ...), and not the dice of the normal attacks
+        const N = !ab;
         let bonus = 0;
         if (tr.HeavyWeapon && ranged && u.spent === 0) bonus += TV.heavyWeaponExtraDmg || 0;
-        if (tr.CrushingStrike && !ranged && u.spent === 0) bonus += TV.crushingStrikeExtraDmgPct || 0;
+        if (N && tr.CrushingStrike && !ranged && u.spent === 0) bonus += TV.crushingStrikeExtraDmgPct || 0;
         if (tr.Emplacement) bonus += !ranged ? TV.emplacementMeleeDmgModifier || 0 : u.spent === 0 ? TV.emplacementRangedDmgModifier || 0 : 0;
         if (tr.RangedSpecialist && ranged && !u.advStart) bonus += TV.rangedSpecialistDmgPct || 0;
         if (tr.PrioritisedEfficiency && u.spent < (TV.prioritisedEfficiencyMovement || 3)) bonus += TV.prioritisedEfficiencyExtraDmgPct || 0;
@@ -1145,7 +1158,7 @@
         if (u.tset.BlessingsOfKhorne) bonus += Math.min(TV.blessingsOfKhorneMaxDefeatedUnits || 8, meleeDead) * (TV.blessingsOfKhorneExtraDmgPct || 3);  // World Eaters: more damage per unit defeated in melee
         const ob = fxOn(u, "observed");
         if (ob) raw += (ob.v.extraDmg || 0) * live().filter(function (e) { return e.side !== u.side && RULES.dist(e.t, u.t) === 1 && fxOn(e, "taunt") && fxOn(e, "taunt").taunt === u; }).length;  // Hascule observed: more damage per taunted enemy next to him
-        const au = auraAtk(u, t, null, ranged, profile), wg = fxOn(u, "waaagh");  // Waaagh!: +dmg and one more hit on the normal melee attacks
+        const au = auraAtk(u, t, ab || null, ranged, profile, true), wg = fxOn(u, "waaagh");  // Waaagh!: +dmg and one more hit on the normal melee attacks
         if (wg && !ranged) { au.flat += (wg.v && wg.v.extraDmg) || 0; au.hit += 1; }
         if (charges(u, t)) {  // a charge: an attack on an enemy it was not in melee with at the start of the turn, after a move
           const ac = abOf(u, "AvalancheOfMuscle"), ft = abOf(u, "FeederTendrils"), rg = live().filter(function (x) { return x.side === u.side && abOf(x, "SagaOfTheWarriorBorn"); })[0];
@@ -1168,9 +1181,9 @@
         if (fxOn(u, "decoyb")) au.flat += fxOn(u, "decoyb").extra || 0;  // Decoys and Misdirection: it moved onto an allied decoy
         const dwb = fxOn(u, "dwbuff"); if (dwb && (!ranged || (profile === "Plasma"))) au.flat += dwb.extra || 0;  // Deathwing: after a block, its melee and plasma cannon hits hurt more
         const tcr = abOf(u, "TerrifyingCrescendo"); if (tcr && ranged) au.flat += (tcr.extraDmg || 0) * Math.min(parseInt(tcr.buffMaxLevel, 10) || 6, u.kills);  // Shiron: per enemy he defeated
-        const rub = abOf(u, "RealityUnbound"); if (rub && ranged) au.flat += (rub.extraMaxDmg || 0) * foes(u).filter(function (e) { return e.psyTurn === turnNo; }).length;  // Yazaghor: per enemy hurt by psychic damage this turn
+        const rub = abOf(u, "RealityUnbound"); if (N && rub && ranged) au.flat += (rub.extraMaxDmg || 0) * foes(u).filter(function (e) { return e.psyTurn === turnNo; }).length;  // Yazaghor: per enemy hurt by psychic damage this turn
         const wbf = fxOn(t, "web"); if (wbf && wbf.by && wbf.by.alive && wbf.by.side === u.side) au.flat += (wbf.v.extraDmg || 0) * Math.max(0, hits - 1) / 2;  // Whispering Web: each hit of the attack hurts more than the one before
-        if (abOf(u, "RefusalToBeOutdone")) { const ro = abOf(u, "RefusalToBeOutdone"), out2 = Object.keys(u.outr || {}).reduce(function (a2, k) { return a2 + u.outr[k]; }, 0); au.flat += out2 * (ro.extraDmgPct || 0) / 100; }  // Laviscus: his damage grows with his Outrage
+        if (N && abOf(u, "RefusalToBeOutdone")) { const ro = abOf(u, "RefusalToBeOutdone"), out2 = Object.keys(u.outr || {}).reduce(function (a2, k) { return a2 + u.outr[k]; }, 0); au.flat += out2 * (ro.extraDmgPct || 0) / 100; }  // Laviscus: his damage grows with his Outrage
         const yex = live().filter(function (x) { return x.side === u.side && abOf(x, "SummaryExecution"); })[0];
         if (abOf(u, "RapidFire") && u.spent === 0) au.hit += hits;  // Heavy Intercessor: not moved -> two attacks
         if (u.vh === turnNo && abOf(u, "VoltagheistField")) au.hit += parseInt(abOf(u, "VoltagheistField").extraHit, 10) || 1;  // Electro-priest: healed this turn -> one more hit
@@ -1185,7 +1198,7 @@
         if (u.tset.Mechanical && armorOf(t) < t.arm) { const tg2 = live().filter(function (x) { return x.side === u.side && abOf(x, "DoctrinaImperatives") && x.stance === 1 && (x === u || RULES.dist(x.t, u.t) === 1); })[0]; if (tg2) au.flat += abOf(tg2, "DoctrinaImperatives").extraDmg || 0; }  // Conquering Imperative
         if (u.tset.TerminatorArmour || abOf(u, "IconOfObstinacy")) { const ly = live().filter(function (x) { return x.side === u.side && abOf(x, "IconOfObstinacy") && (x === u || RULES.dist(x.t, u.t) === 1); })[0]; if (ly) au.flat += abOf(ly, "IconOfObstinacy").extraDmg || 0; }  // Lysander's Icon of Obstinacy
         if (u.zkar) au.flat += ((abOf(u, "HunterOfSouls") || {}).extraDmg || 0) * live().filter(function (x) { return x !== u && x.side === u.side && x.tset.Psyker && RULES.dist(x.t, u.t) === 1; }).length;  // Hunter of Souls: per adjacent allied psyker
-        if ((a2 = abOf(u, "SpecialIssueCombiMelta")) && RULES.dist(u.t, t.t) === 1) au.flat += a2.extraDmg || 0;  // Ramus: more damage next to the target
+        if (N && (a2 = abOf(u, "SpecialIssueCombiMelta")) && RULES.dist(u.t, t.t) === 1) au.flat += a2.extraDmg || 0;  // Ramus: more damage next to the target
         const pg = live().filter(function (x) { return x !== u && x.side === u.side && abOf(x, "PredictiveGuidance") && RULES.dist(x.t, t.t) <= 2; })[0];
         if (pg && (u.rules.fa === "LeaguesOfVotann" || u.tset.Mechanical)) { const pv = abOf(pg, "PredictiveGuidance"); if (!t.lastSpent && !ranged) au.flat += pv.extraDmg || 0; if (t.lastSpent > 0 && ranged) au.flat += pv.extraDmg_2 || 0; if (u.rules.fa === "LeaguesOfVotann") au.hit += 1; }  // Memnyr's Predictive Guidance
         const wl = fxOn(u, "will"); if (wl) au.flat += wl.extra || 0;  // Anuphet when no ally attacked for him
@@ -1205,20 +1218,20 @@
         if ((a2 = abOf(u, "CrucibleOfBattle"))) { if (RULES.dist(u.t, t.t) === 1) au.flat += a2.extraDmg || 0; if (tt.BigTarget) au.flat += a2.extraDmg_2 || 0; if (fxOn(t, "stun") || hexKind(t.t) === "fire") au.flat += a2.extraDmg_3 || 0; }
         if ((a2 = abOf(u, "HeadClaimer"))) { au.flat += (a2.extraDmg || 0) * u.kills; au.hit += (parseInt(a2.extraHit, 10) || 1) * u.charKills; }
         if ((a2 = abOf(u, "FuelledByFury"))) au.flat += (a2.extraDmg || 0) * (activeUses[u.side] || 0);
-        if ((a2 = abOf(u, "SmashaEad")) && u.spent >= 2) au.flat += a2.extraDmg || 0;
+        if (N && (a2 = abOf(u, "SmashaEad")) && u.spent >= 2) au.flat += a2.extraDmg || 0;
         if (ranged && (a2 = abOf(u, "HeavyGravCannon")) && (tt.MkXGravis || tt.TerminatorArmour || tt.Mechanical)) { au.flat += a2.extraDmg || 0; xp += a2.extraPierceRatio || 0; }
-        if ((a2 = abOf(u, "PowerTrip"))) { ign += a2.armorIgnored || 0; if (u.hp >= u.max) au.hit += parseInt(a2.extraHit, 10) || 1; }
+        if (N && (a2 = abOf(u, "PowerTrip"))) { ign += a2.armorIgnored || 0; if (u.hp >= u.max) au.hit += parseInt(a2.extraHit, 10) || 1; }
         const km = tr.PrioritisedEfficiency && u.spent >= 3 ? live().filter(function (k) { return k.side === u.side && k.chargedTurn === turnNo && abOf(k, "ModifiedExoarmour"); })[0] : null;
         if (km) bonus += parseInt(abOf(km, "ModifiedExoarmour").extraDmgPct, 10) || 25;  // Kîmm charged: the units with Prioritised Efficiency that went 3 hexes or more hit harder
         const cf = fxOn(u, "conflag");
         if (cf && ranged && hexKind(t.t) === "fire") au.pct += (cf.v && cf.v.extraDmgPct) || 0;  // Thrice Blessed Conflagration: more damage at range on burning hexes
         raw = (raw + au.flat + (spec.extra || 0) + (u.twisted && u.rules.fa === "Genestealers" ? u.twistDmg : 0)) * (1 + au.pct / 100);  // the allies' auras add flat damage per hit (part of the damage that varies), and a percentage
         pm = 1 + bonus / 100;  // the traits' percentages (Heavy Weapon ...) come after the armour, with the higher ground, the trench and the razor wire (the game's order, tacticus.wiki.gg "How Damage Truly Works")
-        hits += au.hit; ign = au.ign;
+        hits += au.hit; ign += au.ign;
         if (cu.el > ct.el && !inTrench) pm *= 1 + (TV.elevationBonus || 50) / 100;  // higher ground (a trench cancels it)
         if (profile === "Melta" && tt.Vehicle) pm *= 1.5;  // Melta: +50 % against vehicles
-        if (tr.Dakka && spec.w[0] >= 3 && dd === 2) hits += TV.dakkaExtraHits || 0;
-        if (!spec.fixed) { rawPre = raw; dvPct = F ? F.dv : Math.round(dice() * 40 - 20); raw *= 1 + dvPct / 100; }  // DAMVAR: a normal attack varies from -20 % to +20 % of the figure shown
+        if (N && tr.Dakka && spec.w[0] >= 3 && dd === 2) hits += TV.dakkaExtraHits || 0;
+        if (N && !spec.fixed) { rawPre = raw; dvPct = F ? F.dv : Math.round(dice() * 40 - 20); raw *= 1 + dvPct / 100; }  // DAMVAR: a normal attack varies from -20 % to +20 % of the figure shown
       }
       // what takes hits off a ranged attack or a multi-hit one
       let cut = 0;
@@ -1278,7 +1291,7 @@
       // the hits one by one: a critical hit adds its damage (after the buffs), a block takes some off; each hit has the same chance again, whatever the hit before (a chance for the first item, the
       // second item only on what the first left: 1 - (1 - c1)(1 - c2)); the boosters add up
       let total = per * hits, crits = 0, blocks = 0;
-      const itU = !ab && !spec.fixed && (u.itc || (u.rules.it && u.rules.it[rar])), itT = !spec.fixed && profile !== "DirectDamage" && (t.itc || (t.rules.it && t.rules.it[rar]));
+      const itU = (!ab || modsOK) && !spec.fixed && (u.itc || (u.rules.it && u.rules.it[rar])), itT = !spec.fixed && profile !== "DirectDamage" && (t.itc || (t.rules.it && t.rules.it[rar]));
       const dwT = abOf(t, "Deathwing") || abOf(t, "DeathwingKnight"), anvT = abOf(t, "AnvilShield");
       if ((itU && itU.c.length) || (itT && itT.b.length)) {
         const nHit = Math.max(1, Math.round(hits)), cache = {}, perFor = function (extra, blk) {  // a critical hit raises the damage (Damage + Crit damage), a block lowers it: both before the variation and the armour
@@ -1292,13 +1305,16 @@
           if (abOf(t, "ReinforcedHiveNode") && (round - (t.arrRound || 1)) % 2 === 0) bBonus += 100;  // Tyranid Warrior: sure to block every other round
           if (anvT) { bDmg += anvT.blockDmg || 0; if (t.hp < t.max * (parseInt(anvT.healthPct, 10) || 35) / 100 || hexKind(u.t) === "ice") bBonus += anvT.blockChance || 0; }
         }
+        const critU = itU && itU.c.length ? chanceOf(itU.c, [itU.cb[0] + (!ranged && fxOn(u, "howl") ? fxOn(u, "howl").v.extraCritChance || 0 : 0), itU.cb[1]]) : { p: 0, d: 0 };
+        critU.d += spec.critExtra || 0;  // Heroic Fusillade: more critical damage for each free hex around the target
+        const blockT = itT && itT.b.length ? chanceOf(itT.b, [bBonus, bDmg]) : { p: 0, d: 0 };
         const hitsOut = [];
         for (let i = 0; i < nHit; i++) {
           let add = 0, block = 0, blocked = false;
-          if (F) { if (F.crit && itU && itU.c.length) { add = Math.max.apply(null, itU.c.map(function (c3) { return c3[1]; })) + itU.cb[1]; crits++; } }
-          else if (itU) for (let k = 0; k < itU.c.length; k++) if (dice() * 100 < Math.min(100, itU.c[k][0] + itU.cb[0] + (!ranged && fxOn(u, "howl") ? fxOn(u, "howl").v.extraCritChance || 0 : 0))) { add = itU.c[k][1] + itU.cb[1]; crits++; break; }
-          if (F) { if (F.block && itT && itT.b.length) { block = Math.max.apply(null, itT.b.map(function (b3) { return b3[1]; })) + bDmg; blocked = true; blocks++; } }
-          else if (itT) for (let k = 0; k < itT.b.length; k++) if (dice() * 100 < Math.min(100, itT.b[k][0] + bBonus)) { block = itT.b[k][1] + bDmg; blocked = true; blocks++; break; }  // the block is rolled with the critical hit
+          if (F) { if (F.crit && itU && itU.c.length) { add = critU.d; crits++; } }
+          else if (itU && itU.c.length && dice() * 100 < critU.p) { add = critU.d; crits++; }  // each hit rolls the same chance again
+          if (F) { if (F.block && itT && itT.b.length) { block = blockT.d; blocked = true; blocks++; } }
+          else if (itT && itT.b.length && dice() * 100 < blockT.p) { block = blockT.d; blocked = true; blocks++; }  // the block is rolled with the critical hit
           hitsOut.push([perFor(add, block), blocked]);
         }
         // Deathwing: once a hit of the attack is blocked, the other hits of it are weaker (twice as much against Chaos, or next to another Dark Angel)
@@ -1329,7 +1345,7 @@
     // ---- the Genestealer Cult: decoys, summons and Ambush (what the replay of a war between two cults shows, and the abilities' texts) ----
     // a decoy is a 0-health marker nobody can target; an enemy stepping on it destroys it. A summon appears with the stats the ability gives at this rarity. Ambush: the first time such a unit
     // falls it leaves a decoy, and at the start of its side's next turn it comes back, with full health, on a decoy of its side. The "random" hexes of the game are taken in a fixed order here.
-    const CULT = { AberrantHypermorph: { self: true, summon: true }, CultDemagogue: { noDmg: true, summon: true }, MightFromBelow: { summon: true }, RevitalizingMalignancy: { self: true, heal: true }, PlagueWind: { tiers: true }, StormOfWrath: { adj: true }, KillMaimBurn: {}, SeekerMissileFrequencyLock: { noDmg: true, pend: true },
+    const CULT = { AberrantHypermorph: { self: true, always: true, summon: true, pick: true }, CultDemagogue: { noDmg: true, summon: true }, MightFromBelow: { summon: true }, RevitalizingMalignancy: { self: true, heal: true }, PlagueWind: { tiers: true }, StormOfWrath: { adj: true }, KillMaimBurn: {}, SeekerMissileFrequencyLock: { noDmg: true, pend: true },
       TheQuickening: { hex: true }, SkyStrike: { dash: true }, HeroicFusillade: { leap: true }, MindControl: { debuff: true, noDmg: true },
       LashOfTorment: { disp: "pull", taunt: true }, GrapnelLauncher: { disp: "pull", swapIn: true }, MortisRound: { disp: "push" },
       SupremeCommander: { self: true, summon: true, also: "astraSmnGuardsman", r: 2 }, EarlyWarningOverride: { self: true, summon: true }, SendInTheNextWave: { noDmg: true, summon: true, wave: true, reach: 2 },
@@ -1375,6 +1391,8 @@
       return prio(u, RULES.around(u.t[0], u.t[1]).filter(function (h) { const c = RULES.cell(h[0], h[1]); return c && c.kind === 0 && !taken[h[0] + "," + h[1]]; }), u.t)
         .sort(function (a, b2) { return (dec[a[0] + "," + a[1]] ? 1 : 0) - (dec[b2[0] + "," + b2[1]] ? 1 : 0); });
     }
+    // the free hexes next to a unit that it could walk onto (one step: the walls, the cliffs and the bridges count): where a summon "on an adjacent free hex" can appear
+    function freeReach(u) { const r = stepsOf(u, 1); return freeAround(u).filter(function (h) { return r[h[0] + "," + h[1]] === 1; }); }
     // where a unit goes when the game "chooses" a hex around a centre: not razor wire, the highest ground, tall grass, then clockwise from the north (from the south for the side that starts at the top,
     // as if its screen were turned round)
     const clockRank = function (u, c, h) { const i = RULES.around(c[0], c[1]).findIndex(function (x) { return x[0] === h[0] && x[1] === h[1]; }); return i < 0 ? 9 : (i - (u.side === 1 ? 3 : 0) + 6) % 6; };
@@ -1390,22 +1408,22 @@
       for (let k = 0; k < 6; k++) out.push([h.slice(), ring[(st + k) % 6], ring[(st + k + 1) % 6]]);
       return out;
     };
-    const waaaghSpots = function (u, t, vals) { return u.spent === 0 ? prio(u, freeAround(u), u.t).slice(0, parseInt(vals.nrOfSummons, 10) || 2) : []; };
+    const waaaghSpots = function (u, t, vals) { return u.spent === 0 ? prio(u, freeReach(u), u.t).slice(0, parseInt(vals.nrOfSummons, 10) || 2) : []; };
     let pickedHex = null;  // the hex the player chose for a one-unit summon (Giba's tank ...)
-    const placeAt = function (u) { return pickedHex ? [pickedHex.slice()] : prio(u, freeAround(u), u.t).slice(0, 1); };  // the chosen hex, else the usual priority
+    const placeAt = function (u) { return pickedHex ? [pickedHex.slice()] : prio(u, freeReach(u), u.t).slice(0, 1); };  // the chosen hex, else the usual priority
     function cultAdds(u, o, t) {  // the units the action puts on the board
       const id = o.ab[0], vals = (o.ab[8] && o.ab[8][rar]) || {}, stat = function (suf) { return [vals["summonHp" + suf] || 1, vals["summonDmg" + suf] || 1, vals["summonArmor" + suf] || 0]; };
       const decAt = {};
       decoys().forEach(function (x) { decAt[x.t[0] + "," + x.t[1]] = x; });
       const adds = [], put = function (sid, h, stats, noMove) { const n = spawn(sid, u.side, u, h, stats, noMove), old = decAt[h[0] + "," + h[1]]; if (old && sid !== "genesSmnDecoy") n.replaces = old; if (sid !== "genesSmnDecoy") n.immediate = true; adds.push(n); return n; };
       if (id === "AberrantHypermorph") {
-        const h = freeAround(u)[0];
+        const h = placeAt(u)[0];  // the hex the player chose next to him
         if (h) put("genesSmnAberrant", h, stat(""), true);  // it may attack at once but not move this turn
       } else if (id === "SupremeCommander") {  // Creed: 2 Cadian Guardsmen (3 with Kell on the field) on free hexes next to him, nearest to the enemies first; the Guardsmen within 2 then play at once (m.also)
         const kell = live().some(function (x) { return x.side === u.side && x.id === "astraSmnKell"; });
-        prio(u, freeAround(u), u.t).slice(0, (parseInt(vals.nrOfSummons, 10) || 2) + (kell ? 1 : 0)).forEach(function (h) { put("astraSmnGuardsman", h, stat(""), false); });
+        prio(u, freeReach(u), u.t).slice(0, (parseInt(vals.nrOfSummons, 10) || 2) + (kell ? 1 : 0)).forEach(function (h) { put("astraSmnGuardsman", h, stat(""), false); });
       } else if (id === "EarlyWarningOverride") {  // Re'vas: 2 Shield Drones next to her, they hit an adjacent enemy at once but do not move
-        prio(u, freeAround(u), u.t).slice(0, 2).forEach(function (h) { put("tauSmnDroneShield", h, stat(""), true); });
+        prio(u, freeReach(u), u.t).slice(0, 2).forEach(function (h) { put("tauSmnDroneShield", h, stat(""), true); });
       } else if (id === "SendInTheNextWave") {  // Yarrick: 2 Guardsmen + 1 per ally lost (5 at most) on free hexes within 2 of the target; they shoot it at once, without moving
         const lost = field.filter(function (x) { return x.side === u.side && !x.alive && x.hp <= 0 && !x.decoy && !x.mow; }).length;  // "unité": characters and summons
         const n = Math.min(parseInt(vals.maxSummons, 10) || 5, (parseInt(vals.nrOfSummons, 10) || 2) + lost), taken = {};
@@ -1508,7 +1526,7 @@
       const v = (o.ab[8] && o.ab[8][rar]) || {}, n = parseInt(v.nrOfHits, 10) || o.ab[6] || 1, prof = o.ab[5] || "Projectile";
       const stay = hex[0] === u.t[0] && hex[1] === u.t[1];
       return withPos(u, hex, function () {
-        const hit = function (e) { const r = abilityHit(u, e, avgOf(v, ""), prof, n); return { tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), label: o.name }; };
+        const free = freeAdj(t).length, hit = function (e) { const r = abilityHit(u, e, avgOf(v, ""), prof, n, 0, o.ab, (v.extraCritDmg || 0) * free); return { tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), label: o.name }; };
         return { moves: stay ? [] : [{ u: u, to: hex.slice() }], main: hit(t), more: foes(u).filter(function (e) { return e !== t && RULES.dist(t.t, e.t) === 1; }).map(hit) };
       });
     }
@@ -1518,7 +1536,7 @@
       const sp = o && o.ab && CULT[o.ab[0]];
       if (sp && sp.mark && o.ok && !u.acted && abReady(u, o.ab)) return playable().filter(function (h) { return freeHex(h) && !foes(u).some(function (e) { return RULES.dist(e.t, h) === 1; }); });  // Titanhammer: a free hex not next to an enemy
       if (sp && sp.kauyon && o.ok && !u.acted && abReady(u, o.ab)) return playable().filter(function (h) { return freeHex(h) && live().some(function (x) { return x.side === u.side && x !== u && RULES.dist(x.t, h) === 1; }); });  // Exemplar of the Kauyon: any free hex (no distance limit) next to an ally
-      if (sp && sp.pick) return o.ok && !u.acted && abReady(u, o.ab) && !fxOn(u, "stun") ? freeAround(u) : [];  // a one-unit summon: any free hex next to the caster
+      if (sp && sp.pick) return o.ok && !u.acted && abReady(u, o.ab) && !fxOn(u, "stun") ? freeReach(u) : [];  // a one-unit summon: any free hex next to the caster it could walk onto
       if (!sp || !(sp.hex || sp.leap) || !o.ok || u.acted || !abReady(u, o.ab)) return [];
       const reach = stepsOf(u, 2, !!sp.hex, !!sp.hex), occ = {};  // Quickening: razor wire, fire and ice do not stop that move
       live().forEach(function (x) { if (x !== u) footOf(x).forEach(function (h) { occ[h[0] + "," + h[1]] = x; }); });
@@ -1566,7 +1584,7 @@
         return live().filter(function (x) { return x.side === u.side && x !== u && !x.decoy && x.tset.Psyker; }).map(function (x) { return { u: x, dmg: 0, hits: 0, per: 0 }; });
       }
       if (sp && sp.allyAdj) return live().filter(function (x) { return x.side === u.side && x !== u && !x.decoy && RULES.dist(u.t, x.t) === 1 && (!sp.pickAny && (sp.buffs !== "prime" || !x.aug)); }).map(function (x) { return { u: x, dmg: 0, hits: 0, per: 0 }; });  // an adjacent ally
-      if (sp && sp.self) { if (sp.pick && !pickedHex) return out; return sp.heal || sp.always || freeAround(u).length ? [{ u: u, dmg: 0 }] : out; }  // a summon or a heal around the caster: it casts on itself
+      if (sp && sp.self) { if (sp.pick && !pickedHex) return out; return sp.heal || sp.always || freeReach(u).length ? [{ u: u, dmg: 0 }] : out; }  // a summon or a heal around the caster: it casts on itself
       live().forEach(function (t) {
         if (t.side === u.side || t.ds) return;
         const th = footOf(t).sort(function (a, b2) { return RULES.dist(u.t, a) - RULES.dist(u.t, b2); })[0], dd = RULES.dist(u.t, th), clear = dd <= 1 || u.rules.id || RULES.sight(u.t, th);  // a big unit is reached through its nearest hex
@@ -1713,7 +1731,7 @@
     };  // Rapid Assault: +1 movement until the unit attacks
 
     function unitPanel() {  // the chosen character: rarity, level, rank, stars, relic, stats, traits, the actions
-      if (!sel) return ['<h3>Attaques</h3><p class="rp-none">Cliquez sur un personnage pour choisir son attaque, voir où il peut aller et où l\'adversaire peut le toucher.</p>', '<h3>Stats</h3><p class="rp-none">Les stats du personnage choisi s\'affichent ici.</p>'];
+      if (!sel) return ["", ""];  // nothing chosen: nothing to show
       const head = '<div class="rp-tip-head">' + (sel.img ? '<img src="' + esc(sel.img) + '" alt="">' : "") + "<div><b>" + esc(sel.name) + "</b><small>" + (sel.mow ? "Machine de guerre · " : "") + (sel.side === 0 ? "Attaquant" : "Défenseur") +
         (sel.alive ? "" : " · hors de combat") + "</small></div></div>";
       if (sel.mow) {  // a machine of war: its two abilities, one use per turn, no normal attack, no stats
@@ -1726,6 +1744,15 @@
       const r = RAR[rar], ru = sel.rules, st = ru.st && ru.st[rar];
       const relic = rar === "m" && sel.relic ? '<div class="rp-relicrow"><img src="' + assets + "items/" + esc(sel.relic[0]) + '.webp" alt="" onerror="this.style.display=\'none\'"><span><b>' + esc(relicName(sel.relic)) + "</b><small>Relique · niveau 10</small></span></div>" : "";
       const reach = (ru.rg || [1]).map(function (n) { return n === 1 ? "mêlée" : "portée " + n; }).join(", ");
+      // the damage of the normal attack, melee and ranged apart: the hits and the damage of each, the armour piercing, the reach (game icons)
+      const ico = function (n, t) { return '<img class="sb-ico" src="' + assets + "ui/" + n + '.png" alt="" title="' + esc(t) + '">'; };
+      const dmgRows = (ru.wp && ru.wp.length ? ru.wp : [[1, "Physical", 1]]).map(function (w) {
+        return row(w[0] === 1 ? "Mêlée" : "Distance", '<span class="sb-fig">' + ico("stat_dmg", "Dégâts") + w[2] + " × <b>" + num(sel.atk) + "</b></span>" +
+          '<span class="sb-fig">' + ico("stat_pierce", "Pénétration d'armure") + pct(w[1]) + "</span>" +
+          (w[0] === 1 ? "" : '<span class="sb-fig sb-reticle" title="Portée ' + w[0] + '"><img src="' + assets + 'ui/stat_range.png" alt=""><i>' + w[0] + "</i></span>"));
+      }).join("");
+      const itx = sel.itc || (ru.it && ru.it[rar]), cst = itx && itx.c && itx.c.length ? chanceOf(itx.c, itx.cb || [0, 0]) : null;  // the critical hits come from its items (the boosters add to them)
+      const critRows = row("Critique", cst ? '<span class="sb-fig">' + ico("stat_crit", "Taux de critique") + Math.round(cst.p) + " %</span>" + '<span class="sb-fig">' + ico("stat_critdmg", "Dégâts critiques") + "+" + num(cst.d) + "</span>" : "—");
       const can = mine() && sel.alive;
       const opts = options(sel);
       const auto = sel.summon || sel.auto;  // a summon (or Lucien in his rage) plays by itself: no button
@@ -1737,8 +1764,8 @@
       };
       const btns = auto ? (opts.some(function (o) { return o.ab; }) ? '<div class="sb-acts">' + opts.filter(function (o) { return o.ab; }).map(mkBtn).join("") + "</div>" : "") : '<div class="sb-acts">' + opts.map(mkBtn).join("") + "</div>";
       const tr = (ru.tr || []).map(function (t) { return '<span class="sb-trait" title="' + esc(t[1]) + '"><img src="' + assets + "traits/" + esc(t[0]) + '.webp" alt="" onerror="this.style.display=\'none\'">' + esc(t[1]) + "</span>"; }).join("");
-      return [head + btns, '<dl class="rp-stats">' + row("PV", st ? num(sel.hp) + " / " + num(sel.max) + (sel.shield && round <= sel.shield.until && sel.shield.amt > 0 ? ' <i class="sb-shv">+ ' + num(sel.shield.amt) + " bouclier</i>" : "") : "—") + (st ? row("Dégâts", num(sel.atk)) + row("Armure", num(sel.arm)) : "") +
-        row("Mouvement", (ru.mv || 0) + (ru.ra ? " (+1 assaut rapide)" : "") + (can ? " · reste " + budget(sel) : "")) + row("Portée", reach) + '<div class="rp-sep"></div>' +
+      return [head + btns, '<dl class="rp-stats">' + row("PV", st ? num(sel.hp) + " / " + num(sel.max) + (sel.shield && round <= sel.shield.until && sel.shield.amt > 0 ? ' <i class="sb-shv">+ ' + num(sel.shield.amt) + " bouclier</i>" : "") : "—") + (st ? dmgRows + row("Armure", num(sel.arm)) : "") +
+        row("Mouvement", (ru.mv || 0) + (ru.ra ? " (+1 assaut rapide)" : "") + (can ? " · reste " + budget(sel) : "")) + row("Portée", reach) + critRows + '<div class="rp-sep"></div>' +
         row("Rareté", '<i class="rh rh-' + r.c + '">' + rar.toUpperCase() + "</i> " + r.n) + row("Niveau", r.lv + " / " + r.lv) +
         row("Rang", '<img class="mm-rank" src="' + assets + "ui/rank_" + (r.rank + 1) + '.png" alt=""> ' + RT[Math.floor(r.rank / 3)] + " " + RM[r.rank % 3]) +
         row("Étoiles", '<span class="rp-stars">' + starsHtml(r.stars) + "</span>") + relic + "</dl>" + (tr ? '<div class="sb-traits">' + tr + "</div>" : "") + (function () { const st = statuses(sel).filter(function (x) { return x.id.indexOf("ab-") !== 0; });  // the primary abilities are icons on the token, not states
@@ -1757,14 +1784,14 @@
         if (sel.mow) body += '<p class="sb-tip-fig">Machine de guerre : une seule capacité par tour, sur n\'importe quelle cible du plateau, sans munitions ; les dégâts ignorent les bonus de l\'attaquant.</p>';
         else if (o.ab[0] === "SeekerMissileFrequencyLock") body += '<p class="sb-tip-fig">Simulé : la cible est marquée ; au début du prochain tour de Sho\'syl, s\'il est encore là, le missile inflige ' + num(avgOf(vals, "")) + ' dégâts (moins l\'armure, au moins le ratio de perçage).</p>';
         else if (o.ok && !(o.ab[3] && o.ab[3][rar])) body += '<p class="sb-tip-fig">Simulé : les invocations et les leurres, sans dégâts propres (les positions « au hasard » du jeu sont prises dans un ordre fixe).</p>';
-        else if (o.ok) body += '<p class="sb-tip-fig">Simulé : <b>' + (o.ab[6] || 1) + "</b> coup" + ((o.ab[6] || 1) > 1 ? "s" : "") + " de <b>" + num(o.ab[3][rar]) + "</b> dégâts " + (PROFILE[o.ab[5]] || PROFILE[((sel.rules.wp && sel.rules.wp.length) ? sel.rules.wp : [[1, "Physical"]]).slice(-1)[0][1]] || "") + ", moins l'armure de la cible (au moins " + pct(o.ab[5] || "Physical") + " des dégâts, le ratio de perçage), puis le terrain et les traits de la cible ; les bonus de l'attaquant et la hauteur ne comptent pas.</p>";
+        else if (o.ok) body += '<p class="sb-tip-fig">Simulé : <b>' + (o.ab[6] || 1) + "</b> coup" + ((o.ab[6] || 1) > 1 ? "s" : "") + " de <b>" + num(o.ab[3][rar]) + "</b> dégâts " + (PROFILE[o.ab[5]] || PROFILE[((sel.rules.wp && sel.rules.wp.length) ? sel.rules.wp : [[1, "Physical"]]).slice(-1)[0][1]] || "") + ", moins l'armure de la cible (au moins " + pct(o.ab[5] || "Physical") + " des dégâts, le ratio de perçage), puis le terrain et les traits de la cible. " + (/ignorent? tous les bonus et modificateurs de l'attaquant/i.test(o.ab[7] || "") ? "Cette capacité ignore les bonus de l'attaquant (hauteur comprise) et ne fait pas de coup critique." : "Elle prend aussi les coups critiques, la hauteur et les bonus des capacités alliées.") + "</p>";
       } else {
         tag = sel.tset.Healer ? "Attaque normale · soin" : sel.tset.Mechanic ? "Attaque normale · réparation" : "Attaque normale";
         const wp = sel.rules.wp && sel.rules.wp.length ? sel.rules.wp : [[1, "Physical", 1]];
         body = wp.map(function (w) {
           return (w[0] === 1 ? "<b>Mêlée</b> (case adjacente)" : "<b>Distance</b> (jusqu'à " + w[0] + " cases, ligne de vue dégagée, inutilisable au contact d'un ennemi)") + " · " + w[2] + " coup" + (w[2] > 1 ? "s" : "") + " de <b>" + num(sel.atk) + "</b> dégâts " + (PROFILE[w[1]] || "") + " (perçage " + pct(w[1]) + ")";
         }).join("<br>") + '<p class="sb-tip-fig">Bonus de la hauteur (+50 %) et des traits du perso, malus de l\'armure de la cible (chaque coup retire l\'armure, mais fait au moins le ratio de perçage des dégâts), du terrain (fils barbelés, tranchée, hautes herbes) et des traits de la cible.</p>' +
-          '<p class="sb-tip-fig">Dés : chaque attaque normale varie de −20 % à +20 % (DAMVAR). Les objets de ' + ((sel.itc || (sel.rules.it && sel.rules.it[rar])) && (sel.itc || sel.rules.it[rar]).c.length ? "critique (" + (sel.itc || sel.rules.it[rar]).c.map(function (c2) { const it2 = sel.itc || sel.rules.it[rar]; return c2[0] + (it2.cb[0] || 0) + " % · +" + num(c2[1] + (it2.cb[1] || 0)); }).join(", ") + ")" : "critique (aucun)") + " ajoutent leurs dégâts après les bonus (seules la hauteur et les traits les augmentent) ; ceux de blocage de la cible en retirent. Chaque coup tire ses dés à nouveau, avec la même chance.</p>" +
+          '<p class="sb-tip-fig">Dés : chaque attaque normale varie de −20 % à +20 % (DAMVAR). Les objets de ' + ((sel.itc || (sel.rules.it && sel.rules.it[rar])) && (sel.itc || sel.rules.it[rar]).c.length ? "critique (" + (function () { const it2 = sel.itc || sel.rules.it[rar], cs = chanceOf(it2.c, it2.cb || [0, 0]); return Math.round(cs.p) + " % · +" + num(cs.d); })() + ")" : "critique (aucun)") + " ajoutent leurs dégâts après les bonus (seules la hauteur et les traits les augmentent) ; ceux de blocage de la cible en retirent. Chaque coup tire ses dés à nouveau, avec la même chance.</p>" +
           (sel.tset.Healer ? '<p class="sb-tip-fig">Soin : sur un allié blessé non mécanique, l\'attaque rend (nombre de coups × dégâts) points de vie.</p>' : "") + (sel.tset.Mechanic ? '<p class="sb-tip-fig">Réparation : sur un allié blessé mécanique, l\'attaque rend (nombre de coups × dégâts) points de vie.</p>' : "");
       }
       let go = "";
@@ -2304,20 +2331,26 @@
       return true;
     };
     // one ability-style hit series (an average figure of the game's configuration: it ignores the attacker's bonuses): {tot, per, hits}
-    const abilityHit = function (u, t, avg, profile, hits, pierce) {
-      return damageOf(u, t, { ab: ["", "", "a", (function () { const o = {}; o[rar] = avg; return o; })(), "Ranged", profile, hits], pierce: pierce || 0 }, u.mow ? 3 : RULES.dist(u.t, t.t));
+    const NOMODS = "ignorent tous les bonus et modificateurs de l'attaquant";  // the text of the abilities whose damage takes no bonus and no critical hit
+    let extrasAb = null;  // the ability whose extra hits (the area, the other targets) are being worked out: they follow its own rule on the bonuses and the critical hits
+    const abilityHit = function (u, t, avg, profile, hits, pierce, real, critExtra) {
+      return damageOf(u, t, { ab: ["", "", "a", (function () { const o = {}; o[rar] = avg; return o; })(), "Ranged", profile, hits, real ? real[7] || "" : NOMODS], pierce: pierce || 0, critExtra: critExtra || 0 }, u.mow ? 3 : RULES.dist(u.t, t.t));  // the passives' strikes, the blasts, the missiles: fixed figures (the text mark keeps the buffs and the critical hits out)
     };
     const avgOf = function (vals, suf) { return ((vals["minDmg" + suf] || 0) + (vals["maxDmg" + suf] || 0)) / 2; };
     const foes = function (u) { return live().filter(function (x) { return x.side !== u.side && !x.ds; }); };  // a unit in Deep Strike mode cannot be targeted
     // the other hits of an action: the splash of Plague Wind (the target, the enemies next to it, then the enemies next to those), the second attack that follows a normal attack
     // (Light Im Up: the same enemy, the hits left when it falls go to another within 3; The Betrayer: an adjacent enemy), the heal of Revitalizing Malignancy
     function extras(u, o, t, main) {
+      const prev = extrasAb; extrasAb = o.ab || null;
+      try { return extras0(u, o, t, main); } finally { extrasAb = prev; }
+    }
+    function extras0(u, o, t, main) {
       const more = [], vals = (o.ab && o.ab[8] && o.ab[8][rar]) || {};
       if (o.ab && AOE[o.ab[0]]) AOE[o.ab[0]](u, o, t, vals).forEach(function (x) { more.push(x); });  // the area of the ability
       if (o.ab && CULT[o.ab[0]] && CULT[o.ab[0]].adj) {  // up to N units next to the target take the same hit
         const nMax = parseInt(vals.maxAdjacentTargets, 10) || 0;
         foes(u).filter(function (e) { return e !== t && RULES.dist(t.t, e.t) === 1; }).sort(function (x, y) { return RULES.dist(u.t, x.t) - RULES.dist(u.t, y.t); }).slice(0, nMax).forEach(function (e) {
-          const r = abilityHit(u, e, avgOf(vals, ""), o.ab[5], o.ab[6] || 1); more.push({ tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), label: o.name });
+          const r = abilityHit(u, e, avgOf(vals, ""), o.ab[5], o.ab[6] || 1, 0, o.ab); more.push({ tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), label: o.name });
         });
       }
       if (o.ab && CULT[o.ab[0]] && CULT[o.ab[0]].hitAll) {  // Stormcaller: every enemy on the 7 covered hexes takes the hits (the target's own are the main hit)
@@ -2432,7 +2465,7 @@
     const vals_ = function (o) { return (o.ab[8] && o.ab[8][rar]) || {}; };
     const nI = function (x, dflt) { return parseInt(x, 10) || dflt; };
     const vOf = function (o) { return (o.ab[8] && o.ab[8][rar]) || {}; };
-    const mh = function (u, e, raw, prof, n, label, pierce) { const r = abilityHit(u, e, raw, prof, n, pierce); return { tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), label: label, prof: prof }; };
+    const mh = function (u, e, raw, prof, n, label, pierce) { const r = abilityHit(u, e, raw, prof, n, pierce, extrasAb); return { tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), label: label, prof: prof }; };
     // ---- the area of the abilities of characters: what a hit adds around its target (the hits come as `more` entries of the step). Friendly fire only where the text says "toutes les unités". ----
     const adjUnits = function (c, but, enemyOf) { return live().filter(function (x) { return x !== but && !x.ds && RULES.dist(x.t, c) === 1 && (enemyOf === undefined || x.side !== enemyOf); }); };
     const AOE = {
@@ -2724,7 +2757,7 @@
       let also = sp && sp.also ? live().filter(function (x) { return x.summon && x.id === sp.also && x.side === u.side && (!sp.r || RULES.dist(u.t, x.t) <= sp.r); }) : null;  // the summons the ability orders to play at once
       const drone = !o.ab && ts.heal === undefined && ts.dmg > 0 && RULES.dist(u.t, t.t) > 1 ? (u.rules.ab || []).filter(function (a) { return a[0] === "MV71SniperDroneSquad"; })[0] : null;
       if (drone) {  // Sho'syl: instead of a ranged attack a Sniper Drone is summoned (next to him, toward the target) and ordered to shoot, with his damage; the lowest-health drone goes when he has 3; the target gets a markerlight
-        const v = (drone[8] && drone[8][rar]) || {}, hs = prio(u, freeAround(u), u.t), mine2 = field.filter(function (x) { return x.parent === u && x.id === "tauSmnDroneSniper" && x.alive; }).sort(function (a, b2) { return a.hp - b2.hp; });
+        const v = (drone[8] && drone[8][rar]) || {}, hs = prio(u, freeReach(u), u.t), mine2 = field.filter(function (x) { return x.parent === u && x.id === "tauSmnDroneSniper" && x.alive; }).sort(function (a, b2) { return a.hp - b2.hp; });
         mark = true;
         if (hs.length) {
           if (mine2.length >= (parseInt(v.maxSummons, 10) || 3)) gone = [mine2[0]];
@@ -2761,7 +2794,7 @@
         }
       }
       if (sp && sp.revive) {  // Resurrection Orb / Rites of Restoration: the fallen come back on free hexes next to the caster (they cannot act this turn)
-        const v = vals_(o), spots = prio(u, freeAround(u), u.t).slice();
+        const v = vals_(o), spots = prio(u, freeReach(u), u.t).slice();
         reviveL = [];
         if (sp.revive === "orb") {
           const deadMech = field.filter(function (x) { return x.side === u.side && !x.alive && x.hp <= 0 && !x.summon && !x.decoy && mech(x); });
@@ -2805,7 +2838,7 @@
             if (dbl === 2) more.push({ tgt: t, dmg: ts.dmg, hits: 0, per: 0, label: o.name });  // doubled
             foes(u).filter(function (e) { return RULES.dist(e.t, u.t) === 1; }).forEach(function (e) { const r = abilityHit(u, e, avgOf(v, "_2") * dbl, "Physical", nI(v.nrOfHits_2, 1)); more.push({ tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), label: o.name }); });
           }
-          if (id === "LeadingTheCharge") adds = (adds || []).concat(freeAround(u).slice(0, nI(v.nrOfSummons, 4)).map(function (h) { const a = spawn("astraSmnDeathRider", u.side, u, h, [v.summonHp || 1, v.summonDmg || 1, v.summonArmor || 0], true); a.immediate = true; return a; }));
+          if (id === "LeadingTheCharge") adds = (adds || []).concat(freeReach(u).slice(0, nI(v.nrOfSummons, 4)).map(function (h) { const a = spawn("astraSmnDeathRider", u.side, u, h, [v.summonHp || 1, v.summonDmg || 1, v.summonArmor || 0], true); a.immediate = true; return a; }));
           if (id === "MassDriverAccelerator") foes(u).filter(function (e) { return e !== t && RULES.dist(e.t, t.t) === 1; }).forEach(function (e) { const r = abilityHit(u, e, avgOf(v, "_2"), "Physical", nI(v.nrOfHits_2, 1)); more.push({ tgt: e, dmg: Math.round(r.tot), hits: r.hits, per: Math.round(r.per), label: o.name }); });
         });
       }
@@ -2957,13 +2990,13 @@
         const gf = abOf(u, "GalvanicField"), ec = abOf(u, "EcogSupport");
         if (gf) { const tg = targetsOf(t, { id: "atk", ok: true }).filter(function (x) { return x.dmg > 0; }).sort(function (a, b2) { return ((b2.dmg >= b2.u.hp) - (a.dmg >= a.u.hp)) || b2.dmg - a.dmg; })[0]; if (tg) more.push({ tgt: tg.u, dmg: tg.dmg, hits: tg.hits, per: tg.per, label: abName(u, "GalvanicField"), by: t }); }
         if (ec) {
-          const mine5 = field.filter(function (x) { return x.parent === u && x.id === "votanSmnEcog" && x.alive; }), hs = prio(u, freeAround(u), u.t);
+          const mine5 = field.filter(function (x) { return x.parent === u && x.id === "votanSmnEcog" && x.alive; }), hs = prio(u, freeReach(u), u.t);
           if (mine5.length < (parseInt(ec.maxSummons, 10) || 3) && hs.length) adds = (adds || []).concat([spawn("votanSmnEcog", u.side, u, hs[0], [ec.summonHp || 1, ec.summonDmg || 1, ec.summonArmor || 0], false)]);
         }
       }
       if (!o.ab && ts.dmg > 0 && abOf(u, "ControlEdict")) {  // Tan Gi'da: protective imperative -> a Skitarii Vanguard next to him; conquering -> his mechanical summons next to him also hit the target
         const ce = abOf(u, "ControlEdict");
-        if (!u.stance) { const mine6 = field.filter(function (x) { return x.parent === u && x.id === "admecSmnVanguard" && x.alive; }), hs = prio(u, freeAround(u), u.t); if (mine6.length < (parseInt(ce.maxSummons, 10) || 5) && hs.length) adds = (adds || []).concat([spawn("admecSmnVanguard", u.side, u, hs[0], [ce.summonHp || 1, ce.summonDmg || 1, ce.summonArmor || 0], false)]); }
+        if (!u.stance) { const mine6 = field.filter(function (x) { return x.parent === u && x.id === "admecSmnVanguard" && x.alive; }), hs = prio(u, freeReach(u), u.t); if (mine6.length < (parseInt(ce.maxSummons, 10) || 5) && hs.length) adds = (adds || []).concat([spawn("admecSmnVanguard", u.side, u, hs[0], [ce.summonHp || 1, ce.summonDmg || 1, ce.summonArmor || 0], false)]); }
         else live().filter(function (x) { return x.side === u.side && x.summon && x.tset.Mechanical && RULES.dist(x.t, u.t) === 1; }).forEach(function (x) { const e = targetsOf(x, { id: "atk", ok: true }).filter(function (y) { return y.u === t; })[0]; if (e && e.dmg > 0) more.push({ tgt: t, dmg: e.dmg, hits: e.hits, per: e.per, label: "Édit de contrôle", by: x }); });
       }
       if (!o.ab && ts.dmg > 0 && RULES.dist(u.t, t.t) === 1 && fxOn(u, "chalice")) heals = [{ u: u, amt: Math.min(u.max - u.hp, fxOn(u, "chalice").v.hpToHeal || 0) }].filter(function (h) { return h.amt > 0; });  // Blood Chalice: a melee attack heals
@@ -3316,7 +3349,7 @@
         if (!c || c.kind !== 0) return;
         u.spent = saved.spent + k0; u.moves = k0 ? saved.moves + 1 : saved.moves;
         let room = 0;
-        try { room = withPos(u, h, function () { return freeAround(u).length; }); } finally { u.spent = saved.spent; u.moves = saved.moves; }
+        try { room = withPos(u, h, function () { return freeReach(u).length; }); } finally { u.spent = saved.spent; u.moves = saved.moves; }
         if (!room) return;
         const d = near(h), far = d >= 2 ? 1 : 0;
         const rank = [far, far ? -d : d, c.tile === "Swamp" && !u.rules.us && !u.rules.fl ? 0 : 1, Math.min(room, 2), c.el || 0, c.tile === "DryBush" && !u.tset.BigTarget ? 1 : 0, -k0];
