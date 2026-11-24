@@ -32,7 +32,7 @@ Neuro|Core|Abaddon|A2|1 étoile bleue|60/60||Lion,Forcas,Menhirs,Sybill,Riptide
 Neuro|Core|Neuro|A2|1 étoile bleue|35/60|10|Lion,Forcas,Menhirs,Tangida,Sybill,Riptide
 Neuro|Core|Abraxas|A2|1 étoile bleue|60/60|10|Lion,Forcas,Menhirs,Tangida,Sybill,Riptide
 Neuro|Core|Archimatos|A2|1 étoile bleue|60/35|10|Lion,Forcas,Menhirs,Tangida,Sybill,Riptide
-Neuro|Core|Ahriman|A2|1 étoile bleue|50/60||Lion,Forcas,Menhirs,Tangida,Sybill,Riptide
+Neuro|Core|Ahriman|A2|1 étoile bleue|60/60||Lion,Forcas,Menhirs,Tangida,Sybill,Riptide
 Neuro|Core|Zkar||skulled|60/35||Lion,Forcas,Menhirs,Tangida,Sybill,Riptide
 Neuro|Flex|Yazaghor|A2|1 étoile bleue|35/35||Tangida
 Neuro|Flex|Mephiston|A2|1 étoile bleue|36/60||Tangida
