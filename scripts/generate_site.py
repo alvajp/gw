@@ -2604,9 +2604,72 @@ def render_strategy_index(all_wars):
     body = opp_html + _defense_modal_html(opp_events, opp_players, "")
     html = render_page(
         nav_active="strategy", page_kind="strategy", title="Attaques", asset_prefix="", body=body, back_link=back_link_html("war.html", "War"),
-        title_class="hero-title", header_extra="", header_action="", v=ASSETS_VERSION, bg="deathguard-plague",
+        title_class="hero-title", header_extra="", header_action=f'<a class="strategy-btn" href="simulation.html">Simulation{ARROW_RIGHT}</a>', v=ASSETS_VERSION, bg="deathguard-plague",
     )
     with open(os.path.join(DOCS_DIR, "strategie.html"), "w", encoding="utf-8") as f:
+        f.write(html)
+
+
+ZONE_TIER_KEY = {label: key for key, (_name, _caps, labels) in ZONE_TIERS.items() for label in labels}  # zone label -> "hero" / "elite" / "veteran"
+SIM_TIERS = [("hero", "Héros", "m"), ("elite", "Élite", "l"), ("veteran", "Vétéran", "e")]  # key, name, badge of the zone's higher rarity
+
+
+def build_simulation_data(all_wars):
+    """Every attack of ours (against an opponent's defense line), compactly, for the Simulation page: [map, level, defense units (sorted), defense MoW, our units, our MoW,
+    outcome (w / f / x), score, war, line rarity]. The lookup tables (units, maps, wars) are indexed by the rows."""
+    units, maps, wars, rows = {}, {}, {}, []
+
+    def idx(table, key):
+        if key not in table:
+            table[key] = len(table)
+        return table[key]
+
+    for w in all_wars:
+        result = w["result"]
+        boards = result.get("boards") or {}
+        our_idx = find_team_idx(result["guilds"], OUR_GUILD)
+        if our_idx is None or not boards or not result.get("battle_events"):
+            continue
+        war_tag = f'S{w["season"]} G{w["war_number"]}' if w.get("war_number") else f'S{w["season"]}'
+        for e in result["battle_events"]:
+            if not e.get("defender") or e["team"] != our_idx:
+                continue
+            board = boards.get(e["zone"])
+            level = ZONE_TIER_KEY.get(ZONE_LABELS.get(e["zone"], e["zone"]))
+            if not board or board not in MAPS_DB or not level or not e["units"] or not e["att_units"]:
+                continue
+            rows.append([
+                idx(maps, board), [k for k, *_ in SIM_TIERS].index(level),
+                sorted(idx(units, u) for u in e["units"]), idx(units, e["mow"]) if e["mow"] else -1,
+                [idx(units, u) for u in e["att_units"]], idx(units, e["att_mow"]) if e["att_mow"] else -1,
+                {"win": "w", "finish": "f", "fail": "x"}.get(e["tier"], "u"), round(e["adj"]), idx(wars, war_tag), e.get("rar", ""),
+            ])
+    return {
+        "u": [[UNITS_DB[u]["name"], UNITS_DB[u]["image"]] if u in UNITS_DB else [u, ""] for u in units],
+        "m": [[b, MAPS_DB[b]["name"], MAPS_DB[b]["image"]] for b in maps],
+        "w": list(wars), "t": [[k, name, badge] for k, name, badge in SIM_TIERS], "r": rows,
+    }
+
+
+def render_simulation_page(all_wars):
+    """docs/simulation.html (button next to the title of the Attaques page): pick a map and a level, pick the defense to face among the ones met most often over every
+    captured war, and get the teams that beat it (or the closest defenses) -- all computed in the page (simulation.js) from the compact blob of build_simulation_data."""
+    data = build_simulation_data(all_wars)
+    if not data["r"]:
+        return
+    blob = '<script type="application/json" id="sim-data">' + json.dumps(data, separators=(",", ":"), ensure_ascii=False).replace("</", "<\\/") + "</script>"
+    body = (
+        '<div id="sim" class="sim"><section class="sim-step" id="sim-map"><h2><span class="sim-n">1</span>Map</h2><div class="sim-maps"></div></section>'
+        '<section class="sim-step" id="sim-level" hidden><h2><span class="sim-n">2</span>Niveau</h2><div class="sim-levels"></div></section>'
+        '<section class="sim-step" id="sim-def" hidden><h2><span class="sim-n">3</span>Défense à affronter</h2><p class="sim-hint"></p><div class="sim-list"></div></section>'
+        '<section class="sim-step" id="sim-atk" hidden><h2><span class="sim-n">4</span>Équipe conseillée</h2><p class="sim-hint"></p><div class="sim-list"></div></section></div>'
+        + blob + f'<script src="assets/simulation.js?v={ASSETS_VERSION}"></script>'
+    )
+    html = render_page(
+        nav_active="strategy", page_kind="strategy", title="Simulation", asset_prefix="", body=body, back_link=back_link_html("strategie.html", "Attaques"),
+        title_class="hero-title", header_extra="", header_action="", v=ASSETS_VERSION, bg="deathguard-plague",
+    )
+    with open(os.path.join(DOCS_DIR, "simulation.html"), "w", encoding="utf-8") as f:
         f.write(html)
 
 
@@ -3400,6 +3463,7 @@ def main():
     render_index(seasons, active_uids, war_rank)
     render_home(all_wars, seasons)
     render_strategy_index(all_wars)
+    render_simulation_page(all_wars)
     render_defenses_page(all_wars)
     members = {r["uid"] for r in rosters_mod.load_rosters()}
     medals = compute_medals(seasons)
