@@ -3120,3 +3120,11 @@ button.sim-row[aria-pressed="true"] { border-color: var(--accent); background: c
 .sim-lv-text { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.2; }
 .sim-lv-text b { font-size: 0.95rem; font-weight: 700; }
 .sim-lv-text small { font-size: 0.7rem; }
+.sim-preview .pl-board { cursor: zoom-in; }
+.sim-others { margin-top: 0.8rem; }
+.sim-others > summary { cursor: pointer; padding: 0.55rem 0.8rem; border: 1px dashed var(--border); border-radius: var(--radius-sm); color: var(--text-muted); font-weight: 600; font-size: 0.9rem; list-style: none; }
+.sim-others > summary::-webkit-details-marker { display: none; }
+.sim-others > summary::before { content: "\25B8"; display: inline-block; margin-right: 0.5rem; transition: transform 120ms ease; }
+.sim-others[open] > summary::before { transform: rotate(90deg); }
+.sim-others > summary small { font-weight: 500; font-size: 0.75rem; margin-left: 0.4rem; }
+.sim-others > .sim-row { margin-top: 0.4rem; }

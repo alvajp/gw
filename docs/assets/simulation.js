@@ -10,6 +10,13 @@
   const esc = function (s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); };
   const RAR = { m: ["M", "mythic"], l: ["L", "legendary"], e: ["E", "epic"], r: ["R", "rare"] };
   let map = -1, level = -1, defKey = null;
+  // placement.js (loaded on every page) opens the map with draggable portraits for an element with data-pl-img / data-pl-att / data-pl-def; it reads the units from #defense-data
+  if (!document.getElementById("defense-data")) {
+    const dd = document.createElement("script");
+    dd.type = "application/json"; dd.id = "defense-data";
+    dd.textContent = JSON.stringify({ units: D.u.reduce(function (o, u, i) { o[i] = u; return o; }, {}), players: {} });
+    document.body.appendChild(dd);
+  }
 
   const unit = function (i, mow) {
     const u = D.u[i];
@@ -82,7 +89,10 @@
     const arch = Object.keys(byArch).map(function (k) { return byArch[k]; }).sort(function (a, b) { return b.n - a.n; });
     const g = groups(loose, dkey).sort(function (a, b) { return b.n - a.n || b.last - a.last; });
     let html = arch.map(archRow).join("");
-    if (g.length) html += (html ? '<h3 class="sim-group">Autres d\u00e9fenses</h3>' : "") + g.slice(0, 12).map(defRow).join("");
+    if (g.length) {  // the lines that fit no archetype stay behind an expander
+      const lines = g.slice(0, 12).map(defRow).join("");
+      html += html ? '<details class="sim-others"><summary>Autres d\u00e9fenses <small>' + pl(g.length, "ligne", "lignes") + "</small></summary>" + lines + "</details>" : lines;
+    }
     $("sim-def").querySelector(".sim-list").innerHTML = html || '<p class="mnone">Aucune d\u00e9fense vue.</p>';
     shown("sim-def", true);
     shown("sim-atk", false);
@@ -108,7 +118,7 @@
         }).join("");
       };
       box.innerHTML = '<div class="sim-pv-head"><b>' + esc(D.p[r[11]]) + "</b><small>" + esc(D.g[r[12]]) + " \u00b7 " + esc(D.w[r[8]]) + '</small><span class="sim-score ' + "is-win" + '">' + r[7] + "</span></div>" +
-        '<div class="pl-board"><img class="pl-map" src="' + esc(img) + '" alt="" draggable="false">' + (slot ? place(r[10], "e", "pl-def") + place(r[4], "o", "pl-att") : "") + "</div>";
+        '<div class="pl-board" tabindex="0" title="Ouvrir la map pour d\u00e9placer les persos" data-pl-img="' + esc(img) + '" data-pl-att="' + r[4].join(" ") + '" data-pl-def="' + r[10].join(" ") + '"><img class="pl-map" src="' + esc(img) + '" alt="" draggable="false">' + (slot ? place(r[10], "e", "pl-def") + place(r[4], "o", "pl-att") : "") + "</div>";
     });
   }
   function attacks() {
