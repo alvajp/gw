@@ -27,7 +27,8 @@ def snake(t):
 
 def main():
     gcfg = sorted(glob.glob(os.path.expanduser("~/Library/Application Support/com.snowprintstudios.tacticus/gameconfig/*.json")), key=os.path.getmtime)[-1]
-    lineup = json.load(open(gcfg, encoding="utf-8"))["clientGameConfig"]["units"]["lineup"]
+    units_cfg = json.load(open(gcfg, encoding="utf-8"))["clientGameConfig"]["units"]
+    lineup, summons = units_cfg["lineup"], units_cfg["summons"]
     traits = sorted({t for u in lineup.values() for t in u.get("traits") or []})
     # traits
     sprites = {}
@@ -67,7 +68,7 @@ def main():
     # abilities
     out = os.path.join(ROOT, "docs", "assets", "abilities")
     got, miss = 0, []
-    wanted = sorted({a for u in lineup.values() for k in ("activeAbilities", "passiveAbilities") for a in u.get(k) or []})
+    wanted = sorted({a for u in list(lineup.values()) + list(summons.values()) for k in ("activeAbilities", "passiveAbilities") for a in u.get(k) or []})  # the summons (NPCs) too
     for a in wanted:
         if os.path.exists(os.path.join(out, a + ".webp")):
             continue

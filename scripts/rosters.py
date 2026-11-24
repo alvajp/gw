@@ -863,7 +863,7 @@ def render_medals(m, prefix="../", badges=()):
             sub = "pas d'attaque"
         (primes if " (" in slot["name"] else items).append(
             _medal("boss", f"{slot['name']} · relatif", sub, bool(rank), rank or 0, prefix, art=slot["art"],
-                   href=f"{prefix}records/{slot['key']}.html"))
+                   href=f"{prefix}metas/{slot['key']}.html#records"))
     badges_row = "".join('<div class="medals-row badges-row">' + "".join(_badge_html(b, prefix) for b in badges if b.get("row", 1) == n) + "</div>"
                          for n in (0, 1) if any(b.get("row", 1) == n for b in badges))  # row 0 (the bombs) above row 1
     return ('<div class="medals">' + badges_row + '<div class="medals-row">' + "".join(items) + '</div>'
@@ -1074,9 +1074,9 @@ def boss_metas(slot, rosters):
     return sorted(out, key=lambda c: -c[0])
 
 
-def render_metas_index_body(rosters, replay_counts=None):
-    """Metas landing: the same small cards as the Records page (a boss and its primes on a line), each listing the names of the metas for that boss
-    (with the icon that stands for the meta) and opening the detail page metas/<key>.html."""
+def render_metas_index_body(rosters, replay_counts=None, podium=None):
+    """Metas landing: small cards (a boss and its primes on a line), each listing the names of the metas for that boss (with the icon that stands for the meta), then the
+    podium of the records of the members against it (podium: boss key -> [(player, relative damage)]), and opening the detail page metas/<key>.html."""
     cards = ""
     for slot in medals_mod.slots():
         if " (" not in slot["name"]:
@@ -1090,8 +1090,13 @@ def render_metas_index_body(rosters, replay_counts=None):
         lines = "".join(
             f'<li><span class="bp-rank">{_meta_icon(team, "").replace("meta-ico", "meta-ico mc-ico")}</span><span class="bp-name">{escape(team)}</span>{n_replays(team)}</li>'
             for _, team, _ in boss_metas(slot, rosters)) or '<li class="bp-none">Pas de méta</li>'
+        rec = ""
+        if podium is not None:  # the records of the members: the three best relative damages against this boss
+            rows = "".join(f'<li><span class="bp-rank">{i}</span><span class="bp-name">{escape(n)}</span><span class="bp-val">{v}</span></li>' for i, (n, v) in enumerate(podium.get(slot["key"], []), 1))
+            none = "<li class=\"bp-none\">Pas encore d'attaque</li>"
+            rec = f'<span class="mc-rec-title">Records</span><ol class="mc-rec">{rows or none}</ol>'
         cards += (f'<a class="boss-card" href="metas/{slot["key"]}.html"><span class="boss-card-head"><img src="assets/{slot["art"]}" alt="">'
-                  f'<b>{escape(slot["name"].split(" (")[0])}</b></span><ol>{lines}</ol></a>')
+                  f'<b>{escape(slot["name"].split(" (")[0])}</b></span><ol>{lines}</ol>{rec}</a>')
     return f'<div class="boss-cards mc-cards">{cards}</div></div>'
 
 

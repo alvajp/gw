@@ -170,7 +170,7 @@
       '<div class="rp-ctl"><button type="button" class="rp-btn" id="rp-r0" title="Début du round">' + I_FIRST + '<span class="rp-lab"> Round</span></button><button type="button" class="rp-btn" id="rp-prev" title="Étape précédente">' + I_PREV + '<span class="rp-lab"> Préc.</span></button>' +
       '<button type="button" class="rp-btn rp-play" id="rp-play" title="Lecture / pause">' + I_PLAY + '<span class="rp-lab"> Lecture</span></button><button type="button" class="rp-btn" id="rp-next" title="Étape suivante"><span class="rp-lab">Suiv. </span>' + I_PLAY + '</button>' +
       '<button type="button" class="rp-btn" id="rp-r1" title="Round suivant"><span class="rp-lab">Round </span>' + I_LAST + '</button>' +
-      '<button type="button" class="rp-btn rp-tog" id="rp-el" aria-pressed="false" title="Afficher l\'altitude de chaque case">Altitude</button><label class="rp-speed">Vitesse <select id="rp-speed"><option value="1">×1</option><option value="2">×2</option><option value="4">×4</option></select></label></div></div>';
+      '<button type="button" class="rp-btn rp-tog" id="rp-el" aria-pressed="false" title="Afficher l\'altitude de chaque case">Altitude</button><button type="button" class="rp-btn rp-speed" id="rp-speed" data-v="1" title="Vitesse de lecture : cliquer pour changer (×1, ×2, ×4)">Vitesse ×1</button></div></div>';
     const $ = function (x) { return document.getElementById(x); };
     if (WAR) $("rp-bosshp").classList.add("rp-war");
     // a short fake loading of the central screen: the board fades in after 1 second
@@ -526,7 +526,7 @@
     $("rp-r0").onclick = function () { stop(); const p = roundStarts.filter(function (i) { return i < cur; }); go(p.length ? p[p.length - 1] : first - 1); };
     $("rp-r1").onclick = function () { stop(); const n = roundStarts.filter(function (i) { return i > cur; }); go(n.length ? n[0] : last); };
     $("rp-seek").oninput = function (e) { stop(); go(+e.target.value); };
-    $("rp-speed").onchange = function (e) { speed = +e.target.value; if (timer) { stop(); $("rp-play").click(); } };
+    $("rp-speed").onclick = function (e) { speed = speed === 1 ? 2 : speed === 2 ? 4 : 1; e.currentTarget.dataset.v = speed; e.currentTarget.textContent = "Vitesse ×" + speed; if (timer) { stop(); $("rp-play").click(); } };
     $("rp-play").onclick = function () {
       if (timer) return stop();
       if (cur >= last) go(first - 1);

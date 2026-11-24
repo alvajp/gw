@@ -59,7 +59,7 @@ def main():
     def ability(a, kind, u):
         """[id, French name, a / p, average damage at the top of each rarity (None: no damage), melee / ranged, damage profile, hits, description, values by rarity, range (0: the weapon's), the damage profiles of each leg (damageProfile, damageProfile_2 ...), [rounds to wait at the start of the battle, rounds to wait after a use (None: once per battle)]]"""
         cfg = abilities.get(a) or {}
-        var, const = cfg.get("variables") or {}, cfg.get("constants") or {}
+        var, const = {k.strip(): v for k, v in (cfg.get("variables") or {}).items()}, {k.strip(): v for k, v in (cfg.get("constants") or {}).items()}  # (a key of the game has a trailing space: "nrOfUnits ")
         dmg = None
         if kind == "a" and var.get("minDmg") and var.get("maxDmg"):
             dmg = {rar: round((var["minDmg"][LEVEL[rar] - 1] + var["maxDmg"][LEVEL[rar] - 1]) / 2 * ability_mult(rar) / 100) for rar in TOP}
@@ -67,20 +67,69 @@ def main():
         text = fr.get("Abilities/" + a + "_CurrentLevelDescription") or ""
         text = re.sub(r"\{\[S/([^\]]+)\]\}", lambda m: fr.get("S/" + m.group(1), ""), text)
         text = re.sub(r"</?style[^>]*>|</?[ib]>", "", text).replace("\xa0", " ").strip()
+        text = re.sub(r"\{\[([^\]\[]+)\[(\d+)\]\]\}", lambda m: "{[" + m.group(1) + m.group(2) + "]}", text)  # {[dmg[0]]}: the first number of a list "36,28,20" -> {[dmg0]}
         names = sorted(set(re.findall(r"\{\[([^\]]+)\]\}", text)))
         boosted = set(cfg.get("variablesAffectedByRarityBonus") or [])
         vals = {}
         for rar in TOP:
             vals[rar] = {}
             for n in names:
-                v = var.get(n) if isinstance(var.get(n), list) else const.get(n)
+                ix = re.fullmatch(r"(.+?)(\d+)", n) if n not in var and n not in const else None  # an indexed name (dmg0): the number of that rank in the level's "a,b,c"
+                base = ix.group(1) if ix and (ix.group(1) in var or ix.group(1) in const) else n
+                v = var.get(base) if isinstance(var.get(base), list) else const.get(base)
                 if isinstance(v, list):
                     v = v[min(len(v), LEVEL[rar]) - 1]
-                    if n in boosted:
-                        v = round(v * ability_mult(rar) / 100)
+                    if base != n and isinstance(v, str):
+                        v = float(v.split(",")[int(ix.group(2))])
+                    if base in boosted:
+                        v = round(float(v) * ability_mult(rar) / 100)
                 vals[rar][n] = v
         text = re.sub(r"\{\[([^\]]+)\]\}", lambda m: "{" + m.group(1) + "}", text)
         return [a, fr.get("Abilities/" + a + "_Name", a), kind, dmg, cfg.get("attackRangeType") or "", const.get("damageProfile") or "", int(const.get("nrOfHits") or 1), text, vals, int(const.get("range") or 0), {k: v for k, v in const.items() if k.startswith("damageProfile")}, [int(const.get("initialCooldownTurns") or 0), int(const["cooldownTurns"]) if const.get("cooldownTurns") else None]]
+
+    items = json.load(open(files[-1], encoding="utf-8"))["clientGameConfig"]["items"]
+    RANKS = ["Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic"]
+    CAP = {"r": "Rare", "e": "Epic", "l": "Legendary", "m": "Mythic"}  # items at their top level: Rare 7, Epic 9, Legendary 11, Mythic 10 (a unit capped at Silver 1 / Gold 1 / Diamond 3 / Mythic)
+    KEYS = {"I_Crit": ("critChance", "critDmg"), "I_Block": ("blockChance", "blockDmg"), "I_Booster_Crit": ("critChanceBonus", "critDmgBonus"), "I_Booster_Block": ("blockChanceBonus", "blockDmgBonus")}
+
+    def equipment(u, rar):
+        """The items of a unit at the top of a rarity: for each slot the best allowed one (the highest chance, then damage) of the rarity, else of the highest below; the boosters add up."""
+        faction, taken, res = u.get("FactionId"), set(), {"c": [], "b": [], "cb": [0, 0], "bb": [0, 0], "d": [0, 0]}
+        for slot in u.get("itemSlots") or []:
+            if slot == "I_Defensive":  # health and armour: the best allowed one of the rarity (else of the highest below) by what it adds
+                for rank in range(RANKS.index(CAP[rar]), -1, -1):
+                    cands = [(k, v["levels"][-1]["stats"]) for k, v in items.items() if v.get("itemType") == slot and v.get("rarity") == RANKS[rank] and k not in taken
+                             and (not v.get("allowedFactions") or faction in v["allowedFactions"])]
+                    if cands:
+                        k, st = max(cands, key=lambda x: x[1].get("hp", 0) + x[1].get("fixedArmor", 0))
+                        taken.add(k)
+                        res["d"][0] += st.get("hp", 0)
+                        res["d"][1] += st.get("fixedArmor", 0)
+                        break
+                continue
+            if slot not in KEYS:
+                continue
+            ck, dk = KEYS[slot]
+            best = None
+            for rank in range(RANKS.index(CAP[rar]), -1, -1):
+                cands = [(k, v["levels"][-1]["stats"]) for k, v in items.items() if v.get("itemType") == slot and v.get("rarity") == RANKS[rank] and k not in taken
+                         and (not v.get("allowedFactions") or faction in v["allowedFactions"]) and ck in v["levels"][-1]["stats"]]
+                if cands:
+                    best = max(cands, key=lambda x: (x[1][ck], x[1].get(dk, 0)))
+                    break
+            if not best:
+                continue
+            taken.add(best[0])
+            val = [best[1][ck], best[1].get(dk, 0)]
+            if slot == "I_Crit":
+                res["c"].append(val)
+            elif slot == "I_Block":
+                res["b"].append(val)
+            else:
+                tgt = res["cb" if slot == "I_Booster_Crit" else "bb"]
+                tgt[0] += val[0]
+                tgt[1] += val[1]
+        return res
 
     def record(u):
         tr = set(u.get("traits") or [])
@@ -92,7 +141,8 @@ def main():
         rec["al"] = u.get("GrandAllianceId") or ""  # Imperial / Chaos / Xenos
         rec["fa"] = u.get("FactionId") or ""  # DarkAngels, Orks, Tau ...
         return rec
-    out["_summons"] = {sid: {**record(su), "pa": su.get("passiveAbilities") or [], "name": fr.get("Units/" + sid + "_Name") or su.get("name") or sid} for sid, su in units["summons"].items()}  # the units abilities summon
+    out["_summons"] = {sid: {**record(su), "pa": su.get("passiveAbilities") or [], "ab": [ability(a, k, su) for k, key in (("a", "activeAbilities"), ("p", "passiveAbilities")) for a in su.get(key) or []],
+                             "name": fr.get("Units/" + sid + "_Name") or su.get("name") or sid} for sid, su in units["summons"].items()}  # the units abilities summon
     for uid, u in lineup.items():
         tr = set(u.get("traits") or [])
         ranges = sorted({w.get("Range") or 1 for w in u.get("weapons") or []}) or [1]
@@ -109,6 +159,11 @@ def main():
         rec["tr"] = [[t, fr["Traits/" + t + "_Name"]] for t in sorted(tr) if fr.get("Traits/" + t + "_Name")]
         rec["al"] = u.get("GrandAllianceId") or ""
         rec["fa"] = u.get("FactionId") or ""
+        if rec.get("st"):
+            rec["it"] = {rar: equipment(u, rar) for rar in TOP}  # the crit / block items and boosters it carries at the top of each rarity
+            for rar in TOP:  # the defensive items add their health and armour to the stats
+                rec["st"][rar][0] += rec["it"][rar]["d"][0]
+                rec["st"][rar][2] += rec["it"][rar]["d"][1]
         out[uid] = rec
     with open(os.path.join(ROOT, "data", "unit_rules.json"), "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, separators=(",", ":"), sort_keys=True)

@@ -77,13 +77,13 @@ The Raid insignia (`scripts/medals.py`, `raid_ranking`) works season by season o
 
 ### Raid and Records tabs
 
-`raid.html` ranks the members on the raid ranking above, one column per season (relative damage, % above the guild average), with the seasons in the menu's second row leading to `raid/<season>.html` (everybody who played the season, one column per boss). `records.html` has the podium of every boss and sub-boss; `boss/<key>.html` ranks the members on their all-time relative damage against that boss, one column per season it was fought. Both read `data/raid/` through `scripts/medals.py`.
+`raid.html` ranks the members on the raid ranking above, one column per season (relative damage, % above the guild average), with the seasons in the menu's second row leading to `raid/<season>.html` (everybody who played the season, one column per boss). `metas.html` shows each boss and sub-boss with its metas and the podium of the records, and `metas/<boss>.html` its metas, best attacks and records table; `raid-simulation.html` picks a boss, a map and a level and shows the recommended meta; `boss/<key>.html` ranks the members on their all-time relative damage against that boss, one column per season it was fought. Both read `data/raid/` through `scripts/medals.py`.
 
 One-shots: every one-shot counts (a kill from full HP in one attack, at the boss's full HP); only finishing blows (a kill after earlier damage) and bombs are left out.
 
 ### Attack dialogs and best attacks
 
-A click on a relative-damage cell of the Raid tables (`raid.html`, `raid/<season>.html`, `records/<boss>.html`) opens a dialog with that player's attacks of the season (on that boss for
+A click on a relative-damage cell of the Raid tables (`raid.html`, `raid/<season>.html`, `metas/<boss>.html`) opens a dialog with that player's attacks of the season (on that boss for
 a boss cell): level, team, damage, type (Attaque / Finish / OS) and the damage relative to the guild's average hit (same base as the ranking, none for a finishing blow). Only L4, L5
 and M1-M3 attacks are kept (`medals.season_attacks`). The attacks are written to `docs/data/raid-<season>.json` (+ `raid-meta.json`) by `generate_site.write_raid_data` and read
 by `docs/assets/raid-attacks.js`. Every `metas/<boss>.html` page ends with a table of the 20 best attacks on that boss (relative damage, current members, stored seasons).

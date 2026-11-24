@@ -1,4 +1,4 @@
-// Raid pages. (1) Raid tables (raid.html, raid/<season>.html, records/<boss>.html, the best attacks of the Metas pages): a click on a relative-damage cell opens
+// Raid pages. (1) Raid tables (raid.html, raid/<season>.html, metas/<boss>.html (best attacks and records)): a click on a relative-damage cell opens
 // a dialog, styled like the war attack dialogs, with that player's attacks of the season (on one boss when the cell is a boss cell): level (L4, L5, M1-M3),
 // map, team, damage, type (Attaque / Finish / OS) and the damage relative to the guild's average hit that season. The attacks come from data/raid-<season>.json
 // (written by generate_site.write_raid_data), fetched once per season. (2) Metas pages: the map thumbnails above the best attacks table filter its rows.
@@ -166,4 +166,14 @@
     if (!shown && !none) { none = document.createElement("p"); none.className = "mnone atk-none"; none.textContent = "Aucune attaque avec ces filtres."; wrap.after(none); }
     if (none) none.hidden = shown > 0;
   }
+  // a link from the Raid > Simulation page (metas/<boss>.html#m=<map>&l=<level>) opens the best attacks already filtered
+  function fromAddress() {
+    const h = {};
+    location.hash.replace(/^#/, "").split("&").forEach(function (kv) { const p = kv.split("="); if (p[0]) h[p[0]] = decodeURIComponent(p[1] || ""); });
+    [[".map-chip", "map", h.m], [".lvl-chip:not(.meta-chip)", "lvl", h.l]].forEach(function (x) {
+      const chip = x[2] && document.querySelector(x[0] + '[data-' + x[1] + '="' + x[2] + '"]');
+      if (chip) filter(chip);
+    });
+  }
+  if (document.querySelector(".atk-top")) fromAddress();
 })();

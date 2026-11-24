@@ -39,6 +39,15 @@ def icon_table():
     return {}
 
 
+# the summons' ids that TacticusDB's table does not know: the picture they use there (the same unit as an NPC, or the same picture as a variant)
+PICTURES = {"adeptSmnBattleSister": "adept_battlesister", "astraSmnLascannon": "astra_npc_02", "astraSmnMortar": "astra_mortar", "astraSmnVoxcaster": "astra_npc_03",
+            "blackSmnBloodletterHSE": "black_bloodletter", "blackSmnHavoc": "black_havoc", "blackSmnTerminator": "black_terminator", "darkaSmnInfiltrator": "darka_infiltrator",
+            "eldarSmnGuardian": "aelda_guardian", "eldarSmnHarlequin": "aelda_harlequin", "templInitiate": "templ_initiate", "templInitiatePyreblaster": "templ_pyreblaster",
+            "templNeophyte": "templ_neophyte", "thousSmnBlueHorrorHSE": "thous_horror_02", "thousSmnPinkHorrorHSE": "thous_horror", "thousSmnRubricMarine": "thous_rubric",
+            "thousSmnScreamerHSE": "thous_screamer", "thousSmnTzaangorClone": "thous_tzaangor", "tyranSmnBarbgaunt": "tyran_barbgaunt", "tyranSmnTermagant": "tyran_termagant",
+            "ultraSmnEliminator": "ultra_eliminator"}
+
+
 def alias(unit_id):
     """The same NPC under TacticusDB's naming: the game's "GuildBoss12Npc2DarkaHellblaster" is "darkaNpc2Hellblaster" there."""
     m = re.match(r"^GuildBoss\d+Npc(\d+)([A-Z][a-z]+)([A-Z].*)$", unit_id)
@@ -59,7 +68,7 @@ def main():
     table = icon_table()
     os.makedirs(OUT, exist_ok=True)
     for i in ids:
-        icon = table.get(i) or table.get(alias(i) or "")
+        icon = table.get(i) or table.get(alias(i) or "") or PICTURES.get(i)
         if not icon:
             print("pas dans TacticusDB :", i)
             continue

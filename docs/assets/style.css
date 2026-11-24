@@ -3199,11 +3199,15 @@ button.sim-row[aria-pressed="true"] { border-color: var(--accent); background: c
 .sb-traits { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.5rem; }
 .sb-trait { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.1rem 0.45rem 0.1rem 0.2rem; font-size: 0.68rem; color: var(--text-muted); background: var(--table-header-bg); border: 1px solid var(--border); border-radius: 999px; }
 .sb-trait img { width: 1rem; height: 1rem; object-fit: contain; }
+.sb-trait.is-buff { border-color: #34d399; color: #34d399; background: color-mix(in srgb, #34d399 12%, var(--table-header-bg)); }  /* a buff: green */
+.sb-trait.is-debuff { border-color: #f87171; color: #f87171; background: color-mix(in srgb, #f87171 12%, var(--table-header-bg)); }  /* a debuff: red */
 .sb-board .tk.tk-target .tk-ring { stroke: #ff5a5a; stroke-dasharray: 4 3; }
 .sb-board .tk.tk-target { cursor: crosshair; }
 .sb-board .rp-z-mv:not(.rp-z-own) { pointer-events: all; cursor: pointer; }
 .sb-board .tk.gone { opacity: 0; pointer-events: none; }
-.sb-board .tk.tk-done .tk-body { filter: grayscale(1) brightness(0.62); }  /* a unit that has nothing left to do this turn */
+.sb-board .tk.tk-done .tk-body > :not(.tk-ring) { filter: grayscale(1) brightness(0.62); }  /* the portrait is greyed, not the targeting ring: a greyed enemy can still be aimed at (red dashes) */  /* a unit that has nothing left to do this turn */
+.sb-board .tk.tk-ds .tk-body > image { filter: sepia(1) hue-rotate(175deg) saturate(2.6) brightness(0.95); }  /* Deep Strike: a blue tint on the portrait while the unit has it */
+.sb-board .tk.tk-ds.tk-done .tk-body > image { filter: grayscale(1) brightness(0.62) sepia(1) hue-rotate(175deg) saturate(2.2); }
 .sb-act.is-spent { opacity: 0.45; filter: grayscale(1); }  /* an ability already used (once per battle) or recharging */
 
 /* the character's panel (who, its actions, its targets) keeps its size; the stats panel under it takes what is left */
@@ -3260,4 +3264,54 @@ button.sim-row[aria-pressed="true"] { border-color: var(--accent); background: c
 .sb-turn.sb-turn-map { position: absolute; left: 0.75rem; top: 0.75rem; z-index: 5; display: flex; flex-direction: column; align-items: flex-start; gap: 0.35rem; margin: 0; padding: 0.5rem 0.7rem; height: auto; background: color-mix(in srgb, var(--bg) 82%, transparent); border: 1px solid var(--border); border-radius: var(--radius-sm); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
 .sb-turn-map .sb-turnlab { font-size: 0.8rem; color: var(--text-muted); }
 .rp-right .sb-unit { margin-top: 0; }
-.sb-board .sb-tip { top: 4.6rem; }
+/* the ability tooltip sits at the very top of the map, over the end-of-turn panel if need be */
+.sb-board .sb-tip { top: 0.5rem; }
+
+/* Raid > Simulation (raid-simulation.js): boss, map and level pickers, then the recommended meta of the boss */
+.rs-row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.rs-boss, .rs-map, .rs-lvl { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.35rem 0.7rem 0.35rem 0.4rem; font: inherit; font-size: 0.82rem; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 999px; cursor: pointer; }
+.rs-lvl { padding: 0.35rem 0.9rem; }
+.rs-boss img { width: 1.9rem; height: 1.9rem; border-radius: 50%; object-fit: cover; }
+.rs-maps { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.rs-map { flex-direction: column; border-radius: var(--radius-sm); padding: 0.4rem; gap: 0.3rem; }
+.rs-map img { width: 5.2rem; height: 7.4rem; object-fit: cover; border-radius: 6px; }
+.rs-map span { font-size: 0.7rem; color: var(--text-muted); max-width: 5.2rem; text-align: center; }
+.rs-boss[aria-pressed="true"], .rs-map[aria-pressed="true"], .rs-lvl[aria-pressed="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 16%, var(--surface)); }
+.rs-boss:hover, .rs-map:hover, .rs-lvl:hover { border-color: var(--accent); }
+.rs-meta[hidden], .rs-maps[hidden] { display: none; }
+.rs-go-wrap { margin: 1.2rem 0 0; }
+.rs-go { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.5rem 1rem; font-weight: 600; color: var(--bg); background: var(--accent); border-radius: var(--radius-sm); text-decoration: none; }
+.rs-go:hover { filter: brightness(1.1); }
+/* the records on the cards of the Metas page */
+.mc-rec-title { display: block; margin: 0.6rem 0 0.3rem; padding-top: 0.5rem; border-top: 1px solid var(--border); font-size: 0.68rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); }
+.boss-card ol.mc-rec li { font-size: 0.76rem; }
+
+/* Saison en cours / prochaine: the chip that leads to the other season (last of the list in the season in progress, first in the next one): the size and the look of the boss chips, an arrow where their map is */
+.ns-season { text-decoration: none; padding: 0.35rem; min-width: 0; }
+.ns-season-map { display: flex; align-items: center; justify-content: center; height: 5rem; aspect-ratio: 344 / 512; border-radius: 6px; border: 1px solid var(--border); box-sizing: border-box; }
+.ns-season:hover .ns-season-map { border-color: var(--text-muted); }
+.ns-season .arrow { width: 1.4rem; height: 1.4rem; }
+@media (max-width: 760px) {
+  .ns-season { flex: 1 1 0; padding: 0.25rem; }
+  .ns-season-map { width: 100%; height: auto; }
+}
+@media (min-width: 1300px) {
+  .ns-season { flex: none; width: 4.6rem; padding: 0.3rem 0.3rem 0.25rem; gap: 0.2rem; }
+  .ns-season-map { width: 100%; height: 3.6rem; aspect-ratio: auto; }
+}
+
+/* the dice of an attack in the combat log: DAMVAR, critical hits, blocks */
+.sb-dice { color: var(--text-muted); font-size: 0.85em; white-space: nowrap; }
+
+/* a unit that falls and is brought back: a skull, the token fades out and rises again in a green ring */
+.rp-board .tk.tk-revive .tk-body { animation: sb-revive 1.6s ease-out; }
+@keyframes sb-revive { 0% { opacity: 1; filter: none; transform: scale(1); } 18% { opacity: 0.12; filter: grayscale(1); transform: scale(0.82); } 52% { opacity: 0.12; filter: grayscale(1); transform: scale(0.82); } 80% { opacity: 1; filter: brightness(1.8) drop-shadow(0 0 6px #34d399); transform: scale(1.18); } 100% { opacity: 1; filter: none; transform: scale(1); } }
+.sb-rv-skull { font-size: 22px; fill: #e5e7eb; paint-order: stroke; stroke: #10151c; stroke-width: 3px; opacity: 0; animation: sb-rv-skull 1.3s ease-out forwards; pointer-events: none; }
+@keyframes sb-rv-skull { 0% { opacity: 0; transform: translateY(8px); } 15% { opacity: 1; transform: translateY(0); } 55% { opacity: 1; } 100% { opacity: 0; transform: translateY(-6px); } }
+.sb-rv-ring { fill: none; stroke: #34d399; stroke-width: 3; opacity: 0; transform-box: fill-box; transform-origin: center; animation: sb-rv-ring 1.1s ease-out 0.7s forwards; pointer-events: none; }
+@keyframes sb-rv-ring { 0% { opacity: 0.95; transform: scale(0.6); } 100% { opacity: 0; transform: scale(2.4); } }
+.sb-rv-up { font-size: 13px; font-weight: 700; fill: #34d399; paint-order: stroke; stroke: #10151c; stroke-width: 3px; opacity: 0; animation: rp-float 1.4s ease-out 0.7s forwards; pointer-events: none; }
+@media (prefers-reduced-motion: reduce) { .rp-board .tk.tk-revive .tk-body { animation: none; } .sb-rv-skull, .sb-rv-ring, .sb-rv-up { animation-duration: 0.01s; } }
+
+/* the speed of a replay / simulation: one button that cycles ×1, ×2, ×4 */
+button.rp-speed { margin-left: auto; color: var(--text); font-size: 0.85rem; }
