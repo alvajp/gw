@@ -46,7 +46,7 @@
     const c = {};
     rows.forEach(function (r) { if (r[0] === map) c[r[1]] = (c[r[1]] || 0) + 1; });
     $("sim-level").querySelector(".sim-levels").innerHTML = D.t.map(function (t, i) {
-      return '<button type="button" class="lvl-chip sim-level-chip" data-level="' + i + '" aria-pressed="false"' + (c[i] ? "" : " disabled") + ">" + badge(t[2]) + esc(t[1]) + "<small>" + (c[i] ? pl(c[i], "combat", "combats") : "jamais vu") + "</small></button>";
+      return '<button type="button" class="lvl-chip sim-level-chip" data-level="' + i + '" aria-pressed="false"' + (c[i] ? "" : " disabled") + ">" + badge(t[2]) + '<span class="sim-lv-text"><b>' + esc(t[1]) + "</b><small>" + (c[i] ? pl(c[i], "combat", "combats") : "jamais vu") + "</small></span></button>";
     }).join("");
     shown("sim-level", true);
   }

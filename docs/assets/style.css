@@ -3115,3 +3115,8 @@ button.sim-row[aria-pressed="true"] { border-color: var(--accent); background: c
 .sim-sep { align-self: stretch; width: 1px; min-height: 1.6rem; margin: 0 0.45rem; background: var(--border); }
 .sim-note { margin: 0 0 0.6rem; color: var(--text-muted); font-size: 0.82rem; }
 .sim-arch-name { min-width: 4.4rem; font-weight: 700; font-size: 0.9rem; margin-right: 0.3rem; }
+.sim-level-chip { gap: 0.6rem; padding: 0.4rem 1rem 0.4rem 0.7rem; }
+.sim-level-chip .rh { margin-right: 0; }
+.sim-lv-text { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.2; }
+.sim-lv-text b { font-size: 0.95rem; font-weight: 700; }
+.sim-lv-text small { font-size: 0.7rem; }
