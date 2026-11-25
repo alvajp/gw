@@ -15,7 +15,7 @@ Lavistodes|Flex|Roswitha|A2|1 étoile bleue|50/60||Magnus,Mortarion
 Lavistodes|Flex|PBC||skulled|1/36||Screamer
 Lavistodes|Niche|Tarvakh|A2|3 étoiles bleues|60/60||Lion,Dorn
 Battlesuit|Core|Revas|A2|skulled|50/60|10|Magnus,Szarekh,Gazhghkull,Lion
-Battlesuit|Core|Farsight|A2|1 étoile bleue|60/60|10|Magnus,Szarekh,Gazhghkull,Lion
+Battlesuit|Core|Farsight|A2|1 étoile bleue|60/60|6|Magnus,Szarekh,Gazhghkull,Lion
 Battlesuit|Core|Darkstrider|A2|2 étoiles bleues|35/60||Magnus,Szarekh,Gazhghkull,Lion
 Battlesuit|Core|Actus|A2|1 étoile bleue|50/50||Magnus,Szarekh,Gazhghkull,Lion
 Battlesuit|Core|Lhykhis|A2|2 étoiles bleues|36/60||Magnus,Szarekh,Gazhghkull,Lion
@@ -23,7 +23,7 @@ Battlesuit|Core|Réa||skulled|50/60||Magnus,Lion
 Battlesuit|Flex|PBC||skulled|1/36||Szarekh,Gazhghkull
 Battlesuit|Flex|Anuphet|A2|1 étoile bleue|60/50|1|Magnus,Szarekh,Gazhghkull,Lion
 Battlesuit|Niche|Revas|A2|skulled|50/60|10|Menhirs
-Battlesuit|Niche|Farsight|A2|1 étoile bleue|60/60|10|Menhirs
+Battlesuit|Niche|Farsight|A2|1 étoile bleue|60/60|6|Menhirs
 Battlesuit|Niche|Darkstrider|A2|2 étoiles bleues|35/60||Menhirs
 Battlesuit|Niche|Actus|A2|1 étoile bleue|50/50||Menhirs
 Battlesuit|Niche|Lhykhis|A2|2 étoiles bleues|36/60||Menhirs
@@ -49,7 +49,7 @@ Méchas|Flex|Actus|D3|1 étoile bleue|50/50||Abraxas,Thaumacus,Aethana,Menhirs
 Méchas|Niche|Sho|A2|1 étoile bleue|50/60||Rotbone
 Méchas|Niche|Re'vas|D3|1 étoile bleue|60/60||Abraxas
 Méchas|Niche|Aleph Null|D3|1 étoile bleue|50/50||Sho
-Méchas|Flex|Helbrecht|D3|1 étoile bleue|60/60||Abraxas,Thaumacus,Neuro,Tyrant,Tervigon
+Méchas|Flex|Helbrecht|D3|1 étoile bleue|50/60||Abraxas,Thaumacus,Neuro,Tyrant,Tervigon
 Méchas|Niche|Sybill|G1|3 étoiles rouges|35/35||Re'vas
 Méchas|Niche|Boss G|A2|1 étoile bleue|60/60||Thaumacus,Aethana,Sho,Re'vas
 Méchas|Niche|FF||3 étoiles rouges|50/35||Abraxas
